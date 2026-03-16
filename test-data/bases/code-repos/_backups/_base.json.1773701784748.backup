@@ -4,7 +4,7 @@
   "kind": "base",
   "itemType": "projects",
   "created": "2026-03-16T22:31:14.081Z",
-  "modified": "2026-03-16T22:56:24.756Z",
+  "modified": "2026-03-16T22:56:24.663Z",
   "tags": [
     "project"
   ],
@@ -16,7 +16,7 @@
   "manualLinks": [],
   "wormholes": [],
   "mastery": {
-    "manual": 0.3,
+    "manual": 0.29,
     "practiceCompleted": 0,
     "practiceTotal": 0
   },
