@@ -63,6 +63,18 @@
         "height": 4
       },
       "config": {}
+    },
+    {
+      "id": "image-gallery-1773701096478-5",
+      "type": "image-gallery",
+      "title": "Image Gallery",
+      "position": {
+        "x": 9,
+        "y": 8,
+        "width": 4,
+        "height": 4
+      },
+      "config": {}
     }
   ],
   "templates": [
