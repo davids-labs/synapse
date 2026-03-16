@@ -4,7 +4,7 @@
   "kind": "base",
   "itemType": "health",
   "created": "2026-03-16T22:31:14.094Z",
-  "modified": "2026-03-16T22:44:44.329Z",
+  "modified": "2026-03-16T22:44:43.480Z",
   "tags": [
     "review"
   ],
@@ -16,7 +16,7 @@
   "manualLinks": [],
   "wormholes": [],
   "mastery": {
-    "manual": null,
+    "manual": 0.89,
     "practiceCompleted": 0,
     "practiceTotal": 0
   },
