@@ -4,9 +4,10 @@
   "kind": "base",
   "itemType": "projects",
   "created": "2026-03-16T22:31:14.081Z",
-  "modified": "2026-03-16T22:57:03.930Z",
+  "modified": "2026-03-16T22:57:01.887Z",
   "tags": [
-    "project"
+    "project",
+    "review"
   ],
   "color": "#F59E0B",
   "icon": "Code2",
