@@ -12,20 +12,6 @@
   ],
   "viewBlocks": [
     {
-      "id": "notes-editor",
-      "type": "notes-editor",
-      "title": "Notes Editor",
-      "targetPath": "notes.md",
-      "position": {
-        "row": 1,
-        "col": 1
-      },
-      "size": {
-        "width": 6,
-        "height": 6
-      }
-    },
-    {
       "id": "practice-tracker",
       "type": "practice-tracker",
       "title": "Practice Tracker",
