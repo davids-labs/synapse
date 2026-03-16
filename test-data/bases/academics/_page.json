@@ -49,8 +49,8 @@
       "type": "cad-render",
       "title": "CAD Render Viewer",
       "position": {
-        "x": 6,
-        "y": 4,
+        "x": 2,
+        "y": 8,
         "width": 7,
         "height": 4
       },
