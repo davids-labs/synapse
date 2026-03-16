@@ -4,7 +4,7 @@
   "kind": "base",
   "itemType": "academics",
   "created": "2026-03-16T22:31:13.985Z",
-  "modified": "2026-03-16T23:34:58.890Z",
+  "modified": "2026-03-16T23:34:58.527Z",
   "tags": [],
   "color": "#3B82F6",
   "icon": "GraduationCap",
@@ -14,7 +14,7 @@
   "manualLinks": [],
   "wormholes": [],
   "mastery": {
-    "manual": 0.53,
+    "manual": 0.49,
     "practiceCompleted": 0,
     "practiceTotal": 0
   },
