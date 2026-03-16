@@ -4,7 +4,7 @@
   "kind": "node",
   "itemType": "module",
   "created": "2026-03-16T22:31:14.098Z",
-  "modified": "2026-03-16T22:55:51.800Z",
+  "modified": "2026-03-16T22:55:51.452Z",
   "tags": [
     "review"
   ],
@@ -16,7 +16,7 @@
   "manualLinks": [],
   "wormholes": [],
   "mastery": {
-    "manual": 0.8,
+    "manual": 0.81,
     "practiceCompleted": 0,
     "practiceTotal": 0
   },
