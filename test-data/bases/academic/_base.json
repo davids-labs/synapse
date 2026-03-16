@@ -1,0 +1,22 @@
+{
+  "id": "academic",
+  "title": "Academic",
+  "kind": "base",
+  "itemType": "academics",
+  "created": "2026-03-16T23:29:00.047Z",
+  "modified": "2026-03-16T23:29:00.048Z",
+  "tags": [],
+  "color": null,
+  "icon": null,
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {}
+}
