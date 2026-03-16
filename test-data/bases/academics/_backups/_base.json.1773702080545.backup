@@ -4,12 +4,11 @@
   "kind": "base",
   "itemType": "academics",
   "created": "2026-03-16T22:31:13.985Z",
-  "modified": "2026-03-16T23:01:20.545Z",
+  "modified": "2026-03-16T23:01:19.685Z",
   "tags": [
     "urgent",
     "review",
-    "exam",
-    "project"
+    "exam"
   ],
   "color": "#3B82F6",
   "icon": "GraduationCap",
