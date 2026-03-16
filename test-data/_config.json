@@ -2,7 +2,7 @@
   "basePath": "c:\\dev2\\synapse\\test-data",
   "theme": "light",
   "colorScheme": {
-    "bgPrimary": "#c93636",
+    "bgPrimary": "#000000",
     "bgSecondary": "#1A1A1A",
     "bgTertiary": "#242424",
     "bgHover": "#2A2A2A",
