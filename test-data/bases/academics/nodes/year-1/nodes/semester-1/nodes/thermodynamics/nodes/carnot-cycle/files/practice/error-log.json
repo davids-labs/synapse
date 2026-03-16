@@ -1,0 +1,14 @@
+[
+  {
+    "id": "carnot-cycle-error-1",
+    "questionId": "q-carnot-002",
+    "date": "2026-03-16T22:31:14.051Z",
+    "mistake": "Forgot to keep temperatures in Kelvin.",
+    "correction": "Convert all temperature values before applying the efficiency formula.",
+    "conceptGap": "Units discipline",
+    "tags": [
+      "exam"
+    ],
+    "resolved": false
+  }
+]

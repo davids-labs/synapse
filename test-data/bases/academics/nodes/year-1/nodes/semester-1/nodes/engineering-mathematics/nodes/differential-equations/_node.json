@@ -1,0 +1,24 @@
+{
+  "id": "differential-equations",
+  "title": "Differential Equations",
+  "kind": "node",
+  "itemType": "topic",
+  "created": "2026-03-16T22:31:14.022Z",
+  "modified": "2026-03-16T22:31:14.022Z",
+  "tags": [
+    "exam"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 10,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 1
+  },
+  "custom": {}
+}

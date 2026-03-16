@@ -1,0 +1,4 @@
+question_id,title,topic,difficulty,type,source,tags,attempted,correct,status,last_attempt
+q-carnot-001,Calculate Carnot efficiency,exam,medium,calculation,Lecture 5,exam|carnot-cycle,2,1,correct,2026-03-16T22:31:13.985Z
+q-carnot-002,Explain the reversible process assumptions,exam,hard,derivation,Past Exam 2023,exam|entropy,1,0,attempted,2026-03-16T22:31:13.985Z
+q-carnot-003,Derive entropy change for the cycle,review,hard,proof,Tutorial 7,review|entropy,0,0,not-attempted,

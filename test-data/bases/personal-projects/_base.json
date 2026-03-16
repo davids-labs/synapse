@@ -1,0 +1,24 @@
+{
+  "id": "personal-projects",
+  "title": "Personal Projects",
+  "kind": "base",
+  "itemType": "projects",
+  "created": "2026-03-16T22:31:14.064Z",
+  "modified": "2026-03-16T22:31:14.064Z",
+  "tags": [
+    "project"
+  ],
+  "color": "#10B981",
+  "icon": "Rocket",
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {}
+}

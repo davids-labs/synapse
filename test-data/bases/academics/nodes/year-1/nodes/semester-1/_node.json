@@ -1,0 +1,24 @@
+{
+  "id": "semester-1",
+  "title": "Semester 1",
+  "kind": "node",
+  "itemType": "module",
+  "created": "2026-03-16T22:31:13.995Z",
+  "modified": "2026-03-16T22:31:13.995Z",
+  "tags": [
+    "exam"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {}
+}

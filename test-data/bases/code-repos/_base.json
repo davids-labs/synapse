@@ -1,0 +1,24 @@
+{
+  "id": "code-repos",
+  "title": "Code Repos",
+  "kind": "base",
+  "itemType": "projects",
+  "created": "2026-03-16T22:31:14.081Z",
+  "modified": "2026-03-16T22:31:14.081Z",
+  "tags": [
+    "project"
+  ],
+  "color": "#F59E0B",
+  "icon": "Code2",
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {}
+}

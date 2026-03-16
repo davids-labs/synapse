@@ -1,0 +1,27 @@
+{
+  "id": "academics",
+  "title": "Academics",
+  "kind": "base",
+  "itemType": "academics",
+  "created": "2026-03-16T22:31:13.985Z",
+  "modified": "2026-03-16T22:31:13.985Z",
+  "tags": [
+    "exam"
+  ],
+  "color": "#3B82F6",
+  "icon": "GraduationCap",
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {
+    "tagline": "Coursework and exam prep",
+    "deadline": "2026-04-09"
+  }
+}

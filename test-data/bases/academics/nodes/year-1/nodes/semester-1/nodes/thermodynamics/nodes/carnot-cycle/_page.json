@@ -1,0 +1,54 @@
+{
+  "layout": "grid",
+  "gridColumns": 12,
+  "modules": [
+    {
+      "id": "exam-prep-practice-bank",
+      "type": "practice-bank",
+      "title": "Exam Practice",
+      "position": {
+        "x": 1,
+        "y": 1,
+        "width": 5,
+        "height": 7
+      },
+      "config": {
+        "dataFile": "files/practice/questions.csv",
+        "filterTags": [
+          "exam"
+        ]
+      }
+    },
+    {
+      "id": "exam-prep-error-log",
+      "type": "error-log",
+      "title": "Exam Error Log",
+      "position": {
+        "x": 6,
+        "y": 1,
+        "width": 4,
+        "height": 7
+      },
+      "config": {
+        "dataFile": "files/practice/error-log.json"
+      }
+    },
+    {
+      "id": "exam-prep-formula-display",
+      "type": "formula-display",
+      "title": "Formula Vault",
+      "position": {
+        "x": 10,
+        "y": 1,
+        "width": 3,
+        "height": 7
+      },
+      "config": {
+        "dataFile": "files/formulas.md"
+      }
+    }
+  ],
+  "templates": [
+    "exam-prep"
+  ]
+}

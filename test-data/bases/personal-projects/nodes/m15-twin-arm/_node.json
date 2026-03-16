@@ -1,0 +1,27 @@
+{
+  "id": "m15-twin-arm",
+  "title": "M15 Twin-Arm",
+  "kind": "node",
+  "itemType": "project",
+  "created": "2026-03-16T22:31:14.071Z",
+  "modified": "2026-03-16T22:31:14.071Z",
+  "tags": [
+    "project",
+    "urgent"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {
+    "deadline": "2026-03-28"
+  }
+}

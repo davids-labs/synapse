@@ -1,0 +1,38 @@
+{
+  "id": "matrices",
+  "title": "Matrices",
+  "kind": "node",
+  "itemType": "topic",
+  "created": "2026-03-16T22:31:14.007Z",
+  "modified": "2026-03-16T22:31:14.007Z",
+  "tags": [
+    "exam",
+    "project"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 20,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [
+    "bases/personal-projects/nodes/m15-twin-arm/nodes/firmware"
+  ],
+  "wormholes": [
+    {
+      "id": "wormhole-matrices-physics-engine",
+      "sourceEntityPath": "bases/academics/nodes/year-1/nodes/semester-1/nodes/engineering-mathematics/nodes/matrices",
+      "targetEntityPath": "bases/code-repos/nodes/python/nodes/physics-engine",
+      "label": "Matrices for physics transforms",
+      "bidirectional": true,
+      "created": "2026-03-16T22:31:13.985Z"
+    }
+  ],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 1,
+    "practiceTotal": 2
+  },
+  "custom": {
+    "focus": "Transformations and determinants"
+  }
+}

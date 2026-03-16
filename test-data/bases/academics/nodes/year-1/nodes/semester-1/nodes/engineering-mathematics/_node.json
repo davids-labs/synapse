@@ -1,0 +1,29 @@
+{
+  "id": "engineering-mathematics",
+  "title": "Engineering Mathematics",
+  "kind": "node",
+  "itemType": "module",
+  "created": "2026-03-16T22:31:13.999Z",
+  "modified": "2026-03-16T22:31:13.999Z",
+  "tags": [
+    "exam",
+    "review"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 30,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {
+    "lecturerName": "Dr. Smith",
+    "textbook": "Advanced Engineering Mathematics",
+    "examDate": "2026-04-09"
+  }
+}

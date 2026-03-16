@@ -1,0 +1,34 @@
+{
+  "id": "physics-engine",
+  "title": "Physics Engine",
+  "kind": "node",
+  "itemType": "project",
+  "created": "2026-03-16T22:31:14.089Z",
+  "modified": "2026-03-16T22:31:14.089Z",
+  "tags": [
+    "project",
+    "review"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [
+    {
+      "id": "wormhole-matrices-physics-engine",
+      "sourceEntityPath": "bases/code-repos/nodes/python/nodes/physics-engine",
+      "targetEntityPath": "bases/academics/nodes/year-1/nodes/semester-1/nodes/engineering-mathematics/nodes/matrices",
+      "label": "Matrices for physics transforms",
+      "bidirectional": true,
+      "created": "2026-03-16T22:31:13.985Z"
+    }
+  ],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {}
+}

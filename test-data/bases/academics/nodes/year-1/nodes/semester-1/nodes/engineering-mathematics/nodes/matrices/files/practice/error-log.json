@@ -1,0 +1,14 @@
+[
+  {
+    "id": "matrices-error-1",
+    "questionId": "q-matrix-002",
+    "date": "2026-03-16T22:31:14.021Z",
+    "mistake": "Mixed up sine and cosine positions in the rotation matrix.",
+    "correction": "Use the standard 2D rotation form with cosine on the diagonal.",
+    "conceptGap": "Transformation matrix structure",
+    "tags": [
+      "exam"
+    ],
+    "resolved": false
+  }
+]

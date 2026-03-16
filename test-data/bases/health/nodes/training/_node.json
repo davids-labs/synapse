@@ -1,0 +1,24 @@
+{
+  "id": "training",
+  "title": "Training",
+  "kind": "node",
+  "itemType": "module",
+  "created": "2026-03-16T22:31:14.098Z",
+  "modified": "2026-03-16T22:31:14.098Z",
+  "tags": [
+    "review"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {}
+}

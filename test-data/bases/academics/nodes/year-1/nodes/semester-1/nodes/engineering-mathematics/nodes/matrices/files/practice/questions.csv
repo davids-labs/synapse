@@ -1,0 +1,3 @@
+question_id,title,topic,difficulty,type,source,tags,attempted,correct,status,last_attempt
+q-matrix-001,Compute a 2x2 determinant,matrices,easy,calculation,Lecture 3,matrices|exam,1,1,correct,2026-03-16T22:31:13.985Z
+q-matrix-002,Use a matrix to rotate a point,matrices,medium,calculation,Problem Sheet 2,matrices|physics-engine,1,0,attempted,2026-03-16T22:31:13.985Z

@@ -1,0 +1,67 @@
+{
+  "layout": "grid",
+  "gridColumns": 12,
+  "modules": [
+    {
+      "id": "project-dashboard-kanban-board",
+      "type": "kanban-board",
+      "title": "Kanban Board",
+      "position": {
+        "x": 1,
+        "y": 1,
+        "width": 5,
+        "height": 7
+      },
+      "config": {
+        "dataFile": "files/kanban.json"
+      }
+    },
+    {
+      "id": "project-dashboard-time-tracker",
+      "type": "time-tracker",
+      "title": "Time Tracker",
+      "position": {
+        "x": 6,
+        "y": 1,
+        "width": 3,
+        "height": 3
+      },
+      "config": {
+        "dataFile": "files/time-tracker.json"
+      }
+    },
+    {
+      "id": "project-dashboard-goal-tracker",
+      "type": "goal-tracker",
+      "title": "Goals",
+      "position": {
+        "x": 9,
+        "y": 1,
+        "width": 4,
+        "height": 3
+      },
+      "config": {
+        "dataFile": "files/goals.json"
+      }
+    },
+    {
+      "id": "project-dashboard-cad-render",
+      "type": "cad-render",
+      "title": "CAD Render Viewer",
+      "position": {
+        "x": 6,
+        "y": 4,
+        "width": 7,
+        "height": 4
+      },
+      "config": {
+        "renderFolder": "files/renders",
+        "autoRefresh": true,
+        "compareMode": false
+      }
+    }
+  ],
+  "templates": [
+    "project-dashboard"
+  ]
+}

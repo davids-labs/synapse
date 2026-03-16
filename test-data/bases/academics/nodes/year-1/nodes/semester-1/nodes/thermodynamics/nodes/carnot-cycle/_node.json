@@ -1,0 +1,27 @@
+{
+  "id": "carnot-cycle",
+  "title": "Carnot Cycle",
+  "kind": "node",
+  "itemType": "topic",
+  "created": "2026-03-16T22:31:14.040Z",
+  "modified": "2026-03-16T22:31:14.040Z",
+  "tags": [
+    "exam",
+    "urgent"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 18,
+  "prerequisites": [
+    "bases/academics/nodes/year-1/nodes/semester-1/nodes/thermodynamics"
+  ],
+  "softPrerequisites": [],
+  "manualLinks": [],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 1,
+    "practiceTotal": 3
+  },
+  "custom": {}
+}

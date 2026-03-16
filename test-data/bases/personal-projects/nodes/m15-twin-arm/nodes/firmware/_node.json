@@ -1,0 +1,26 @@
+{
+  "id": "firmware",
+  "title": "Firmware",
+  "kind": "node",
+  "itemType": "topic",
+  "created": "2026-03-16T22:31:14.076Z",
+  "modified": "2026-03-16T22:31:14.076Z",
+  "tags": [
+    "project"
+  ],
+  "color": null,
+  "icon": null,
+  "examWeight": 0,
+  "prerequisites": [],
+  "softPrerequisites": [],
+  "manualLinks": [
+    "bases/code-repos/nodes/python/nodes/physics-engine"
+  ],
+  "wormholes": [],
+  "mastery": {
+    "manual": null,
+    "practiceCompleted": 0,
+    "practiceTotal": 0
+  },
+  "custom": {}
+}
