@@ -1,0 +1,8 @@
+[
+  {
+    "id": "ideal-gas",
+    "name": "Ideal Gas Law",
+    "formula": "PV = nRT",
+    "description": "Relationship between pressure, volume, temperature, and moles."
+  }
+]

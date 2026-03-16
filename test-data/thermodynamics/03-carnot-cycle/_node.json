@@ -1,0 +1,11 @@
+{
+  "id": "03-carnot-cycle",
+  "status": "active",
+  "masteryScore": 0.42,
+  "createdAt": "2026-03-02T09:00:00.000Z",
+  "lastStudied": "2026-03-10T14:30:00.000Z",
+  "studySessions": 2,
+  "practiceCompleted": 1,
+  "practiceTotal": 2,
+  "weakSpots": ["efficiency-derivation"]
+}

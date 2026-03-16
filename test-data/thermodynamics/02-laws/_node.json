@@ -1,0 +1,11 @@
+{
+  "id": "02-laws",
+  "status": "practicing",
+  "masteryScore": 0.62,
+  "createdAt": "2026-03-01T10:00:00.000Z",
+  "lastStudied": "2026-03-15T20:30:00.000Z",
+  "studySessions": 5,
+  "practiceCompleted": 2,
+  "practiceTotal": 3,
+  "manualLinks": ["04-heat-engines"]
+}

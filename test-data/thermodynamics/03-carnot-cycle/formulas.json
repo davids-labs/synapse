@@ -1,0 +1,7 @@
+[
+  {
+    "id": "carnot-efficiency",
+    "name": "Carnot Efficiency",
+    "formula": "\\eta = 1 - \\frac{T_C}{T_H}"
+  }
+]

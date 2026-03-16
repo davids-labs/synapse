@@ -1,0 +1,7 @@
+{
+  "notesWeight": 0.1,
+  "practiceWeight": 0.5,
+  "manualLinksWeight": 0.1,
+  "maxDecayDays": 30,
+  "maxDecayRate": 0.2
+}

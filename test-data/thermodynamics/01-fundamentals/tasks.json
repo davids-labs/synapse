@@ -1,0 +1,26 @@
+{
+  "columns": [
+    {
+      "id": "todo",
+      "title": "To Do",
+      "tasks": [
+        {
+          "id": "task-1",
+          "content": "Rewrite state variable flashcards",
+          "completed": false,
+          "createdAt": "2026-03-15T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "in-progress",
+      "title": "In Progress",
+      "tasks": []
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "tasks": []
+    }
+  ]
+}

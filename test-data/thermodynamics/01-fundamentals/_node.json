@@ -1,0 +1,12 @@
+{
+  "id": "01-fundamentals",
+  "status": "active",
+  "masteryScore": 0.35,
+  "createdAt": "2026-03-01T10:00:00.000Z",
+  "lastStudied": "2026-03-14T18:00:00.000Z",
+  "studySessions": 3,
+  "practiceCompleted": 1,
+  "practiceTotal": 2,
+  "weakSpots": ["unit-systems"],
+  "manualLinks": ["03-carnot-cycle"]
+}

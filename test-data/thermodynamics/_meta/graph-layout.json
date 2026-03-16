@@ -1,0 +1,8 @@
+{
+  "positions": {
+    "01-fundamentals": { "x": 300, "y": 220 },
+    "02-laws": { "x": 540, "y": 200 },
+    "03-carnot-cycle": { "x": 760, "y": 340 },
+    "04-heat-engines": { "x": 980, "y": 240 }
+  }
+}

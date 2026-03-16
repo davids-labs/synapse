@@ -1,0 +1,49 @@
+{
+  "mapId": "thermodynamics-map",
+  "courseName": "Thermodynamics",
+  "semester": "Year 2 • Semester 1",
+  "examDate": "2026-05-12",
+  "metadata": {
+    "created": "2026-03-01T00:00:00.000Z",
+    "modified": "2026-03-16T00:00:00.000Z",
+    "version": "1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "01-fundamentals",
+      "title": "Fundamentals",
+      "category": "foundation",
+      "examWeight": 15,
+      "prerequisites": [],
+      "unlocks": ["02-laws", "03-carnot-cycle"],
+      "estimatedHours": 6
+    },
+    {
+      "id": "02-laws",
+      "title": "Laws of Thermodynamics",
+      "category": "core",
+      "examWeight": 28,
+      "prerequisites": ["01-fundamentals"],
+      "unlocks": ["03-carnot-cycle", "04-heat-engines"],
+      "estimatedHours": 8
+    },
+    {
+      "id": "03-carnot-cycle",
+      "title": "Carnot Cycle",
+      "category": "core",
+      "examWeight": 25,
+      "prerequisites": ["01-fundamentals", "02-laws"],
+      "unlocks": ["04-heat-engines"],
+      "estimatedHours": 7
+    },
+    {
+      "id": "04-heat-engines",
+      "title": "Heat Engines",
+      "category": "advanced",
+      "examWeight": 32,
+      "prerequisites": ["02-laws", "03-carnot-cycle"],
+      "unlocks": [],
+      "estimatedHours": 10
+    }
+  ]
+}

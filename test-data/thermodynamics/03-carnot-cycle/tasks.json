@@ -1,0 +1,26 @@
+{
+  "columns": [
+    {
+      "id": "todo",
+      "title": "To Do",
+      "tasks": [
+        {
+          "id": "task-2",
+          "content": "Review why Carnot sets an upper bound",
+          "completed": false,
+          "createdAt": "2026-03-16T09:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "in-progress",
+      "title": "In Progress",
+      "tasks": []
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "tasks": []
+    }
+  ]
+}
