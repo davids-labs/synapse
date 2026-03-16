@@ -3,7 +3,7 @@
   "gridColumns": 12,
   "modules": [
     {
-      "id": "project-dashboard-kanban-board",
+      "id": "project-dashboard-1773704088783-0",
       "type": "kanban-board",
       "title": "Kanban Board",
       "position": {
@@ -17,7 +17,7 @@
       }
     },
     {
-      "id": "project-dashboard-time-tracker",
+      "id": "project-dashboard-1773704088783-1",
       "type": "time-tracker",
       "title": "Time Tracker",
       "position": {
@@ -31,7 +31,7 @@
       }
     },
     {
-      "id": "project-dashboard-goal-tracker",
+      "id": "project-dashboard-1773704088783-2",
       "type": "goal-tracker",
       "title": "Goals",
       "position": {
@@ -45,12 +45,12 @@
       }
     },
     {
-      "id": "project-dashboard-cad-render",
+      "id": "project-dashboard-1773704088783-3",
       "type": "cad-render",
       "title": "CAD Render Viewer",
       "position": {
-        "x": 2,
-        "y": 8,
+        "x": 6,
+        "y": 4,
         "width": 7,
         "height": 4
       },
