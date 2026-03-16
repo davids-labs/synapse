@@ -3,31 +3,35 @@
   "gridColumns": 12,
   "modules": [
     {
-      "id": "base-progress-bar",
-      "type": "progress-bar",
-      "title": "Progress Snapshot",
+      "id": "project-dashboard-1773701167465-0",
+      "type": "kanban-board",
+      "title": "Kanban Board",
       "position": {
         "x": 1,
         "y": 1,
-        "width": 4,
-        "height": 3
+        "width": 5,
+        "height": 7
       },
-      "config": {}
+      "config": {
+        "dataFile": "files/kanban.json"
+      }
     },
     {
-      "id": "base-weekly-summary",
-      "type": "weekly-summary",
-      "title": "Weekly Summary",
+      "id": "project-dashboard-1773701167465-1",
+      "type": "time-tracker",
+      "title": "Time Tracker",
       "position": {
-        "x": 5,
+        "x": 6,
         "y": 1,
-        "width": 4,
+        "width": 3,
         "height": 3
       },
-      "config": {}
+      "config": {
+        "dataFile": "files/time-tracker.json"
+      }
     },
     {
-      "id": "base-goal-tracker",
+      "id": "project-dashboard-1773701167465-2",
       "type": "goal-tracker",
       "title": "Goals",
       "position": {
@@ -36,48 +40,28 @@
         "width": 4,
         "height": 3
       },
-      "config": {}
-    },
-    {
-      "id": "base-file-list",
-      "type": "file-list",
-      "title": "Base Files",
-      "position": {
-        "x": 1,
-        "y": 4,
-        "width": 6,
-        "height": 4
-      },
       "config": {
-        "folder": "files"
+        "dataFile": "files/goals.json"
       }
     },
     {
-      "id": "base-link-collection",
-      "type": "link-collection",
-      "title": "Cross-Galaxy Links",
+      "id": "project-dashboard-1773701167465-3",
+      "type": "cad-render",
+      "title": "CAD Render Viewer",
       "position": {
-        "x": 7,
+        "x": 6,
         "y": 4,
-        "width": 6,
+        "width": 7,
         "height": 4
       },
-      "config": {}
-    },
-    {
-      "id": "image-gallery-1773701096478-5",
-      "type": "image-gallery",
-      "title": "Image Gallery",
-      "position": {
-        "x": 8,
-        "y": 8,
-        "width": 5,
-        "height": 4
-      },
-      "config": {}
+      "config": {
+        "renderFolder": "files/renders",
+        "autoRefresh": true,
+        "compareMode": false
+      }
     }
   ],
   "templates": [
-    "base-default"
+    "project-dashboard"
   ]
 }
