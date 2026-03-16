@@ -4,8 +4,10 @@
   "kind": "base",
   "itemType": "academics",
   "created": "2026-03-16T22:31:13.985Z",
-  "modified": "2026-03-16T23:01:25.621Z",
-  "tags": [],
+  "modified": "2026-03-16T23:01:25.046Z",
+  "tags": [
+    "project"
+  ],
   "color": "#3B82F6",
   "icon": "GraduationCap",
   "examWeight": 0,
