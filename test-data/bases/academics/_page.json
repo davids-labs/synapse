@@ -3,9 +3,9 @@
   "gridColumns": 12,
   "modules": [
     {
-      "id": "project-dashboard-1773704088783-0",
-      "type": "kanban-board",
-      "title": "Kanban Board",
+      "id": "exam-prep-1773704089710-0",
+      "type": "practice-bank",
+      "title": "Exam Practice",
       "position": {
         "x": 1,
         "y": 1,
@@ -13,55 +13,42 @@
         "height": 7
       },
       "config": {
-        "dataFile": "files/kanban.json"
+        "dataFile": "files/practice/questions.csv",
+        "filterTags": [
+          "exam"
+        ]
       }
     },
     {
-      "id": "project-dashboard-1773704088783-1",
-      "type": "time-tracker",
-      "title": "Time Tracker",
+      "id": "exam-prep-1773704089710-1",
+      "type": "error-log",
+      "title": "Exam Error Log",
       "position": {
         "x": 6,
-        "y": 1,
-        "width": 3,
-        "height": 3
-      },
-      "config": {
-        "dataFile": "files/time-tracker.json"
-      }
-    },
-    {
-      "id": "project-dashboard-1773704088783-2",
-      "type": "goal-tracker",
-      "title": "Goals",
-      "position": {
-        "x": 9,
         "y": 1,
         "width": 4,
-        "height": 3
+        "height": 7
       },
       "config": {
-        "dataFile": "files/goals.json"
+        "dataFile": "files/practice/error-log.json"
       }
     },
     {
-      "id": "project-dashboard-1773704088783-3",
-      "type": "cad-render",
-      "title": "CAD Render Viewer",
+      "id": "exam-prep-1773704089710-2",
+      "type": "formula-display",
+      "title": "Formula Vault",
       "position": {
-        "x": 6,
-        "y": 4,
-        "width": 7,
-        "height": 4
+        "x": 10,
+        "y": 1,
+        "width": 3,
+        "height": 7
       },
       "config": {
-        "renderFolder": "files/renders",
-        "autoRefresh": true,
-        "compareMode": false
+        "dataFile": "files/formulas.md"
       }
     }
   ],
   "templates": [
-    "project-dashboard"
+    "exam-prep"
   ]
 }
