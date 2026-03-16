@@ -1,8 +1,8 @@
 {
   "basePath": "c:\\dev2\\synapse\\test-data",
-  "theme": "dark",
+  "theme": "light",
   "colorScheme": {
-    "bgPrimary": "#0F0F0F",
+    "bgPrimary": "#c93636",
     "bgSecondary": "#1A1A1A",
     "bgTertiary": "#242424",
     "bgHover": "#2A2A2A",
@@ -19,7 +19,7 @@
     "accentError": "#EF4444",
     "accentInfo": "#8B5CF6"
   },
-  "density": "dense",
+  "density": "sparse",
   "animations": true,
   "masteryColors": {
     "locked": "#4A4A4A",
