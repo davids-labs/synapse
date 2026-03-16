@@ -4,10 +4,9 @@
   "kind": "base",
   "itemType": "projects",
   "created": "2026-03-16T22:31:14.081Z",
-  "modified": "2026-03-16T22:57:05.924Z",
+  "modified": "2026-03-16T22:57:05.354Z",
   "tags": [
-    "exam",
-    "urgent"
+    "exam"
   ],
   "color": "#F59E0B",
   "icon": "Code2",
