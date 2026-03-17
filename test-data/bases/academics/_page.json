@@ -12,13 +12,13 @@
         "width": 4,
         "height": 3
       },
-      "config": {},
       "canvas": {
         "x": 24,
         "y": 24,
         "width": 496,
         "height": 368
-      }
+      },
+      "config": {}
     },
     {
       "id": "weekly-summary",
@@ -30,13 +30,13 @@
         "width": 4,
         "height": 3
       },
-      "config": {},
       "canvas": {
         "x": 536,
         "y": 24,
         "width": 496,
         "height": 368
-      }
+      },
+      "config": {}
     },
     {
       "id": "goal-tracker",
@@ -48,13 +48,13 @@
         "width": 4,
         "height": 3
       },
-      "config": {},
       "canvas": {
         "x": 1048,
         "y": 24,
         "width": 496,
         "height": 368
-      }
+      },
+      "config": {}
     },
     {
       "id": "file-list",
@@ -66,14 +66,14 @@
         "width": 6,
         "height": 4
       },
-      "config": {
-        "folder": "files"
-      },
       "canvas": {
         "x": 24,
         "y": 408,
         "width": 752,
         "height": 496
+      },
+      "config": {
+        "folder": "files"
       }
     },
     {
@@ -86,22 +86,22 @@
         "width": 6,
         "height": 4
       },
-      "config": {},
       "canvas": {
         "x": 792,
         "y": 408,
         "width": 752,
         "height": 496
-      }
+      },
+      "config": {}
     }
   ],
   "templates": [
     "base-default"
   ],
   "viewport": {
-    "x": 72,
-    "y": 56,
-    "zoom": 1
+    "x": 855.8060546919323,
+    "y": 62.13187166685578,
+    "zoom": 0.72
   },
   "ui": {
     "detailsOpen": false,

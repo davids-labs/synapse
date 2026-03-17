@@ -4,7 +4,7 @@
   "kind": "node",
   "itemType": "module",
   "created": "2026-03-16T22:31:14.085Z",
-  "modified": "2026-03-17T13:34:25.227Z",
+  "modified": "2026-03-16T22:31:14.085Z",
   "tags": [
     "project"
   ],
@@ -18,7 +18,7 @@
   "mastery": {
     "manual": null,
     "practiceCompleted": 0,
-    "practiceTotal": 1
+    "practiceTotal": 0
   },
   "custom": {}
 }

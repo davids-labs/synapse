@@ -65,15 +65,15 @@
       "title": "Teleport Links",
       "position": {
         "x": 1,
-        "y": 5,
-        "width": 4,
-        "height": 4
+        "y": 9,
+        "width": 8,
+        "height": 3
       },
       "canvas": {
-        "x": 24,
-        "y": 536,
-        "width": 496,
-        "height": 496
+        "x": 44,
+        "y": 1050,
+        "width": 984,
+        "height": 385
       },
       "config": {}
     },
@@ -101,15 +101,15 @@
       "title": "Web Embed",
       "position": {
         "x": 1,
-        "y": 12,
+        "y": 13,
         "width": 12,
-        "height": 19
+        "height": 16
       },
       "canvas": {
-        "x": -514,
-        "y": 1466,
-        "width": 1665,
-        "height": 2436
+        "x": -640,
+        "y": 1524,
+        "width": 1653,
+        "height": 1974
       },
       "config": {
         "src": "https://www.google.com/search?q=dove+and+cameron"
@@ -122,38 +122,16 @@
       "position": {
         "x": 1,
         "y": 9,
-        "width": 3,
+        "width": 5,
         "height": 3
       },
       "canvas": {
-        "x": 24,
-        "y": 1048,
-        "width": 428,
-        "height": 359
+        "x": -636,
+        "y": 1046,
+        "width": 672,
+        "height": 393
       },
       "config": {}
-    },
-    {
-      "id": "handwriting-gallery-1773744630415-7",
-      "type": "handwriting-gallery",
-      "title": "Handwriting Gallery",
-      "position": {
-        "x": 1,
-        "y": 7,
-        "width": 12,
-        "height": 18
-      },
-      "canvas": {
-        "x": 2689,
-        "y": 766,
-        "width": 3631,
-        "height": 2336
-      },
-      "config": {
-        "folder": "files",
-        "columns": 3,
-        "sortBy": "date"
-      }
     },
     {
       "id": "audio-player-1773752909944-8",
@@ -161,13 +139,13 @@
       "title": "Audio Player",
       "position": {
         "x": 9,
-        "y": 12,
+        "y": 9,
         "width": 4,
         "height": 19
       },
       "canvas": {
-        "x": 1183,
-        "y": 1456,
+        "x": 1038,
+        "y": 1044,
         "width": 460,
         "height": 2448
       },
@@ -180,9 +158,9 @@
     "home-default"
   ],
   "viewport": {
-    "x": -197.4933039880325,
-    "y": -2127.099501969914,
-    "zoom": 0.63
+    "x": 632.9071351827852,
+    "y": 303.454265780394,
+    "zoom": 0.75
   },
   "ui": {
     "detailsOpen": false,
