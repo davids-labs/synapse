@@ -1,4 +1,6 @@
 import { app, BrowserWindow } from 'electron';
+import fs from 'fs';
+import path from 'path';
 import type { UpdateState } from '../shared/types';
 
 type AutoUpdaterModule = {
@@ -18,6 +20,18 @@ function loadAutoUpdater(): AutoUpdaterModule['autoUpdater'] | null {
     return updaterModule.autoUpdater;
   } catch {
     return null;
+  }
+}
+
+function hasBundledUpdaterConfig(): boolean {
+  if (!app.isPackaged) {
+    return false;
+  }
+
+  try {
+    return fs.existsSync(path.join(process.resourcesPath, 'app-update.yml'));
+  } catch {
+    return false;
   }
 }
 
@@ -64,12 +78,20 @@ export class UpdateManager {
         status: 'idle',
         message: 'Update feed configured.',
       };
-    } else if (app.isPackaged) {
+    } else if (hasBundledUpdaterConfig()) {
       this.state = {
         configured: true,
         manualOnly: false,
         status: 'idle',
         message: 'Packaged build can use bundled update configuration.',
+      };
+    } else if (app.isPackaged) {
+      this.state = {
+        configured: false,
+        manualOnly: true,
+        status: 'not-available',
+        message:
+          'Packaged build is missing update feed configuration. Add publish metadata or SYNAPSE_UPDATE_URL.',
       };
     }
 

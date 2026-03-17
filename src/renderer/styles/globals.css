@@ -1262,6 +1262,18 @@ select {
   width: min(760px, calc(100vw - 32px));
 }
 
+.import-export-panel {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.import-export-panel .modal-foot {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-secondary);
+  padding-top: 8px;
+}
+
 .command-palette {
   width: min(760px, calc(100vw - 32px));
 }

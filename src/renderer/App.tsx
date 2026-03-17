@@ -1346,6 +1346,7 @@ export function App() {
       entityPath: selectedEntity.entityPath,
       importType: 'syllabus' as CsvImportType,
       exportType: 'structure' as CsvExportType,
+      delimiter: settings.csvDelimiter,
       sourcePath: '',
       preview: null,
       loading: false,
@@ -1370,7 +1371,10 @@ export function App() {
     );
 
     try {
-      const preview = await window.synapse.previewCsv({ sourcePath });
+      const preview = await window.synapse.previewCsv({
+        sourcePath,
+        delimiter: importExport.delimiter,
+      });
       setImportExport((current) =>
         current ? { ...current, sourcePath, preview, loading: false } : current,
       );
@@ -1399,6 +1403,7 @@ export function App() {
           entityPath: importExport.entityPath,
           importType: importExport.importType,
           sourcePath: importExport.sourcePath,
+          delimiter: importExport.delimiter,
         });
         setWorkspace(result.workspace);
         pushToast({

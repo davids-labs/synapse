@@ -40,6 +40,7 @@ export interface ImportExportState {
   entityPath: string;
   importType: CsvImportType;
   exportType: CsvExportType;
+  delimiter: ',' | ';' | '\t';
   sourcePath: string;
   preview: CsvPreview | null;
   loading: boolean;
@@ -1463,7 +1464,7 @@ export function ImportExportModal({
   const guide = CSV_IMPORT_GUIDES[state.importType];
   return (
     <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div className="modal-panel medium module-library-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+      <motion.div className="modal-panel medium module-library-panel import-export-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
         <div className="modal-head">
           <h2>{state.mode === 'import' ? 'Import CSV' : 'Export CSV'}</h2>
           <button onClick={onClose}>Close</button>
@@ -1471,12 +1472,23 @@ export function ImportExportModal({
         <p className="modal-subtitle">{selectedEntity?.title}</p>
         {state.mode === 'import' ? (
           <>
+            <div className="command-inline-grid">
             <select className="text-input" value={state.importType} onChange={(event) => onChange({ importType: event.target.value as CsvImportType })}>
               <option value="syllabus">Syllabus</option>
               <option value="modules">Modules</option>
               <option value="practice">Practice Bank</option>
               <option value="custom">Custom</option>
             </select>
+            <select
+              className="text-input"
+              value={state.delimiter}
+              onChange={(event) => onChange({ delimiter: event.target.value as ImportExportState['delimiter'] })}
+            >
+              <option value=",">Comma (,)</option>
+              <option value=";">Semicolon (;)</option>
+              <option value="\t">Tab (\t)</option>
+            </select>
+            </div>
             <div className="csv-guide-card">
               <strong>{guide.summary}</strong>
               <small>Expected headers</small>

@@ -50,5 +50,13 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "artifactName": "${productName}-Setup-${version}.${ext}"
-  }
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "davids-labs",
+      "repo": "synapse",
+      "releaseType": "release"
+    }
+  ]
 }
