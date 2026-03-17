@@ -12,6 +12,12 @@
         "width": 5,
         "height": 4
       },
+      "canvas": {
+        "x": 24,
+        "y": 24,
+        "width": 624,
+        "height": 496
+      },
       "config": {}
     },
     {
@@ -24,6 +30,12 @@
         "width": 3,
         "height": 4
       },
+      "canvas": {
+        "x": 664,
+        "y": 24,
+        "width": 368,
+        "height": 496
+      },
       "config": {}
     },
     {
@@ -35,6 +47,12 @@
         "y": 1,
         "width": 4,
         "height": 5
+      },
+      "canvas": {
+        "x": 1048,
+        "y": 24,
+        "width": 496,
+        "height": 624
       },
       "config": {
         "filepath": "files/home-notes.md",
@@ -51,6 +69,12 @@
         "width": 4,
         "height": 4
       },
+      "canvas": {
+        "x": 24,
+        "y": 536,
+        "width": 496,
+        "height": 496
+      },
       "config": {}
     },
     {
@@ -63,6 +87,12 @@
         "width": 4,
         "height": 4
       },
+      "canvas": {
+        "x": 536,
+        "y": 536,
+        "width": 496,
+        "height": 496
+      },
       "config": {}
     }
   ],
@@ -70,8 +100,21 @@
     "home-default"
   ],
   "viewport": {
-    "x": 56,
-    "y": 48,
-    "zoom": 1
+    "x": 240.50312499999995,
+    "y": -442.0341268247706,
+    "zoom": 0.55
+  },
+  "ui": {
+    "detailsOpen": false,
+    "detailSize": "comfortable",
+    "detailSectionOrder": [
+      "mastery",
+      "identity",
+      "templates",
+      "links",
+      "wormholes"
+    ],
+    "hiddenDetailSections": [],
+    "savedViews": []
   }
 }
