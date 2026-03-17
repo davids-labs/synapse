@@ -12,8 +12,7 @@
   "files": [
     "dist-electron/**/*",
     "dist/**/*",
-    "package.json",
-    "test-data/**/*"
+    "package.json"
   ],
   "extraMetadata": {
     "main": "dist-electron/main/index.js"

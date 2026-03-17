@@ -4,7 +4,7 @@ function uniquePaths(paths: string[]): string[] {
   return [...new Set(paths.map((entry) => path.resolve(entry)))];
 }
 
-export function getBootstrapBasePathCandidates(appPath: string): string[] {
+export function getBootstrapBasePathCandidates(appPath: string, userDataPath: string): string[] {
   const cwd = process.cwd();
   const resourcesPath =
     'resourcesPath' in process &&
@@ -13,11 +13,11 @@ export function getBootstrapBasePathCandidates(appPath: string): string[] {
       : null;
 
   return uniquePaths([
+    path.join(userDataPath, 'workspace'),
     path.join(cwd, 'synapse-data'),
     path.join(appPath, 'synapse-data'),
     path.join(appPath, '..', 'synapse-data'),
     path.join(appPath, '..', '..', 'synapse-data'),
-    path.join(cwd, 'test-data'),
     ...(resourcesPath
       ? [
           path.join(resourcesPath, 'synapse-data'),
@@ -30,6 +30,7 @@ export function getBootstrapBasePathCandidates(appPath: string): string[] {
 export function isLegacyBootstrapBasePath(basePath: string): boolean {
   const normalized = path.resolve(basePath).toLowerCase();
   const legacyCandidates = [
+    `${path.sep}test-data`,
     `${path.sep}dist-electron${path.sep}main${path.sep}test-data`,
     `${path.sep}dist-electron${path.sep}test-data`,
     `${path.sep}dist-electron${path.sep}main${path.sep}synapse-data`,

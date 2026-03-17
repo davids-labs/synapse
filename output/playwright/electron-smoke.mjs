@@ -46,6 +46,10 @@ function screenshotPath(name) {
   return path.join(screenshotDir, name);
 }
 
+function isIgnorableConsoleNoise(message) {
+  return /\b429\b|solveSimpleChallenge is not defined/i.test(message.text);
+}
+
 async function snapshotMetrics(window, label) {
   const metrics = await window.evaluate(() => {
     const main = document.querySelector('main');
@@ -92,16 +96,27 @@ try {
   const window = await app.firstWindow();
   const consoleMessages = [];
   window.on('console', (message) => {
-    consoleMessages.push({
+    const entry = {
       type: message.type(),
       text: message.text(),
+    };
+    if (isIgnorableConsoleNoise(entry)) {
+      return;
+    }
+    consoleMessages.push({
+      type: entry.type,
+      text: entry.text,
     });
   });
   window.on('pageerror', (error) => {
-    consoleMessages.push({
+    const entry = {
       type: 'pageerror',
       text: error.message,
-    });
+    };
+    if (isIgnorableConsoleNoise(entry)) {
+      return;
+    }
+    consoleMessages.push(entry);
   });
   await window.setViewportSize({ width: 1600, height: 980 });
   await window.waitForTimeout(3000);

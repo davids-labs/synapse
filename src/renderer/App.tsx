@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { MODULE_LIBRARY } from '../shared/constants';
+import { SyncStatus } from '../shared/types';
 import type {
   BootstrapData,
+  CommitInfo,
   CsvExportType,
   CsvImportType,
   EntityFilter,
   EntityType,
+  GitConflictFile,
   GitStatusSummary,
   KnowledgeRecord,
   PracticeQuestion,
+  RepoHealth,
   SynapseEntity,
   SynapseModule,
   UpdateState,
@@ -21,6 +25,7 @@ import { HomeSurface } from './components/HomeSurface';
 import { ModuleCanvas } from './components/ModuleCanvas';
 import {
   CommandPalette,
+  ConflictResolutionModal,
   EntityCreateModal,
   ImportExportModal,
   type ImportExportState,
@@ -32,6 +37,7 @@ import {
   SettingsModal,
   ToastStack,
   type ToastItem,
+  WorkspaceSyncPromptModal,
 } from './components/Modals';
 import { PageHeader, type WormholeDraft } from './components/PageHeader';
 import { TreeSidebar } from './components/TreeSidebar';
@@ -49,6 +55,24 @@ import {
 } from './lib/appHelpers';
 
 type SurfaceMode = 'home' | 'canvas' | 'graph';
+type GitActionBusy =
+  | 'sync'
+  | 'commit'
+  | 'resolve'
+  | 'reset'
+  | 'diagnostics'
+  | 'branch'
+  | 'revert'
+  | null;
+type WorkspaceSyncPromptKind = 'startup-pull' | 'local-ahead' | 'sync-reminder';
+
+interface WorkspaceSyncPromptState {
+  kind: WorkspaceSyncPromptKind;
+  title: string;
+  message: string;
+  detail?: string;
+}
+
 const HOME_ENTITY_PATH = '__home__';
 const MODULE_COLUMN_WIDTH = 112;
 const MODULE_ROW_HEIGHT = 112;
@@ -122,10 +146,20 @@ export function App() {
   const [canvasFullscreen, setCanvasFullscreen] = useState(false);
   const [homeCanvasFocused, setHomeCanvasFocused] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatusSummary | null>(null);
+  const [gitHealth, setGitHealth] = useState<RepoHealth | null>(null);
+  const [gitHistory, setGitHistory] = useState<CommitInfo[]>([]);
+  const [gitConflicts, setGitConflicts] = useState<GitConflictFile[]>([]);
   const [updateState, setUpdateState] = useState<UpdateState | null>(null);
-  const [gitActionBusy, setGitActionBusy] = useState<'sync' | 'commit' | null>(null);
+  const [gitActionBusy, setGitActionBusy] = useState<GitActionBusy>(null);
+  const [workspaceSyncPrompt, setWorkspaceSyncPrompt] = useState<WorkspaceSyncPromptState | null>(
+    null,
+  );
+  const [conflictResolutionOpen, setConflictResolutionOpen] = useState(false);
   const [graphResetSignal, setGraphResetSignal] = useState(0);
   const workspaceRootRef = useRef<string | null>(null);
+  const startupPromptedRootRef = useRef<string | null>(null);
+  const lastSyncReminderKeyRef = useRef<string | null>(null);
+  const localAheadNoticeKeyRef = useRef<string | null>(null);
   const [wormholeDraft, setWormholeDraft] = useState<WormholeDraft>({
     targetEntityPath: '',
     label: '',
@@ -174,6 +208,122 @@ export function App() {
     window.setTimeout(() => {
       setToasts((current) => current.filter((item) => item.id !== id));
     }, 3600);
+  };
+
+  const formatRelativeSyncTime = (timestamp?: string | null) => {
+    if (!timestamp) {
+      return 'Never synced';
+    }
+
+    const parsed = Date.parse(timestamp);
+    if (!Number.isFinite(parsed)) {
+      return timestamp;
+    }
+
+    const diffMinutes = Math.max(0, Math.round((Date.now() - parsed) / 60000));
+    if (diffMinutes < 1) {
+      return 'Just now';
+    }
+    if (diffMinutes < 60) {
+      return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+    }
+
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) {
+      return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    }
+
+    const diffDays = Math.round(diffHours / 24);
+    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  };
+
+  const buildSyncStatusText = (
+    nextGitStatus: GitStatusSummary | null,
+    nextGitHealth: RepoHealth | null,
+  ) => {
+    if (!nextGitStatus || !nextGitHealth) {
+      return 'Workspace reliability lives in Settings';
+    }
+
+    if (nextGitStatus.syncStatus === SyncStatus.QUEUED_OFFLINE) {
+      return 'Queued offline';
+    }
+
+    if (nextGitHealth.checks.conflictedFiles > 0) {
+      return `${nextGitHealth.checks.conflictedFiles} sync conflict${
+        nextGitHealth.checks.conflictedFiles === 1 ? '' : 's'
+      }`;
+    }
+
+    if (nextGitStatus.behind > 0) {
+      return `${nextGitStatus.behind} remote update${nextGitStatus.behind === 1 ? '' : 's'} available`;
+    }
+
+    if (nextGitStatus.ahead > 0) {
+      return `${nextGitStatus.ahead} unpushed commit${nextGitStatus.ahead === 1 ? '' : 's'}`;
+    }
+
+    if (!nextGitStatus.clean) {
+      return `${nextGitStatus.modified.length} local change${
+        nextGitStatus.modified.length === 1 ? '' : 's'
+      }`;
+    }
+
+    return `Synced${nextGitStatus.currentBranch ? ` · ${nextGitStatus.currentBranch}` : ''}`;
+  };
+
+  const buildSyncStatusIcon = (nextGitStatus: GitStatusSummary | null) => {
+    switch (nextGitStatus?.syncStatus) {
+      case SyncStatus.QUEUED_OFFLINE:
+        return '◷';
+      case SyncStatus.CONFLICT:
+        return '!';
+      case SyncStatus.PULL_AVAILABLE:
+      case SyncStatus.UNPUSHED:
+      case SyncStatus.LOCAL_CHANGES:
+        return '●';
+      case SyncStatus.ERROR:
+        return '×';
+      default:
+        return '●';
+    }
+  };
+
+  const refreshWorkspaceReliability = async (
+    basePath: string,
+    gitEnabled: boolean,
+    options?: { includeHistory?: boolean },
+  ) => {
+    const [nextUpdateState, nextGitStatus, nextGitHealth, nextGitHistory] = await Promise.all([
+      window.synapse.getUpdateState(),
+      gitEnabled ? window.synapse.getGitStatus(basePath) : Promise.resolve(null),
+      gitEnabled ? window.synapse.getGitHealth(basePath) : Promise.resolve(null),
+      gitEnabled && options?.includeHistory
+        ? window.synapse.getGitHistory(basePath)
+        : Promise.resolve(null),
+    ]);
+
+    const nextGitConflicts =
+      gitEnabled && nextGitHealth && nextGitHealth.checks.conflictedFiles > 0
+        ? await window.synapse.getGitConflicts(basePath)
+        : [];
+
+    setUpdateState(nextUpdateState);
+    setGitStatus(nextGitStatus);
+    setGitHealth(nextGitHealth);
+    setGitConflicts(nextGitConflicts);
+    if (!gitEnabled) {
+      setGitHistory([]);
+    }
+    if (options?.includeHistory && nextGitHistory) {
+      setGitHistory(nextGitHistory);
+    }
+
+    return {
+      nextGitStatus,
+      nextGitHealth,
+      nextGitConflicts,
+    };
   };
 
   const reloadWorkspace = async (basePath?: string) => {
@@ -284,6 +434,12 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    return window.synapse.onOpenSettingsRequested(() => {
+      setSettingsOpen(true);
+    });
+  }, []);
+
+  useEffect(() => {
     if (!workspace) {
       return;
     }
@@ -315,6 +471,8 @@ export function App() {
     root.style.setProperty('--mastery-weak', masteryColors.weak);
     root.style.colorScheme = theme;
     root.dataset.theme = theme;
+    root.dataset.performanceMode = workspace.settings.lab.performanceMode;
+    root.dataset.localOnlyMode = workspace.settings.privacy.localOnlyMode ? 'true' : 'false';
   }, [workspace]);
 
   useEffect(() => {
@@ -343,25 +501,80 @@ export function App() {
       return;
     }
     const rootPath = currentWorkspace.rootPath;
-    const gitEnabled = currentWorkspace.settings.gitEnabled;
+    const workspaceSettings = currentWorkspace.settings;
+    const gitEnabled = workspaceSettings.gitEnabled;
 
     let active = true;
 
     async function loadStatus() {
       try {
-        const [nextGitStatus, nextUpdateState] = await Promise.all([
-          gitEnabled
-            ? window.synapse.getGitStatus(rootPath)
-            : Promise.resolve(null),
-          window.synapse.getUpdateState(),
-        ]);
+        const { nextGitStatus, nextGitHealth, nextGitConflicts } =
+          await refreshWorkspaceReliability(rootPath, gitEnabled);
 
         if (!active) {
           return;
         }
 
-        setGitStatus(nextGitStatus);
-        setUpdateState(nextUpdateState);
+        if (nextGitConflicts.length > 0) {
+          setConflictResolutionOpen(true);
+        }
+
+        if (gitEnabled && startupPromptedRootRef.current !== rootPath && nextGitHealth) {
+          startupPromptedRootRef.current = rootPath;
+
+          if (nextGitHealth.checks.divergence.behind > 0) {
+            if (workspaceSettings.git.autoPullOnStartup) {
+              void handleGitSync(rootPath, {
+                silentSuccess: true,
+                includeHistory: true,
+              });
+            } else {
+              setWorkspaceSyncPrompt({
+                kind: 'startup-pull',
+                title: 'Workspace updates are available',
+                message: `Remote has ${nextGitHealth.checks.divergence.behind} newer commit${
+                  nextGitHealth.checks.divergence.behind === 1 ? '' : 's'
+                }. Pull now before editing to reduce conflict risk.`,
+                detail: nextGitHealth.issues
+                  .map((issue) => issue.recovery)
+                  .filter((value): value is string => Boolean(value))
+                  .join(' '),
+              });
+            }
+          } else if (nextGitStatus && nextGitStatus.ahead > 0) {
+            const noticeKey = `${rootPath}:${nextGitStatus.ahead}`;
+            if (localAheadNoticeKeyRef.current !== noticeKey) {
+              localAheadNoticeKeyRef.current = noticeKey;
+              pushToast({
+                tone: 'info',
+                title: 'Workspace has local commits',
+                description: `You have ${nextGitStatus.ahead} unpushed commit${
+                  nextGitStatus.ahead === 1 ? '' : 's'
+                }. Sync when you are ready.`,
+              });
+            }
+          }
+        }
+
+        if (gitEnabled && nextGitStatus && nextGitHealth) {
+          const reminderMinutes = workspaceSettings.git.remindAfterMinutes;
+          const reminderKey = `${rootPath}:${nextGitStatus.lastSyncAt ?? 'never'}`;
+          const needsReminder =
+            (nextGitStatus.ahead > 0 || nextGitStatus.behind > 0 || !nextGitStatus.clean) &&
+            (!nextGitStatus.lastSyncAt ||
+              (Date.now() - Date.parse(nextGitStatus.lastSyncAt)) / 60000 >= reminderMinutes);
+
+          if (needsReminder && lastSyncReminderKeyRef.current !== reminderKey) {
+            lastSyncReminderKeyRef.current = reminderKey;
+            pushToast({
+              tone: 'info',
+              title: 'Sync reminder',
+              description: `${buildSyncStatusText(nextGitStatus, nextGitHealth)} · last synced ${formatRelativeSyncTime(
+                nextGitStatus.lastSyncAt,
+              )}.`,
+            });
+          }
+        }
       } catch (cause) {
         if (active) {
           notifyError('Status sync failed', cause, 'Could not load Git or update status.');
@@ -370,10 +583,20 @@ export function App() {
     }
 
     void loadStatus();
+    const intervalId = window.setInterval(() => {
+      void loadStatus();
+    }, 10 * 60 * 1000);
+
     return () => {
       active = false;
+      window.clearInterval(intervalId);
     };
-  }, [workspace?.rootPath, workspace?.settings.gitEnabled]);
+  }, [
+    workspace?.rootPath,
+    workspace?.settings.gitEnabled,
+    workspace?.settings.git.autoPullOnStartup,
+    workspace?.settings.git.remindAfterMinutes,
+  ]);
 
   useEffect(() => {
     if (!workspace) {
@@ -382,6 +605,32 @@ export function App() {
 
     void window.synapse.setActiveCaptureTarget({ entityPath: selectedEntityPath });
   }, [selectedEntityPath, workspace]);
+
+  useEffect(() => {
+    if (!settingsOpen || !workspace || !workspace.settings.gitEnabled) {
+      return;
+    }
+
+    void refreshWorkspaceReliability(workspace.rootPath, true, { includeHistory: true });
+  }, [settingsOpen, workspace?.rootPath, workspace?.settings.gitEnabled]);
+
+  useEffect(() => {
+    if (!workspace || !workspace.settings.gitEnabled) {
+      return;
+    }
+
+    const handleOnline = () => {
+      if (gitStatus?.syncStatus === SyncStatus.QUEUED_OFFLINE) {
+        void handleGitSync(workspace.rootPath, {
+          silentSuccess: false,
+          includeHistory: true,
+        });
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [gitStatus?.syncStatus, workspace?.rootPath, workspace?.settings.gitEnabled]);
 
   useEffect(() => {
     if (!workspace) {
@@ -779,17 +1028,36 @@ export function App() {
     });
   };
 
-  const handleGitSync = async (basePath: string) => {
+  const handleGitSync = async (
+    basePath: string,
+    options?: { silentSuccess?: boolean; includeHistory?: boolean },
+  ) => {
     setGitActionBusy('sync');
     try {
       const result = await window.synapse.syncWorkspace(basePath);
-      const nextGitStatus = await window.synapse.getGitStatus(basePath);
-      setGitStatus(nextGitStatus);
-      pushToast({
-        tone: result.success ? 'success' : 'error',
-        title: 'Workspace sync',
-        description: result.error ? `${result.message} ${result.error}` : result.message,
+      const { nextGitConflicts } = await refreshWorkspaceReliability(basePath, true, {
+        includeHistory: options?.includeHistory ?? true,
       });
+      if (result.requiresResolution || nextGitConflicts.length > 0) {
+        setConflictResolutionOpen(true);
+      }
+      if (!options?.silentSuccess || !result.success) {
+        const tone = result.queuedOffline ? 'warning' : result.success ? 'success' : 'error';
+        pushToast({
+          tone,
+          title: 'Workspace sync',
+          description:
+            result.error || (result.recovery ?? []).length > 0
+              ? [
+                  result.message,
+                  result.error,
+                  result.recovery?.[0],
+                ]
+                  .filter((value): value is string => Boolean(value))
+                  .join(' ')
+              : result.message,
+        });
+      }
     } catch (cause) {
       notifyError('Git sync failed', cause, 'Could not sync the workspace.');
     } finally {
@@ -801,12 +1069,8 @@ export function App() {
     setGitActionBusy('commit');
 
     try {
-      const result = await window.synapse.manualCommit(
-        basePath,
-        `Workspace snapshot - ${new Date().toISOString()}`,
-      );
-      const nextGitStatus = await window.synapse.getGitStatus(basePath);
-      setGitStatus(nextGitStatus);
+      const result = await window.synapse.createWorkspaceSnapshot(basePath, {});
+      await refreshWorkspaceReliability(basePath, true, { includeHistory: true });
       pushToast({
         tone: result.success ? 'success' : 'error',
         title: 'Workspace snapshot',
@@ -814,6 +1078,164 @@ export function App() {
       });
     } catch (cause) {
       notifyError('Commit failed', cause, 'Could not create a workspace snapshot.');
+    } finally {
+      setGitActionBusy(null);
+    }
+  };
+
+  const handleResolveGitConflicts = async (
+    strategy: 'ours' | 'theirs' | 'smart',
+    paths?: string[],
+  ) => {
+    if (!workspace) {
+      return;
+    }
+
+    setGitActionBusy('resolve');
+    try {
+      const result = await window.synapse.resolveGitConflicts(workspace.rootPath, {
+        strategy,
+        paths,
+      });
+      const { nextGitConflicts } = await refreshWorkspaceReliability(workspace.rootPath, true, {
+        includeHistory: true,
+      });
+      if (nextGitConflicts.length === 0) {
+        setConflictResolutionOpen(false);
+      }
+      pushToast({
+        tone: result.success ? 'success' : 'error',
+        title: 'Conflict resolution',
+        description: result.error ? `${result.message} ${result.error}` : result.message,
+      });
+    } catch (cause) {
+      notifyError('Conflict resolution failed', cause, 'Could not resolve the conflicted files.');
+    } finally {
+      setGitActionBusy(null);
+    }
+  };
+
+  const handleAbortGitConflict = async () => {
+    if (!workspace) {
+      return;
+    }
+
+    setGitActionBusy('resolve');
+    try {
+      const result = await window.synapse.abortGitConflict(workspace.rootPath);
+      await refreshWorkspaceReliability(workspace.rootPath, true, { includeHistory: true });
+      setConflictResolutionOpen(false);
+      pushToast({
+        tone: result.success ? 'warning' : 'error',
+        title: 'Conflict workflow',
+        description: result.error ? `${result.message} ${result.error}` : result.message,
+      });
+    } catch (cause) {
+      notifyError('Abort failed', cause, 'Could not abort the active merge.');
+    } finally {
+      setGitActionBusy(null);
+    }
+  };
+
+  const handleLaunchExternalDiff = async (conflictPath: string) => {
+    if (!workspace) {
+      return;
+    }
+
+    setGitActionBusy('resolve');
+    try {
+      const result = await window.synapse.launchExternalDiff(workspace.rootPath, conflictPath);
+      pushToast({
+        tone: result.success ? 'info' : 'error',
+        title: 'External editor',
+        description: result.error ? `${result.message} ${result.error}` : result.message,
+      });
+    } catch (cause) {
+      notifyError('External editor failed', cause, 'Could not open the conflict in an external editor.');
+    } finally {
+      setGitActionBusy(null);
+    }
+  };
+
+  const handleResetWorkspaceToRemote = async () => {
+    if (!workspace) {
+      return;
+    }
+
+    const confirmation = window.prompt(
+      'Type DELETE LOCAL CHANGES to reset this workspace to the remote state.',
+      '',
+    );
+    if (confirmation !== 'DELETE LOCAL CHANGES') {
+      return;
+    }
+
+    setGitActionBusy('reset');
+    try {
+      const backupPath = await window.synapse.createBackup(workspace.rootPath);
+      const result = await window.synapse.resetWorkspaceToRemote(workspace.rootPath);
+      await reloadWorkspace(workspace.rootPath);
+      await refreshWorkspaceReliability(workspace.rootPath, true, { includeHistory: true });
+      setConflictResolutionOpen(false);
+      pushToast({
+        tone: result.success ? 'warning' : 'error',
+        title: 'Workspace reset',
+        description: result.success
+          ? `Local changes were reset to remote after backing up to ${backupPath}`
+          : result.error
+            ? `${result.message} ${result.error}`
+            : result.message,
+      });
+    } catch (cause) {
+      notifyError('Reset failed', cause, 'Could not reset this workspace to the remote state.');
+    } finally {
+      setGitActionBusy(null);
+    }
+  };
+
+  const handleSwitchGitBranch = async (branchName: string) => {
+    if (!workspace) {
+      return;
+    }
+
+    setGitActionBusy('branch');
+    try {
+      const result = await window.synapse.switchGitBranch(workspace.rootPath, branchName);
+      await reloadWorkspace(workspace.rootPath);
+      await refreshWorkspaceReliability(workspace.rootPath, workspace.settings.gitEnabled, {
+        includeHistory: true,
+      });
+      pushToast({
+        tone: result.success ? 'success' : 'error',
+        title: 'Branch switch',
+        description: result.error ? `${result.message} ${result.error}` : result.message,
+      });
+    } catch (cause) {
+      notifyError('Branch switch failed', cause, 'Could not switch Git branches.');
+    } finally {
+      setGitActionBusy(null);
+    }
+  };
+
+  const handleRevertGitCommit = async (hash: string) => {
+    if (!workspace) {
+      return;
+    }
+
+    setGitActionBusy('revert');
+    try {
+      const result = await window.synapse.revertGitCommit(workspace.rootPath, hash);
+      await reloadWorkspace(workspace.rootPath);
+      await refreshWorkspaceReliability(workspace.rootPath, workspace.settings.gitEnabled, {
+        includeHistory: true,
+      });
+      pushToast({
+        tone: result.success ? 'warning' : 'error',
+        title: 'Version revert',
+        description: result.error ? `${result.message} ${result.error}` : result.message,
+      });
+    } catch (cause) {
+      notifyError('Revert failed', cause, 'Could not create the revert commit.');
     } finally {
       setGitActionBusy(null);
     }
@@ -1016,6 +1438,7 @@ export function App() {
       setBootstrap((current) => (current ? { ...current, settings: saved } : current));
       await window.synapse.watchWorkspace(saved.basePath);
       await reloadWorkspace(saved.basePath);
+      await refreshWorkspaceReliability(saved.basePath, saved.gitEnabled, { includeHistory: true });
       setSettingsOpen(false);
       pushToast({
         tone: 'success',
@@ -1135,12 +1558,27 @@ export function App() {
     return <div className="loading-screen error-state">{error || 'SYNAPSE could not start.'}</div>;
   }
 
+  const syncStatusText = buildSyncStatusText(gitStatus, gitHealth);
+  const syncStatusIcon = buildSyncStatusIcon(gitStatus);
+  const syncStatusDetail =
+    gitStatus && gitHealth
+      ? `${syncStatusText} · ${
+          gitStatus.syncStatus === SyncStatus.QUEUED_OFFLINE
+            ? gitStatus.queuedAt
+              ? `queued ${formatRelativeSyncTime(gitStatus.queuedAt)}`
+              : 'waiting for network'
+            : formatRelativeSyncTime(gitStatus.lastSyncAt)
+        }`
+      : 'Workspace reliability lives in Settings';
+
   return (
     <div
       className={`synapse-shell ${focusMode ? 'focus-mode' : ''} ${
         isSurfaceFullscreen ? 'surface-fullscreen' : ''
       }`}
       data-density={workspace.settings.density}
+      data-performance-mode={workspace.settings.lab.performanceMode}
+      data-local-only-mode={workspace.settings.privacy.localOnlyMode ? 'true' : 'false'}
       data-surface={surface}
     >
       <header className="topbar">
@@ -1435,13 +1873,18 @@ export function App() {
             ? `${selectedEntity.title}: ${moduleSummary(selectedEntity)}`
             : `${workspace.recent.length} recent pages`}
         </span>
-        <span>
-          {gitStatus
-            ? gitStatus.clean
-              ? `Workspace clean${gitStatus.currentBranch ? ` · ${gitStatus.currentBranch}` : ''}`
-              : `${gitStatus.modified.length} local changes`
-            : 'Workspace reliability lives in Settings'}
-        </span>
+        <button
+          type="button"
+          className={`ghost-button small status-sync-button ${
+            gitStatus?.syncStatus === SyncStatus.QUEUED_OFFLINE ? 'is-queued' : ''
+          }`}
+          onClick={() => setSettingsOpen(true)}
+        >
+          <span className="status-sync-indicator" aria-hidden="true">
+            {syncStatusIcon}
+          </span>
+          <span>{syncStatusDetail}</span>
+        </button>
       </footer>
 
       <AnimatePresence>
@@ -1450,6 +1893,9 @@ export function App() {
             settings={workspace.settings}
             tags={workspace.tags}
             gitStatus={gitStatus}
+            gitHealth={gitHealth}
+            gitHistory={gitHistory}
+            gitConflicts={gitConflicts}
             hotDropStatus={workspace.hotDrop}
             updateState={updateState}
             gitActionBusy={gitActionBusy}
@@ -1463,6 +1909,17 @@ export function App() {
             onCommitWorkspace={() => {
               void handleCommitWorkspace(workspace.rootPath);
             }}
+            onRunGitDiagnostics={() => {
+              void refreshWorkspaceReliability(workspace.rootPath, workspace.settings.gitEnabled, {
+                includeHistory: true,
+              });
+            }}
+            onResetWorkspace={() => {
+              void handleResetWorkspaceToRemote();
+            }}
+            onOpenConflictResolution={() => {
+              setConflictResolutionOpen(true);
+            }}
             onCheckForUpdates={() => {
               void handleCheckForUpdates();
             }}
@@ -1471,6 +1928,12 @@ export function App() {
             }}
             onCreateBackup={() => {
               void handleCreateBackup();
+            }}
+            onSwitchBranch={(branchName) => {
+              void handleSwitchGitBranch(branchName);
+            }}
+            onRevertCommit={(hash) => {
+              void handleRevertGitCommit(hash);
             }}
           />
         )}
@@ -1593,6 +2056,92 @@ export function App() {
             }}
             onSave={(draft) => {
               void handleQuickCapture(draft);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {workspaceSyncPrompt && (
+          <WorkspaceSyncPromptModal
+            title={workspaceSyncPrompt.title}
+            message={workspaceSyncPrompt.message}
+            detail={workspaceSyncPrompt.detail}
+            onClose={() => setWorkspaceSyncPrompt(null)}
+            actions={
+              workspaceSyncPrompt.kind === 'startup-pull'
+                ? [
+                    {
+                      label: 'Pull Now',
+                      tone: 'primary',
+                      onClick: () => {
+                        setWorkspaceSyncPrompt(null);
+                        void handleGitSync(workspace.rootPath, {
+                          includeHistory: true,
+                        });
+                      },
+                    },
+                    {
+                      label: 'View Changes',
+                      onClick: () => {
+                        setWorkspaceSyncPrompt(null);
+                        setSettingsOpen(true);
+                      },
+                    },
+                    {
+                      label: 'Skip',
+                      onClick: () => {
+                        setWorkspaceSyncPrompt(null);
+                      },
+                    },
+                  ]
+                : [
+                    {
+                      label: 'Sync Now',
+                      tone: 'primary',
+                      onClick: () => {
+                        setWorkspaceSyncPrompt(null);
+                        void handleGitSync(workspace.rootPath, {
+                          includeHistory: true,
+                        });
+                      },
+                    },
+                    {
+                      label: 'Later',
+                      onClick: () => {
+                        setWorkspaceSyncPrompt(null);
+                      },
+                    },
+                    {
+                      label: 'Settings',
+                      onClick: () => {
+                        setWorkspaceSyncPrompt(null);
+                        setSettingsOpen(true);
+                      },
+                    },
+                  ]
+            }
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {conflictResolutionOpen && gitConflicts.length > 0 && (
+          <ConflictResolutionModal
+            conflicts={gitConflicts}
+            busy={gitActionBusy === 'resolve' || gitActionBusy === 'sync'}
+            onClose={() => setConflictResolutionOpen(false)}
+            onResolveAll={(strategy) => {
+              void handleResolveGitConflicts(strategy);
+            }}
+            onResolveFile={(strategy, conflictPath) => {
+              void handleResolveGitConflicts(strategy, [conflictPath]);
+            }}
+            onAbort={() => {
+              void handleAbortGitConflict();
+            }}
+            onOpenExternalEditor={(conflictPath) => {
+              void handleLaunchExternalDiff(conflictPath);
             }}
           />
         )}

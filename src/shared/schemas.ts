@@ -244,32 +244,36 @@ export const LinkStyleSchema = z.object({
   opacity: z.number().min(0).max(1),
 });
 
+const HexColorSchema = z
+  .string()
+  .regex(/^#[0-9a-f]{6}$/i, 'Use a full 6-digit hex color such as #1f2937.');
+
 export const ColorSchemeSchema = z.object({
-  bgPrimary: z.string(),
-  bgSecondary: z.string(),
-  bgTertiary: z.string(),
-  bgHover: z.string(),
-  textPrimary: z.string(),
-  textSecondary: z.string(),
-  textTertiary: z.string(),
-  textAccent: z.string(),
-  borderDefault: z.string(),
-  borderFocus: z.string(),
-  borderDivider: z.string(),
-  accentPrimary: z.string(),
-  accentSuccess: z.string(),
-  accentWarning: z.string(),
-  accentError: z.string(),
-  accentInfo: z.string(),
+  bgPrimary: HexColorSchema,
+  bgSecondary: HexColorSchema,
+  bgTertiary: HexColorSchema,
+  bgHover: HexColorSchema,
+  textPrimary: HexColorSchema,
+  textSecondary: HexColorSchema,
+  textTertiary: HexColorSchema,
+  textAccent: HexColorSchema,
+  borderDefault: HexColorSchema,
+  borderFocus: HexColorSchema,
+  borderDivider: HexColorSchema,
+  accentPrimary: HexColorSchema,
+  accentSuccess: HexColorSchema,
+  accentWarning: HexColorSchema,
+  accentError: HexColorSchema,
+  accentInfo: HexColorSchema,
 });
 
 export const MasteryColorMapSchema = z.object({
-  locked: z.string(),
-  active: z.string(),
-  understanding: z.string(),
-  practicing: z.string(),
-  mastered: z.string(),
-  weak: z.string(),
+  locked: HexColorSchema,
+  active: HexColorSchema,
+  understanding: HexColorSchema,
+  practicing: HexColorSchema,
+  mastered: HexColorSchema,
+  weak: HexColorSchema,
 });
 
 export const KeyboardShortcutMapSchema = z.object({
@@ -303,6 +307,36 @@ export const KeyboardShortcutMapSchema = z.object({
   importCsv: z.string(),
 });
 
+export const GitPreferencesSchema = z.object({
+  deviceName: z.string().min(1),
+  autoCommitOnClose: z.boolean(),
+  promptSyncOnClose: z.boolean(),
+  autoPullOnStartup: z.boolean(),
+  backgroundAutoSave: z.boolean(),
+  backgroundAutoSaveIntervalMinutes: z.number().min(1).max(60),
+  backgroundAutoSaveIdleSeconds: z.number().min(5).max(600),
+  remindAfterMinutes: z.number().min(5).max(1440),
+  conflictStrategy: z.enum(['prompt', 'keep-mine', 'keep-theirs']),
+});
+
+export const LabPreferencesSchema = z.object({
+  gpuAcceleration: z.boolean(),
+  embeddedDevtools: z.boolean(),
+  performanceMode: z.enum(['balanced', 'reduced-motion', 'low-power']),
+  frameRateLimit: z.number().min(15).max(240),
+});
+
+export const PrivacyPreferencesSchema = z.object({
+  localOnlyMode: z.boolean(),
+  vaultEncryptionEnabled: z.boolean(),
+  vaultPasswordHint: z.string().max(120),
+});
+
+export const ExportPreferencesSchema = z.object({
+  cloudBackupProvider: z.enum(['none', 's3', 'dropbox', 'google-drive']),
+  cloudBackupTarget: z.string().max(512),
+});
+
 export const AppSettingsSchema = z.object({
   basePath: z.string().min(1),
   theme: ThemeModeSchema,
@@ -323,9 +357,23 @@ export const AppSettingsSchema = z.object({
   gitEnabled: z.boolean(),
   autoCommit: z.boolean(),
   autoSync: z.boolean(),
+  git: GitPreferencesSchema,
+  lab: LabPreferencesSchema,
+  privacy: PrivacyPreferencesSchema,
+  export: ExportPreferencesSchema,
   developerMode: z.boolean(),
   customCSSPath: z.string().optional(),
   recentLimit: z.number().min(1).max(50),
+});
+
+export const GitSnapshotRequestSchema = z.object({
+  message: z.string().optional(),
+  auto: z.boolean().optional(),
+});
+
+export const GitConflictResolutionRequestSchema = z.object({
+  strategy: z.enum(['ours', 'theirs', 'smart', 'manual', 'abort']),
+  paths: z.array(z.string()).optional(),
 });
 
 export const TagDefinitionSchema = z.object({

@@ -1,6 +1,25 @@
 import { app, BrowserWindow } from 'electron';
-import { autoUpdater } from 'electron-updater';
 import type { UpdateState } from '../shared/types';
+
+type AutoUpdaterModule = {
+  autoUpdater: {
+    autoDownload: boolean;
+    autoInstallOnAppQuit: boolean;
+    setFeedURL: (options: { provider: string; url: string; channel?: string }) => void;
+    on: (event: string, listener: (...args: any[]) => void) => void;
+    checkForUpdates: () => Promise<unknown>;
+    quitAndInstall: () => void;
+  };
+};
+
+function loadAutoUpdater(): AutoUpdaterModule['autoUpdater'] | null {
+  try {
+    const updaterModule = require('electron-updater') as AutoUpdaterModule;
+    return updaterModule.autoUpdater;
+  } catch {
+    return null;
+  }
+}
 
 export class UpdateManager {
   private state: UpdateState = {
@@ -11,6 +30,7 @@ export class UpdateManager {
   };
 
   private initialized = false;
+  private autoUpdater = loadAutoUpdater();
 
   initialize(getMainWindow: () => BrowserWindow | null): void {
     if (this.initialized) {
@@ -19,6 +39,18 @@ export class UpdateManager {
 
     this.initialized = true;
     const updateUrl = process.env.SYNAPSE_UPDATE_URL;
+    const autoUpdater = this.autoUpdater;
+
+    if (!autoUpdater) {
+      this.state = {
+        configured: false,
+        manualOnly: true,
+        status: 'not-available',
+        message:
+          'Automatic updates are unavailable in this build. Install newer releases manually.',
+      };
+      return;
+    }
 
     if (updateUrl) {
       autoUpdater.setFeedURL({
@@ -113,7 +145,7 @@ export class UpdateManager {
   }
 
   async checkForUpdates(): Promise<UpdateState> {
-    if (!this.state.configured) {
+    if (!this.autoUpdater || !this.state.configured) {
       return {
         ...this.state,
         manualOnly: true,
@@ -123,17 +155,17 @@ export class UpdateManager {
       };
     }
 
-    await autoUpdater.checkForUpdates();
+    await this.autoUpdater.checkForUpdates();
     return this.state;
   }
 
   async installUpdate(): Promise<UpdateState> {
-    if (this.state.status !== 'downloaded') {
+    if (!this.autoUpdater || this.state.status !== 'downloaded') {
       return this.state;
     }
 
     setTimeout(() => {
-      autoUpdater.quitAndInstall();
+      this.autoUpdater?.quitAndInstall();
     }, 100);
 
     return {

@@ -5,14 +5,16 @@ import {
 } from '../src/main/bootstrapPaths';
 
 describe('bootstrapPaths', () => {
-  it('prefers the repository synapse-data directory first', () => {
+  it('prefers the user data workspace directory first', () => {
     const appPath = path.join(process.cwd(), 'dist-electron', 'main');
-    const candidates = getBootstrapBasePathCandidates(appPath);
+    const userDataPath = path.join('C:\\Users\\david\\AppData\\Roaming', 'SYNAPSE');
+    const candidates = getBootstrapBasePathCandidates(appPath, userDataPath);
 
-    expect(candidates[0]).toBe(path.resolve(process.cwd(), 'synapse-data'));
+    expect(candidates[0]).toBe(path.resolve(userDataPath, 'workspace'));
   });
 
-  it('detects both legacy dist-electron test-data and synapse-data paths', () => {
+  it('detects legacy bootstrap and test-data paths', () => {
+    expect(isLegacyBootstrapBasePath(path.join('C:\\dev2\\synapse', 'test-data'))).toBe(true);
     expect(
       isLegacyBootstrapBasePath(
         path.join('C:\\dev2\\synapse', 'dist-electron', 'main', 'test-data'),

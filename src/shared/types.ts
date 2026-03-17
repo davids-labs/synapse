@@ -123,6 +123,22 @@ export type PageLayoutMode = 'grid' | 'custom' | 'freeform';
 export type CaptureType = 'file' | 'screenshot' | 'note' | 'link';
 export type CsvImportType = 'syllabus' | 'modules' | 'practice' | 'custom';
 export type CsvExportType = 'structure' | 'modules' | 'practice' | 'data';
+export type GitConflictStrategy = 'prompt' | 'keep-mine' | 'keep-theirs';
+export type GitConflictResolutionStrategy = 'ours' | 'theirs' | 'smart' | 'manual' | 'abort';
+export type GitConflictFileType = 'json' | 'text' | 'binary';
+export type RepoHealthStatus = 'healthy' | 'needs-attention' | 'error';
+export type PerformanceMode = 'balanced' | 'reduced-motion' | 'low-power';
+export type CloudBackupProvider = 'none' | 's3' | 'dropbox' | 'google-drive';
+
+export enum SyncStatus {
+  SYNCED = 'synced',
+  LOCAL_CHANGES = 'local-changes',
+  UNPUSHED = 'unpushed',
+  PULL_AVAILABLE = 'pull-available',
+  CONFLICT = 'conflict',
+  QUEUED_OFFLINE = 'queued-offline',
+  ERROR = 'error',
+}
 
 export interface GridPosition {
   x: number;
@@ -317,6 +333,24 @@ export interface KeyboardShortcutMap {
   importCsv: string;
 }
 
+export interface LabPreferences {
+  gpuAcceleration: boolean;
+  embeddedDevtools: boolean;
+  performanceMode: PerformanceMode;
+  frameRateLimit: number;
+}
+
+export interface PrivacyPreferences {
+  localOnlyMode: boolean;
+  vaultEncryptionEnabled: boolean;
+  vaultPasswordHint: string;
+}
+
+export interface ExportPreferences {
+  cloudBackupProvider: CloudBackupProvider;
+  cloudBackupTarget: string;
+}
+
 export interface AppSettings {
   basePath: string;
   theme: ThemeMode;
@@ -337,9 +371,25 @@ export interface AppSettings {
   gitEnabled: boolean;
   autoCommit: boolean;
   autoSync: boolean;
+  git: GitPreferences;
+  lab: LabPreferences;
+  privacy: PrivacyPreferences;
+  export: ExportPreferences;
   developerMode: boolean;
   customCSSPath?: string;
   recentLimit: number;
+}
+
+export interface GitPreferences {
+  deviceName: string;
+  autoCommitOnClose: boolean;
+  promptSyncOnClose: boolean;
+  autoPullOnStartup: boolean;
+  backgroundAutoSave: boolean;
+  backgroundAutoSaveIntervalMinutes: number;
+  backgroundAutoSaveIdleSeconds: number;
+  remindAfterMinutes: number;
+  conflictStrategy: GitConflictStrategy;
 }
 
 export interface TagDefinition {
@@ -513,11 +563,21 @@ export interface GitStatusSummary {
   modified: string[];
   ahead: number;
   behind: number;
+  conflicted: string[];
   currentBranch?: string;
   trackingBranch?: string | null;
   hasRemote?: boolean;
   hasUpstream?: boolean;
   syncReady?: boolean;
+  remoteUrl?: string | null;
+  deviceName?: string | null;
+  lastSyncAt?: string | null;
+  syncStatus?: SyncStatus;
+  queuedOffline?: boolean;
+  queuedAt?: string | null;
+  queuedReason?: string | null;
+  lastErrorCode?: string | null;
+  lastErrorMessage?: string | null;
 }
 
 export interface SyncResult {
@@ -525,6 +585,15 @@ export interface SyncResult {
   message: string;
   error?: string;
   code?: string;
+  pulled?: number;
+  pushed?: number;
+  createdCommit?: boolean;
+  requiresResolution?: boolean;
+  conflicts?: GitConflictFile[];
+  recovery?: string[];
+  syncStatus?: SyncStatus;
+  queuedOffline?: boolean;
+  queuedAt?: string | null;
 }
 
 export interface CommitInfo {
@@ -532,6 +601,74 @@ export interface CommitInfo {
   date: string;
   message: string;
   author: string;
+  body?: string;
+  filesChanged?: number;
+  device?: string | null;
+}
+
+export interface GitBranchSummary {
+  current: string | null;
+  branches: string[];
+  remoteBranches: string[];
+}
+
+export interface RepoHealthIssue {
+  code: string;
+  message: string;
+  recovery?: string;
+  detail?: string;
+}
+
+export interface RepoHealth {
+  status: RepoHealthStatus;
+  checks: {
+    isGitRepo: boolean;
+    hasRemote: boolean;
+    remoteReachable: boolean;
+    upstreamConfigured: boolean;
+    workingTreeClean: boolean;
+    divergence: { ahead: number; behind: number };
+    lastSync: string | null;
+    unpushedCommits: number;
+    conflictedFiles: number;
+    queuedOffline: boolean;
+  };
+  issues: RepoHealthIssue[];
+}
+
+export interface GitConflictPreview {
+  ours?: string;
+  theirs?: string;
+}
+
+export interface GitConflictFile {
+  path: string;
+  type: GitConflictFileType;
+  preview?: GitConflictPreview;
+  oursSize?: number | null;
+  theirsSize?: number | null;
+  strategy?: Exclude<GitConflictResolutionStrategy, 'abort'>;
+  smartSuggestedStrategy?: Exclude<GitConflictResolutionStrategy, 'abort'>;
+}
+
+export interface GitSnapshotRequest {
+  message?: string;
+  auto?: boolean;
+}
+
+export interface GitConflictResolutionRequest {
+  strategy: GitConflictResolutionStrategy;
+  paths?: string[];
+}
+
+export interface ExternalDiffLaunchResult {
+  success: boolean;
+  mode: 'vscode-diff' | 'system-editor';
+  message: string;
+  openedPath?: string;
+  oursPath?: string;
+  theirsPath?: string;
+  error?: string;
 }
 
 export interface CreateEntityRequest {

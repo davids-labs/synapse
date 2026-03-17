@@ -568,6 +568,32 @@ export const DEFAULT_SETTINGS: AppSettings = {
   gitEnabled: true,
   autoCommit: false,
   autoSync: false,
+  git: {
+    deviceName: 'This device',
+    autoCommitOnClose: true,
+    promptSyncOnClose: true,
+    autoPullOnStartup: false,
+    backgroundAutoSave: false,
+    backgroundAutoSaveIntervalMinutes: 5,
+    backgroundAutoSaveIdleSeconds: 30,
+    remindAfterMinutes: 60,
+    conflictStrategy: 'prompt',
+  },
+  lab: {
+    gpuAcceleration: true,
+    embeddedDevtools: false,
+    performanceMode: 'balanced',
+    frameRateLimit: 60,
+  },
+  privacy: {
+    localOnlyMode: false,
+    vaultEncryptionEnabled: false,
+    vaultPasswordHint: '',
+  },
+  export: {
+    cloudBackupProvider: 'none',
+    cloudBackupTarget: '',
+  },
   developerMode: false,
   recentLimit: 8,
 };

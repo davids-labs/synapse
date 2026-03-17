@@ -10,7 +10,12 @@ import type {
   CsvImportResult,
   CsvPreview,
   CsvPreviewRequest,
+  ExternalDiffLaunchResult,
+  GitBranchSummary,
   GitStatusSummary,
+  GitConflictFile,
+  GitConflictResolutionRequest,
+  GitSnapshotRequest,
   HotDropCaptureEvent,
   HotDropStatus,
   KnowledgeRecord,
@@ -24,6 +29,7 @@ import type {
   UpdateState,
   WorkspaceSnapshot,
   ErrorEntry,
+  RepoHealth,
 } from './types';
 
 export interface SynapseApi {
@@ -52,9 +58,21 @@ export interface SynapseApi {
   quickCapture: (request: QuickCaptureRequest) => Promise<QuickCaptureResponse>;
   watchWorkspace: (basePath: string) => Promise<boolean>;
   getGitStatus: (basePath: string) => Promise<GitStatusSummary>;
+  getGitHealth: (basePath: string) => Promise<RepoHealth>;
   getGitHistory: (basePath: string, entityPath?: string) => Promise<CommitInfo[]>;
+  getGitBranches: (basePath: string) => Promise<GitBranchSummary>;
   manualCommit: (basePath: string, message: string) => Promise<SyncResult>;
+  createWorkspaceSnapshot: (basePath: string, request?: GitSnapshotRequest) => Promise<SyncResult>;
   syncWorkspace: (basePath: string) => Promise<SyncResult>;
+  getGitConflicts: (basePath: string) => Promise<GitConflictFile[]>;
+  resolveGitConflicts: (basePath: string, request: GitConflictResolutionRequest) => Promise<SyncResult>;
+  abortGitConflict: (basePath: string) => Promise<SyncResult>;
+  launchExternalDiff: (basePath: string, conflictPath: string) => Promise<ExternalDiffLaunchResult>;
+  switchGitBranch: (basePath: string, branchName: string) => Promise<SyncResult>;
+  revertGitCommit: (basePath: string, hash: string) => Promise<SyncResult>;
+  resetWorkspaceToRemote: (basePath: string) => Promise<SyncResult>;
+  updateGitDeviceName: (basePath: string, deviceName: string) => Promise<string>;
+  exportSettingsConfig: () => Promise<string>;
   createBackup: (targetPath: string) => Promise<string>;
   showOpenDialog: (request?: OpenDialogRequest) => Promise<string[]>;
   setActiveCaptureTarget: (target: ActiveCaptureTarget) => Promise<HotDropStatus>;
@@ -65,4 +83,5 @@ export interface SynapseApi {
   onWorkspaceUpdated: (listener: (workspace: WorkspaceSnapshot) => void) => () => void;
   onHotDropCaptured: (listener: (event: HotDropCaptureEvent) => void) => () => void;
   onUpdateStateChanged: (listener: (state: UpdateState) => void) => () => void;
+  onOpenSettingsRequested: (listener: () => void) => () => void;
 }

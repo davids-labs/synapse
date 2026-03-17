@@ -4,13 +4,16 @@ import { MODULE_LIBRARY, THEME_COLOR_PRESETS } from '../../shared/constants';
 import type {
   AppSettings,
   CaptureType,
+  CommitInfo,
   CsvExportType,
   CsvImportType,
   CsvPreview,
   EntityType,
+  GitConflictFile,
   GitStatusSummary,
   HotDropStatus,
   ModuleType,
+  RepoHealth,
   SynapseEntity,
   SynapseModule,
   TagDefinition,
@@ -23,6 +26,7 @@ import {
   prettyTitle,
   SHORTCUT_LABELS,
 } from '../lib/appHelpers';
+import { SettingsCommandCenter } from './settings/SettingsCommandCenter';
 
 export interface ToastItem {
   id: string;
@@ -64,22 +68,33 @@ interface SettingsModalProps {
   settings: AppSettings;
   tags: WorkspaceSnapshot['tags'];
   gitStatus: GitStatusSummary | null;
+  gitHealth: RepoHealth | null;
+  gitHistory: CommitInfo[];
+  gitConflicts: GitConflictFile[];
   hotDropStatus: HotDropStatus;
   updateState: UpdateState | null;
-  gitActionBusy: 'sync' | 'commit' | null;
+  gitActionBusy: 'sync' | 'commit' | 'resolve' | 'reset' | 'diagnostics' | null;
   onClose: () => void;
   onSave: (settings: AppSettings, tags: TagDefinition[]) => void;
   onSyncWorkspace: () => void;
   onCommitWorkspace: () => void;
+  onRunGitDiagnostics: () => void;
+  onResetWorkspace: () => void;
+  onOpenConflictResolution: () => void;
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
   onCreateBackup: () => void;
 }
 
-export function SettingsModal({
+export const SettingsModal = SettingsCommandCenter;
+
+export function SettingsModalLegacy({
   settings,
   tags,
   gitStatus,
+  gitHealth,
+  gitHistory,
+  gitConflicts,
   hotDropStatus,
   updateState,
   gitActionBusy,
@@ -87,6 +102,9 @@ export function SettingsModal({
   onSave,
   onSyncWorkspace,
   onCommitWorkspace,
+  onRunGitDiagnostics,
+  onResetWorkspace,
+  onOpenConflictResolution,
   onCheckForUpdates,
   onInstallUpdate,
   onCreateBackup,
@@ -716,11 +734,7 @@ export function SettingsModal({
                   <span className="pill">
                     {!draft.gitEnabled
                       ? 'disabled'
-                      : gitStatus?.syncReady
-                        ? 'ready'
-                        : gitStatus?.clean
-                          ? 'clean'
-                          : 'review'}
+                      : gitHealth?.status || 'review'}
                   </span>
                 </div>
                 <p className="field-help">
@@ -737,26 +751,133 @@ export function SettingsModal({
                   />
                   Enable Git integration
                 </label>
+                <div className="settings-grid two">
+                  <div className="field-row">
+                    <label>This device</label>
+                    <input
+                      className="text-input"
+                      value={draft.git.deviceName}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          git: { ...draft.git, deviceName: event.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="field-row">
+                    <label>Conflict strategy</label>
+                    <select
+                      className="text-input"
+                      value={draft.git.conflictStrategy}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          git: {
+                            ...draft.git,
+                            conflictStrategy: event.target.value as AppSettings['git']['conflictStrategy'],
+                          },
+                        })
+                      }
+                    >
+                      <option value="prompt">Prompt</option>
+                      <option value="keep-mine">Keep mine</option>
+                      <option value="keep-theirs">Keep theirs</option>
+                    </select>
+                  </div>
+                </div>
                 <label className="checkbox-row">
                   <input
                     type="checkbox"
-                    checked={draft.autoCommit}
+                    checked={draft.git.autoCommitOnClose}
                     onChange={(event) =>
-                      setDraft({ ...draft, autoCommit: event.target.checked })
+                      setDraft({
+                        ...draft,
+                        git: { ...draft.git, autoCommitOnClose: event.target.checked },
+                      })
                     }
                   />
-                  Auto commit local changes
+                  Auto-commit on app close
                 </label>
                 <label className="checkbox-row">
                   <input
                     type="checkbox"
-                    checked={draft.autoSync}
+                    checked={draft.git.promptSyncOnClose}
                     onChange={(event) =>
-                      setDraft({ ...draft, autoSync: event.target.checked })
+                      setDraft({
+                        ...draft,
+                        git: { ...draft.git, promptSyncOnClose: event.target.checked },
+                      })
                     }
                   />
-                  Auto sync with upstream
+                  Prompt to sync on close
                 </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={draft.git.autoPullOnStartup}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        git: { ...draft.git, autoPullOnStartup: event.target.checked },
+                      })
+                    }
+                  />
+                  Auto-pull on startup
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={draft.git.backgroundAutoSave}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        git: { ...draft.git, backgroundAutoSave: event.target.checked },
+                      })
+                    }
+                  />
+                  Background auto-save
+                </label>
+                <div className="settings-grid two">
+                  <div className="field-row">
+                    <label>Auto-save interval (minutes)</label>
+                    <input
+                      className="text-input"
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={draft.git.backgroundAutoSaveIntervalMinutes}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          git: {
+                            ...draft.git,
+                            backgroundAutoSaveIntervalMinutes: Number(event.target.value || 5),
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="field-row">
+                    <label>Idle debounce (seconds)</label>
+                    <input
+                      className="text-input"
+                      type="number"
+                      min={5}
+                      max={600}
+                      value={draft.git.backgroundAutoSaveIdleSeconds}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          git: {
+                            ...draft.git,
+                            backgroundAutoSaveIdleSeconds: Number(event.target.value || 30),
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
                 <div className="mini-stat-grid">
                   <div className="metric-card">
                     <strong>{gitStatus?.ahead ?? 0}</strong>
@@ -773,6 +894,10 @@ export function SettingsModal({
                 </div>
                 <div className="list-stack compact">
                   <div className="list-row">
+                    <span>Repository health</span>
+                    <small>{gitHealth?.status || 'Not available yet'}</small>
+                  </div>
+                  <div className="list-row">
                     <span>Current branch</span>
                     <small>{gitStatus?.currentBranch || 'Not available yet'}</small>
                   </div>
@@ -782,15 +907,76 @@ export function SettingsModal({
                   </div>
                   <div className="list-row">
                     <span>Remote</span>
-                    <small>{gitStatus?.hasRemote ? 'Configured' : 'Not configured'}</small>
+                    <small>{gitStatus?.remoteUrl || 'Not configured'}</small>
+                  </div>
+                  <div className="list-row">
+                    <span>Last sync</span>
+                    <small>{gitStatus?.lastSyncAt || 'Never'}</small>
                   </div>
                 </div>
+                {gitHealth?.issues.length ? (
+                  <div className="list-stack compact">
+                    {gitHealth.issues.map((issue) => (
+                      <div key={issue.code} className="list-row">
+                        <span>{issue.message}</span>
+                        <small>{issue.detail || issue.recovery || 'Review this workspace before syncing.'}</small>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {gitStatus?.queuedOffline ? (
+                  <p className="field-help">
+                    Offline retry is queued{gitStatus.queuedAt ? ` since ${gitStatus.queuedAt}` : ''}.
+                    SYNAPSE will retry automatically when connectivity returns, or you can trigger a manual retry now.
+                  </p>
+                ) : null}
+                {gitConflicts.length > 0 ? (
+                  <div className="list-stack compact">
+                    <div className="section-heading">
+                      <strong>Conflicted files</strong>
+                      <button className="tiny-button" onClick={onOpenConflictResolution}>
+                        Review conflicts
+                      </button>
+                    </div>
+                    {gitConflicts.slice(0, 4).map((conflict) => (
+                      <div key={conflict.path} className="list-row">
+                        <span>{compactPath(conflict.path, 4)}</span>
+                        <small>{conflict.type}</small>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {gitHistory.length > 0 ? (
+                  <div className="list-stack compact">
+                    <div className="section-heading">
+                      <strong>Recent history</strong>
+                      <button className="tiny-button" onClick={onRunGitDiagnostics}>
+                        Refresh diagnostics
+                      </button>
+                    </div>
+                    {gitHistory.slice(0, 6).map((commit) => (
+                      <div key={commit.hash} className="list-row">
+                        <span>
+                          {commit.device ? `[${commit.device}] ` : ''}
+                          {commit.message}
+                        </span>
+                        <small>
+                          {commit.filesChanged ?? 0} files · {commit.date}
+                        </small>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="button-row">
                   <button
                     onClick={onSyncWorkspace}
                     disabled={!draft.gitEnabled || gitActionBusy !== null}
                   >
-                    {gitActionBusy === 'sync' ? 'Syncing...' : 'Sync now'}
+                    {gitActionBusy === 'sync'
+                      ? 'Syncing...'
+                      : gitStatus?.queuedOffline
+                        ? 'Retry queued sync'
+                        : 'Sync now'}
                   </button>
                   <button
                     onClick={onCommitWorkspace}
@@ -800,6 +986,20 @@ export function SettingsModal({
                   </button>
                   <button className="tiny-button" onClick={onCreateBackup}>
                     Create manual backup
+                  </button>
+                  <button
+                    className="tiny-button"
+                    onClick={onRunGitDiagnostics}
+                    disabled={!draft.gitEnabled || gitActionBusy !== null}
+                  >
+                    Run diagnostics
+                  </button>
+                  <button
+                    className="tiny-button"
+                    onClick={onResetWorkspace}
+                    disabled={!draft.gitEnabled || gitActionBusy !== null}
+                  >
+                    Reset to remote
                   </button>
                 </div>
               </section>
@@ -981,6 +1181,164 @@ export function SettingsModal({
           <button className="primary-button" onClick={handleSave}>
             Save Changes
           </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+interface WorkspaceSyncPromptModalProps {
+  title: string;
+  message: string;
+  detail?: string;
+  actions: Array<{
+    label: string;
+    tone?: 'primary' | 'default';
+    onClick: () => void;
+  }>;
+  onClose: () => void;
+}
+
+export function WorkspaceSyncPromptModal({
+  title,
+  message,
+  detail,
+  actions,
+  onClose,
+}: WorkspaceSyncPromptModalProps) {
+  return (
+    <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <motion.div className="modal-panel medium" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+        <div className="modal-head">
+          <div>
+            <h2>{title}</h2>
+            <p className="modal-subtitle">{message}</p>
+          </div>
+          <button onClick={onClose}>Close</button>
+        </div>
+        {detail ? <p className="field-help">{detail}</p> : null}
+        <div className="modal-foot">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              className={action.tone === 'primary' ? 'primary-button' : ''}
+              onClick={action.onClick}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+interface ConflictResolutionModalProps {
+  conflicts: GitConflictFile[];
+  busy: boolean;
+  onClose: () => void;
+  onResolveAll: (strategy: 'ours' | 'theirs' | 'smart') => void;
+  onResolveFile: (strategy: 'ours' | 'theirs' | 'smart', path: string) => void;
+  onAbort: () => void;
+  onOpenExternalEditor: (path: string) => void;
+}
+
+export function ConflictResolutionModal({
+  conflicts,
+  busy,
+  onClose,
+  onResolveAll,
+  onResolveFile,
+  onAbort,
+  onOpenExternalEditor,
+}: ConflictResolutionModalProps) {
+  return (
+    <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <motion.div className="modal-panel large" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+        <div className="modal-head">
+          <div>
+            <h2>Sync Conflict Detected</h2>
+            <p className="modal-subtitle">
+              Resolve the conflicted files below, then sync again to finish the pull and push cycle.
+            </p>
+          </div>
+          <button onClick={onClose}>Close</button>
+        </div>
+
+        <div className="button-row">
+          <button className="primary-button" disabled={busy} onClick={() => onResolveAll('ours')}>
+            Keep All Mine
+          </button>
+          <button disabled={busy} onClick={() => onResolveAll('theirs')}>
+            Keep All Theirs
+          </button>
+          <button disabled={busy} onClick={() => onResolveAll('smart')}>
+            Smart Merge JSON
+          </button>
+          <button disabled={busy} onClick={onAbort}>
+            Abort Merge
+          </button>
+        </div>
+
+        <div className="list-stack conflict-list">
+          {conflicts.map((conflict) => (
+            <article key={conflict.path} className="tag-editor-card conflict-card">
+              <div className="section-heading">
+                <div>
+                  <strong>{compactPath(conflict.path, 5)}</strong>
+                  <p className="field-help">
+                    {conflict.type === 'binary'
+                      ? 'Binary conflicts need an explicit keep-mine or keep-theirs choice.'
+                      : conflict.type === 'json'
+                        ? 'JSON conflicts can use the smart merge helper or either full version.'
+                        : 'Text conflicts show both sides below so you can pick the safer version.'}
+                  </p>
+                </div>
+                <span className="pill">{conflict.type}</span>
+              </div>
+
+              {conflict.preview ? (
+                <div className="settings-grid two conflict-preview-grid">
+                  <div className="csv-preview conflict-preview-panel">
+                    <div className="list-row">
+                      <strong>Yours</strong>
+                      <small>{conflict.oursSize ?? 0} bytes</small>
+                    </div>
+                    <pre>{conflict.preview.ours || 'No preview available.'}</pre>
+                  </div>
+                  <div className="csv-preview conflict-preview-panel">
+                    <div className="list-row">
+                      <strong>Theirs</strong>
+                      <small>{conflict.theirsSize ?? 0} bytes</small>
+                    </div>
+                    <pre>{conflict.preview.theirs || 'No preview available.'}</pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="list-row">
+                  <span>Mine: {conflict.oursSize ?? 0} bytes</span>
+                  <small>Theirs: {conflict.theirsSize ?? 0} bytes</small>
+                </div>
+              )}
+
+              <div className="button-row">
+                <button disabled={busy} onClick={() => onResolveFile('ours', conflict.path)}>
+                  Keep Mine
+                </button>
+                <button disabled={busy} onClick={() => onResolveFile('theirs', conflict.path)}>
+                  Keep Theirs
+                </button>
+                {conflict.type === 'json' ? (
+                  <button disabled={busy} onClick={() => onResolveFile('smart', conflict.path)}>
+                    Smart Merge
+                  </button>
+                ) : null}
+                <button disabled={busy} onClick={() => onOpenExternalEditor(conflict.path)}>
+                  Open in External Editor
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
       </motion.div>
     </motion.div>

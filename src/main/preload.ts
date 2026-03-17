@@ -28,11 +28,28 @@ const api: SynapseApi = {
   quickCapture: (request) => ipcRenderer.invoke('quick-capture', request),
   watchWorkspace: (basePath) => ipcRenderer.invoke('watch-workspace', basePath),
   getGitStatus: (basePath) => ipcRenderer.invoke('git-status', basePath),
+  getGitHealth: (basePath) => ipcRenderer.invoke('git-health', basePath),
   getGitHistory: (basePath, entityPath) =>
     ipcRenderer.invoke('git-history', basePath, entityPath),
+  getGitBranches: (basePath) => ipcRenderer.invoke('git-branches', basePath),
   manualCommit: (basePath, message) =>
     ipcRenderer.invoke('git-manual-commit', basePath, message),
+  createWorkspaceSnapshot: (basePath, request) =>
+    ipcRenderer.invoke('git-snapshot', basePath, request),
   syncWorkspace: (basePath) => ipcRenderer.invoke('git-sync', basePath),
+  getGitConflicts: (basePath) => ipcRenderer.invoke('git-conflicts', basePath),
+  resolveGitConflicts: (basePath, request) =>
+    ipcRenderer.invoke('git-resolve-conflicts', basePath, request),
+  abortGitConflict: (basePath) => ipcRenderer.invoke('git-abort-conflict', basePath),
+  launchExternalDiff: (basePath, conflictPath) =>
+    ipcRenderer.invoke('git-launch-external-diff', basePath, conflictPath),
+  switchGitBranch: (basePath, branchName) =>
+    ipcRenderer.invoke('git-switch-branch', basePath, branchName),
+  revertGitCommit: (basePath, hash) => ipcRenderer.invoke('git-revert-commit', basePath, hash),
+  resetWorkspaceToRemote: (basePath) => ipcRenderer.invoke('git-reset-to-remote', basePath),
+  updateGitDeviceName: (basePath, deviceName) =>
+    ipcRenderer.invoke('git-update-device-name', basePath, deviceName),
+  exportSettingsConfig: () => ipcRenderer.invoke('settings-export-config'),
   createBackup: (targetPath) => ipcRenderer.invoke('create-backup', targetPath),
   showOpenDialog: (request) => ipcRenderer.invoke('show-open-dialog', request),
   setActiveCaptureTarget: (target) => ipcRenderer.invoke('set-active-capture-target', target),
@@ -60,6 +77,13 @@ const api: SynapseApi = {
     };
     ipcRenderer.on('update-state-changed', handler);
     return () => ipcRenderer.removeListener('update-state-changed', handler);
+  },
+  onOpenSettingsRequested: (listener) => {
+    const handler = () => {
+      listener();
+    };
+    ipcRenderer.on('open-settings-requested', handler);
+    return () => ipcRenderer.removeListener('open-settings-requested', handler);
   },
 };
 

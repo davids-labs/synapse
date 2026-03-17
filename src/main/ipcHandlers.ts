@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import { spawn } from 'child_process';
+import { BrowserWindow, dialog, ipcMain, powerMonitor, shell, type IpcMainInvokeEvent } from 'electron';
 import path from 'path';
 import {
   DEFAULT_SETTINGS,
@@ -12,6 +13,8 @@ import {
   CsvExportRequestSchema,
   CsvImportRequestSchema,
   CsvPreviewRequestSchema,
+  GitConflictResolutionRequestSchema,
+  GitSnapshotRequestSchema,
   KnowledgeRecordSchema,
   PageLayoutSchema,
   QuickCaptureRequestSchema,
@@ -28,8 +31,10 @@ import type {
   PracticeQuestion,
   QuickCaptureRequest,
   QuickCaptureResponse,
+  RepoHealth,
   TagDefinition,
   ErrorEntry,
+  SyncResult,
 } from '../shared/types';
 import { getBootstrapBasePathCandidates, isLegacyBootstrapBasePath } from './bootstrapPaths';
 import { FileWatcher } from './fileWatcher';
@@ -48,6 +53,11 @@ import {
 } from './fileHelpers';
 import { GitManager } from './gitManager';
 import { HotDropManager } from './hotDropManager';
+import {
+  applyRuntimeSettingsToWindow,
+  getRuntimeSettings,
+  syncRuntimeSettingsFromAppSettings,
+} from './runtimeSettings';
 import { UpdateManager } from './updateManager';
 import {
   buildWorkspaceSnapshot,
@@ -81,6 +91,16 @@ let hotDropStatus: HotDropStatus | null = null;
 const browserSurfaces = new Set<BrowserWindow>();
 let cachedSettings: AppSettings | null = null;
 let cachedSettingsKey: string | null = null;
+const backgroundAutoSaveTimers = new Map<string, NodeJS.Timeout>();
+const backgroundAutoSaveLastActivity = new Map<string, number>();
+const backgroundAutoSaveLastCommit = new Map<string, number>();
+const queuedSyncTimers = new Map<string, NodeJS.Timeout>();
+let allowMainWindowClose = false;
+let closeFlowRunning = false;
+let skipCloseSyncPromptForSession = false;
+let queuedSyncRecoveryAttached = false;
+const QUEUED_SYNC_RETRY_INTERVAL_MS = 60 * 1000;
+const CLOSE_AUTO_COMMIT_TIMEOUT_MS = 5 * 1000;
 
 function isWritableError(value: unknown): value is NodeJS.ErrnoException {
   return value instanceof Error && 'code' in value && value.code === 'EPIPE';
@@ -168,13 +188,39 @@ function normalizeRemoteUrl(rawUrl: string): string {
   return target.toString();
 }
 
+function buildLocalOnlySyncResult(message: string): SyncResult {
+  return {
+    success: false,
+    code: 'local-only-mode',
+    message,
+    recovery: ['Disable local-only mode in Settings when you want SYNAPSE to reach the network again.'],
+  };
+}
+
+async function assertNetworkAccessAllowed(
+  context: IpcContext,
+  reason: string,
+): Promise<AppSettings> {
+  const settings = await loadSettings(context.appPath, context.userDataPath);
+  if (settings.privacy.localOnlyMode) {
+    throw new Error(`Local-only mode is active, so ${reason} is unavailable right now.`);
+  }
+  return settings;
+}
+
 async function openExternalUrl(rawUrl: string): Promise<string> {
+  if (getRuntimeSettings().localOnlyMode) {
+    throw new Error('Local-only mode blocks external browser requests.');
+  }
   const normalizedUrl = normalizeRemoteUrl(rawUrl);
   await shell.openExternal(normalizedUrl);
   return normalizedUrl;
 }
 
 async function openBrowserSurface(rawUrl: string, title?: string): Promise<string> {
+  if (getRuntimeSettings().localOnlyMode) {
+    throw new Error('Local-only mode blocks Browser Surface requests.');
+  }
   const normalizedUrl = normalizeRemoteUrl(rawUrl);
   const browserSurface = new BrowserWindow({
     width: 1280,
@@ -228,14 +274,14 @@ async function openBrowserSurface(rawUrl: string, title?: string): Promise<strin
   return normalizedUrl;
 }
 
-async function resolveDefaultBasePath(appPath: string): Promise<string> {
-  for (const candidate of getBootstrapBasePathCandidates(appPath)) {
+async function resolveDefaultBasePath(appPath: string, userDataPath: string): Promise<string> {
+  for (const candidate of getBootstrapBasePathCandidates(appPath, userDataPath)) {
     if (await fileExists(candidate)) {
       return candidate;
     }
   }
 
-  return path.join(process.cwd(), 'synapse-data');
+  return path.join(userDataPath, 'workspace');
 }
 
 async function normalizeBasePath(currentBasePath: string, defaultBasePath: string): Promise<string> {
@@ -264,7 +310,7 @@ async function loadSettings(appPath: string, userDataPath: string): Promise<AppS
   }
 
   const configPath = getUserConfigPath(userDataPath);
-  const defaultBasePath = await resolveDefaultBasePath(appPath);
+  const defaultBasePath = await resolveDefaultBasePath(appPath, userDataPath);
 
   if (!(await fileExists(configPath))) {
     const defaults = AppSettingsSchema.parse({
@@ -293,6 +339,38 @@ async function loadSettings(appPath: string, userDataPath: string): Promise<AppS
   const userSettings = AppSettingsSchema.parse({
     ...DEFAULT_SETTINGS,
     ...userConfig,
+    git: {
+      ...DEFAULT_SETTINGS.git,
+      ...(typeof userConfig.git === 'object' && userConfig.git ? userConfig.git : {}),
+      backgroundAutoSave:
+        typeof userConfig.git === 'object' &&
+        userConfig.git &&
+        'backgroundAutoSave' in userConfig.git
+          ? (userConfig.git as Record<string, unknown>).backgroundAutoSave
+          : typeof userConfig.autoCommit === 'boolean'
+            ? userConfig.autoCommit
+            : DEFAULT_SETTINGS.git.backgroundAutoSave,
+      promptSyncOnClose:
+        typeof userConfig.git === 'object' &&
+        userConfig.git &&
+        'promptSyncOnClose' in userConfig.git
+          ? (userConfig.git as Record<string, unknown>).promptSyncOnClose
+          : typeof userConfig.autoSync === 'boolean'
+            ? userConfig.autoSync
+            : DEFAULT_SETTINGS.git.promptSyncOnClose,
+    },
+    lab: {
+      ...DEFAULT_SETTINGS.lab,
+      ...(typeof userConfig.lab === 'object' && userConfig.lab ? userConfig.lab : {}),
+    },
+    privacy: {
+      ...DEFAULT_SETTINGS.privacy,
+      ...(typeof userConfig.privacy === 'object' && userConfig.privacy ? userConfig.privacy : {}),
+    },
+    export: {
+      ...DEFAULT_SETTINGS.export,
+      ...(typeof userConfig.export === 'object' && userConfig.export ? userConfig.export : {}),
+    },
     basePath:
       typeof userConfig.basePath === 'string' && userConfig.basePath.trim().length > 0
         ? userConfig.basePath
@@ -328,6 +406,8 @@ async function persistSettings(
   const validated = AppSettingsSchema.parse({
     ...DEFAULT_SETTINGS,
     ...settings,
+    autoCommit: settings.git.backgroundAutoSave,
+    autoSync: settings.git.promptSyncOnClose,
   }) as AppSettings;
   validated.colorScheme = resolveThemeColorScheme(validated.theme, validated.colorScheme);
   await ensureDir(userDataPath);
@@ -494,18 +574,358 @@ async function ensureGitReady(basePath: string): Promise<GitManager> {
   return git;
 }
 
-async function maybeAutoCommit(
+async function scheduleBackgroundAutoSave(
   context: IpcContext,
   basePath: string,
   message: string,
 ): Promise<void> {
   const settings = await loadSettings(context.appPath, context.userDataPath);
-  if (!settings.gitEnabled || !settings.autoCommit) {
+  if (!settings.gitEnabled || !settings.git.backgroundAutoSave) {
     return;
   }
 
-  const git = await ensureGitReady(basePath);
-  await git.manualCommit(message);
+  const idleMs = settings.git.backgroundAutoSaveIdleSeconds * 1000;
+  const minimumIntervalMs = settings.git.backgroundAutoSaveIntervalMinutes * 60 * 1000;
+  backgroundAutoSaveLastActivity.set(basePath, Date.now());
+
+  const existing = backgroundAutoSaveTimers.get(basePath);
+  if (existing) {
+    clearTimeout(existing);
+  }
+
+  const timer = setTimeout(() => {
+    void (async () => {
+      const lastActivity = backgroundAutoSaveLastActivity.get(basePath) ?? 0;
+      const lastCommit = backgroundAutoSaveLastCommit.get(basePath) ?? 0;
+      if (Date.now() - lastActivity < idleMs - 100) {
+        return;
+      }
+
+      if (lastCommit > 0 && Date.now() - lastCommit < minimumIntervalMs) {
+        return;
+      }
+
+      try {
+        const git = await ensureGitReady(basePath);
+        const result = await git.createSnapshot({
+          auto: true,
+          message: `Auto-save batch: ${formatCommitTimeWindow(new Date(), settings.git.backgroundAutoSaveIntervalMinutes)}`,
+        });
+        if (result.success && result.createdCommit) {
+          backgroundAutoSaveLastCommit.set(basePath, Date.now());
+        }
+      } catch (error) {
+        console.warn('[git] Background auto-save failed', message, error);
+      }
+    })();
+  }, idleMs);
+
+  backgroundAutoSaveTimers.set(basePath, timer);
+}
+
+function formatCommitTimeWindow(now: Date, intervalMinutes: number): string {
+  const start = new Date(now.getTime() - intervalMinutes * 60 * 1000);
+  const fmt = (value: Date) =>
+    `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
+  return `${fmt(start)}-${fmt(now)}`;
+}
+
+async function getWorkspaceHealth(context: IpcContext, basePath: string): Promise<RepoHealth | null> {
+  try {
+    const git = await ensureGitReady(basePath);
+    return git.getHealth();
+  } catch (error) {
+    console.warn('[git] Could not load workspace health', error);
+    return null;
+  }
+}
+
+function buildCloseSyncDetail(
+  createdCommit: boolean,
+  ahead: number,
+  behind: number,
+  health: RepoHealth | null,
+): string {
+  const lines = [
+    createdCommit ? 'An automatic close-time snapshot was created for this session.' : null,
+    ahead > 0 ? `${ahead} local commit${ahead === 1 ? '' : 's'} are ready to push.` : null,
+    behind > 0 ? `${behind} remote update${behind === 1 ? '' : 's'} are waiting to be pulled.` : null,
+    health?.issues[0]?.recovery ?? null,
+  ].filter((line): line is string => Boolean(line));
+
+  return lines.join('\n\n');
+}
+
+function clearQueuedSyncRetry(basePath: string): void {
+  const existing = queuedSyncTimers.get(basePath);
+  if (existing) {
+    clearInterval(existing);
+    queuedSyncTimers.delete(basePath);
+  }
+}
+
+async function retryQueuedSyncForWorkspace(
+  context: IpcContext,
+  basePath: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const git = await ensureGitReady(basePath);
+    const status = await git.getStatus();
+    if (!status.queuedOffline) {
+      clearQueuedSyncRetry(basePath);
+      return;
+    }
+
+    const result = await git.retryQueuedSync();
+    if (result.queuedOffline) {
+      return;
+    }
+
+    clearQueuedSyncRetry(basePath);
+    if (result.success) {
+      await notifyWorkspaceChanged(context, basePath);
+    } else {
+      console.warn('[git] Queued sync retry stopped', reason, result.message, result.error);
+    }
+  } catch (error) {
+    console.warn('[git] Queued sync retry failed', reason, error);
+  }
+}
+
+function scheduleQueuedSyncRetry(context: IpcContext, basePath: string): void {
+  if (queuedSyncTimers.has(basePath)) {
+    return;
+  }
+
+  const timer = setInterval(() => {
+    void retryQueuedSyncForWorkspace(context, basePath, 'retry-timer');
+  }, QUEUED_SYNC_RETRY_INTERVAL_MS);
+  queuedSyncTimers.set(basePath, timer);
+}
+
+async function syncQueuedRetryState(context: IpcContext, basePath: string): Promise<void> {
+  try {
+    const git = await ensureGitReady(basePath);
+    const status = await git.getStatus();
+    if (status.queuedOffline) {
+      scheduleQueuedSyncRetry(context, basePath);
+    } else {
+      clearQueuedSyncRetry(basePath);
+    }
+  } catch (error) {
+    console.warn('[git] Could not refresh queued sync state', error);
+  }
+}
+
+function attachQueuedSyncRecovery(context: IpcContext): void {
+  if (queuedSyncRecoveryAttached) {
+    return;
+  }
+
+  queuedSyncRecoveryAttached = true;
+  powerMonitor.on('resume', () => {
+    const mainWindow = context.getMainWindow();
+    const basePath = cachedSettings?.basePath;
+    if (!basePath || (mainWindow && mainWindow.isDestroyed())) {
+      return;
+    }
+
+    void retryQueuedSyncForWorkspace(context, basePath, 'power-resume');
+  });
+}
+
+async function hasCodeCli(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = spawn('cmd', ['/c', 'where', 'code'], {
+      windowsHide: true,
+      stdio: 'ignore',
+    });
+
+    probe.once('error', () => resolve(false));
+    probe.once('exit', (code) => resolve(code === 0));
+  });
+}
+
+async function launchCodeDiff(oursPath: string, theirsPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn('cmd', ['/c', 'code', '--diff', oursPath, theirsPath], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+
+    let settled = false;
+    child.once('error', () => {
+      if (!settled) {
+        settled = true;
+        resolve(false);
+      }
+    });
+    child.once('spawn', () => {
+      settled = true;
+      child.unref();
+      resolve(true);
+    });
+  });
+}
+
+function attachMainWindowCloseWorkflow(context: IpcContext): void {
+  const mainWindow = context.getMainWindow();
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  if ((mainWindow as BrowserWindow & { __synapseCloseWorkflow?: boolean }).__synapseCloseWorkflow) {
+    return;
+  }
+
+  (mainWindow as BrowserWindow & { __synapseCloseWorkflow?: boolean }).__synapseCloseWorkflow = true;
+
+  mainWindow.on('close', (event) => {
+    if (allowMainWindowClose) {
+      allowMainWindowClose = false;
+      return;
+    }
+
+    if (closeFlowRunning) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    closeFlowRunning = true;
+
+    void (async () => {
+      const window = context.getMainWindow();
+      if (!window) {
+        closeFlowRunning = false;
+        return;
+      }
+
+      try {
+        const settings = await loadSettings(context.appPath, context.userDataPath);
+        if (!settings.gitEnabled) {
+          allowMainWindowClose = true;
+          window.close();
+          return;
+        }
+
+        const git = await ensureGitReady(settings.basePath);
+        let status = await git.getStatus();
+        let createdCommit = false;
+
+        if (settings.git.autoCommitOnClose && status.modified.length > 0) {
+          const snapshot = await Promise.race([
+            git.createSnapshot({ auto: true }),
+            new Promise<SyncResult | null>((resolve) => {
+              setTimeout(() => resolve(null), CLOSE_AUTO_COMMIT_TIMEOUT_MS);
+            }),
+          ]);
+
+          if (!snapshot) {
+            console.warn('[git] Close-time auto-commit exceeded 5 seconds; forcing app shutdown.');
+            allowMainWindowClose = true;
+            window.destroy();
+            return;
+          }
+
+          createdCommit = Boolean(snapshot.createdCommit);
+          status = await git.getStatus();
+        }
+
+        const shouldPromptSync =
+          settings.git.promptSyncOnClose &&
+          !skipCloseSyncPromptForSession &&
+          status.hasRemote &&
+          (status.ahead > 0 || status.behind > 0 || createdCommit);
+
+        if (!shouldPromptSync) {
+          allowMainWindowClose = true;
+          window.close();
+          return;
+        }
+
+        const health = await getWorkspaceHealth(context, settings.basePath);
+        const prompt = await dialog.showMessageBox(window, {
+          type: 'question',
+          buttons: ['Sync Now', 'Later', 'Settings'],
+          defaultId: 0,
+          cancelId: 1,
+          title: 'Sync workspace before closing?',
+          message: 'Sync workspace to GitHub before SYNAPSE closes?',
+          detail: buildCloseSyncDetail(createdCommit, status.ahead, status.behind, health),
+          noLink: true,
+        });
+
+        if (prompt.response === 2) {
+          sendToMainWindow(window, 'open-settings-requested', null);
+          window.focus();
+          return;
+        }
+
+        if (prompt.response === 1) {
+          skipCloseSyncPromptForSession = true;
+          allowMainWindowClose = true;
+          window.close();
+          return;
+        }
+
+        const syncResult = await git.sync();
+        if (!syncResult.success) {
+          if (syncResult.queuedOffline) {
+            scheduleQueuedSyncRetry(context, settings.basePath);
+            allowMainWindowClose = true;
+            window.close();
+            return;
+          }
+
+          const failure = await dialog.showMessageBox(window, {
+            type: 'warning',
+            buttons: ['Review in SYNAPSE', 'Close Anyway'],
+            defaultId: 0,
+            cancelId: 0,
+            title: 'Workspace sync needs attention',
+            message: syncResult.message,
+            detail: [syncResult.error, ...(syncResult.recovery ?? [])]
+              .filter((value): value is string => Boolean(value))
+              .join('\n\n'),
+            noLink: true,
+          });
+
+          if (failure.response === 1) {
+            skipCloseSyncPromptForSession = true;
+            allowMainWindowClose = true;
+            window.close();
+            return;
+          }
+
+          sendToMainWindow(window, 'open-settings-requested', null);
+          window.focus();
+          return;
+        }
+
+        allowMainWindowClose = true;
+        window.close();
+      } catch (error) {
+        console.error('[git] Close workflow failed', error);
+        const windowStillOpen = context.getMainWindow();
+        if (windowStillOpen) {
+          await dialog.showMessageBox(windowStillOpen, {
+            type: 'warning',
+            buttons: ['Review in SYNAPSE'],
+            defaultId: 0,
+            cancelId: 0,
+            title: 'Close workflow interrupted',
+            message: error instanceof Error ? error.message : 'The close-time Git workflow failed.',
+          });
+          sendToMainWindow(windowStillOpen, 'open-settings-requested', null);
+        }
+      } finally {
+        closeFlowRunning = false;
+      }
+    })();
+  });
 }
 
 async function notifyWorkspaceChanged(
@@ -531,19 +951,41 @@ async function notifyWorkspaceChanged(
 export function registerIpcHandlers(context: IpcContext): void {
   void ensureHotDropManager(context);
   context.updateManager.initialize(context.getMainWindow);
+  attachMainWindowCloseWorkflow(context);
+  attachQueuedSyncRecovery(context);
+  void (async () => {
+    const settings = await loadSettings(context.appPath, context.userDataPath);
+    syncRuntimeSettingsFromAppSettings(settings);
+    applyRuntimeSettingsToWindow(context.getMainWindow());
+    if (settings.gitEnabled) {
+      await syncQueuedRetryState(context, settings.basePath);
+    }
+  })();
 
   registerHandle('load-bootstrap', async () => buildBootstrap(context));
 
   registerHandle('load-settings', async () => loadSettings(context.appPath, context.userDataPath));
 
   registerHandle('save-settings', async (_event, settings: AppSettings) =>
-    persistSettings(context.appPath, context.userDataPath, settings),
+    {
+      const saved = await persistSettings(context.appPath, context.userDataPath, settings);
+      syncRuntimeSettingsFromAppSettings(saved);
+      applyRuntimeSettingsToWindow(context.getMainWindow());
+      if (saved.gitEnabled) {
+        const git = await ensureGitReady(saved.basePath);
+        await git.updateDeviceName(saved.git.deviceName);
+        await syncQueuedRetryState(context, saved.basePath);
+      } else {
+        clearQueuedSyncRetry(saved.basePath);
+      }
+      return saved;
+    },
   );
 
   registerHandle('save-tags', async (_event, tags: TagDefinition[]) => {
     const settings = await loadSettings(context.appPath, context.userDataPath);
     const saved = await saveWorkspaceTags(settings.basePath, tags);
-    await maybeAutoCommit(context, settings.basePath, 'Update tags');
+    await scheduleBackgroundAutoSave(context, settings.basePath, 'Update tags');
     return saved;
   });
 
@@ -551,6 +993,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     const settings = await loadSettings(context.appPath, context.userDataPath);
     const rootPath = basePath || settings.basePath;
     await ensureGitReady(rootPath);
+    await syncQueuedRetryState(context, rootPath);
     return buildWorkspaceSnapshot(
       rootPath,
       hotDropManager?.getStatus() ?? {
@@ -564,7 +1007,11 @@ export function registerIpcHandlers(context: IpcContext): void {
   registerHandle('save-page', async (_event, entityPath: string, page: PageLayout) => {
     const validated = PageLayoutSchema.parse(page);
     const saved = await savePageLayout(entityPath, validated);
-    await maybeAutoCommit(context, (await loadSettings(context.appPath, context.userDataPath)).basePath, `Update page layout: ${path.basename(entityPath)}`);
+    await scheduleBackgroundAutoSave(
+      context,
+      (await loadSettings(context.appPath, context.userDataPath)).basePath,
+      `Update page layout: ${path.basename(entityPath)}`,
+    );
     return saved;
   });
 
@@ -572,7 +1019,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     const settings = await loadSettings(context.appPath, context.userDataPath);
     const validated = PageLayoutSchema.parse(page);
     const saved = await saveHomePage(settings.basePath, validated);
-    await maybeAutoCommit(context, settings.basePath, 'Update home page layout');
+    await scheduleBackgroundAutoSave(context, settings.basePath, 'Update home page layout');
     return saved;
   });
 
@@ -581,7 +1028,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     async (_event, entityPath: string, record: KnowledgeRecord) => {
       const validated = KnowledgeRecordSchema.parse(record);
       await saveKnowledgeRecord(entityPath, validated);
-      await maybeAutoCommit(
+      await scheduleBackgroundAutoSave(
         context,
         (await loadSettings(context.appPath, context.userDataPath)).basePath,
         `Update record: ${validated.title}`,
@@ -594,7 +1041,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     'save-practice-bank',
     async (_event, entityPath: string, questions: PracticeQuestion[]) => {
       const saved = await savePracticeQuestions(entityPath, questions);
-      await maybeAutoCommit(
+      await scheduleBackgroundAutoSave(
         context,
         (await loadSettings(context.appPath, context.userDataPath)).basePath,
         `Update practice bank: ${path.basename(entityPath)}`,
@@ -607,7 +1054,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     'save-error-log',
     async (_event, entityPath: string, entries: ErrorEntry[]) => {
       const saved = await saveErrorEntries(entityPath, entries);
-      await maybeAutoCommit(
+      await scheduleBackgroundAutoSave(
         context,
         (await loadSettings(context.appPath, context.userDataPath)).basePath,
         `Update error log: ${path.basename(entityPath)}`,
@@ -619,7 +1066,7 @@ export function registerIpcHandlers(context: IpcContext): void {
   registerHandle('create-entity', async (_event, request: CreateEntityRequest) => {
     const settings = await loadSettings(context.appPath, context.userDataPath);
     await createEntity(settings.basePath, CreateEntityRequestSchema.parse(request), settings);
-    await maybeAutoCommit(context, settings.basePath, `Create entity: ${request.title}`);
+    await scheduleBackgroundAutoSave(context, settings.basePath, `Create entity: ${request.title}`);
     return buildWorkspaceSnapshot(
       settings.basePath,
       hotDropManager?.getStatus() ?? {
@@ -633,7 +1080,11 @@ export function registerIpcHandlers(context: IpcContext): void {
   registerHandle('delete-entity', async (_event, entityPath: string) => {
     const settings = await loadSettings(context.appPath, context.userDataPath);
     await deleteEntityPath(entityPath);
-    await maybeAutoCommit(context, settings.basePath, `Delete entity: ${path.basename(entityPath)}`);
+    await scheduleBackgroundAutoSave(
+      context,
+      settings.basePath,
+      `Delete entity: ${path.basename(entityPath)}`,
+    );
     return buildWorkspaceSnapshot(
       settings.basePath,
       hotDropManager?.getStatus() ?? {
@@ -659,7 +1110,7 @@ export function registerIpcHandlers(context: IpcContext): void {
       CsvImportRequestSchema.parse(request),
       settings,
     );
-    await maybeAutoCommit(context, settings.basePath, `CSV import: ${request.importType}`);
+    await scheduleBackgroundAutoSave(context, settings.basePath, `CSV import: ${request.importType}`);
     return result;
   });
 
@@ -690,12 +1141,17 @@ export function registerIpcHandlers(context: IpcContext): void {
   registerHandle('quick-capture', async (_event, request: QuickCaptureRequest) => {
     const settings = await loadSettings(context.appPath, context.userDataPath);
     const result = await performQuickCapture(QuickCaptureRequestSchema.parse(request));
-    await maybeAutoCommit(context, settings.basePath, `Quick capture into ${path.basename(request.entityPath)}`);
+    await scheduleBackgroundAutoSave(
+      context,
+      settings.basePath,
+      `Quick capture into ${path.basename(request.entityPath)}`,
+    );
     return result;
   });
 
   registerHandle('watch-workspace', async (_event, basePath: string) => {
     await ensureGitReady(basePath);
+    await syncQueuedRetryState(context, basePath);
     await workspaceWatcher?.stop();
     workspaceWatcher = new FileWatcher(basePath, {
       onWorkspaceChanged: () => {
@@ -711,9 +1167,20 @@ export function registerIpcHandlers(context: IpcContext): void {
     return git.getStatus();
   });
 
+  registerHandle('git-health', async (_event, basePath: string) => {
+    const settings = await loadSettings(context.appPath, context.userDataPath);
+    const git = await ensureGitReady(basePath);
+    return git.getHealth(settings.privacy.localOnlyMode);
+  });
+
   registerHandle('git-history', async (_event, basePath: string, entityPath?: string) => {
     const git = await ensureGitReady(basePath);
     return git.getHistory(entityPath);
+  });
+
+  registerHandle('git-branches', async (_event, basePath: string) => {
+    const git = await ensureGitReady(basePath);
+    return git.getBranches();
   });
 
   registerHandle('git-manual-commit', async (_event, basePath: string, message: string) => {
@@ -721,9 +1188,124 @@ export function registerIpcHandlers(context: IpcContext): void {
     return git.manualCommit(message);
   });
 
-  registerHandle('git-sync', async (_event, basePath: string) => {
+  registerHandle('git-snapshot', async (_event, basePath: string, request?: unknown) => {
     const git = await ensureGitReady(basePath);
-    return git.sync();
+    return git.createSnapshot(GitSnapshotRequestSchema.parse(request ?? {}));
+  });
+
+  registerHandle('git-sync', async (_event, basePath: string) => {
+    const settings = await loadSettings(context.appPath, context.userDataPath);
+    if (settings.privacy.localOnlyMode) {
+      return buildLocalOnlySyncResult(
+        'Local-only mode is active, so workspace sync is paused until network access is re-enabled.',
+      );
+    }
+
+    const git = await ensureGitReady(basePath);
+    const result = await git.sync();
+    if (result.queuedOffline) {
+      scheduleQueuedSyncRetry(context, basePath);
+    } else {
+      clearQueuedSyncRetry(basePath);
+    }
+    return result;
+  });
+
+  registerHandle('git-conflicts', async (_event, basePath: string) => {
+    const git = await ensureGitReady(basePath);
+    return git.getConflicts();
+  });
+
+  registerHandle('git-resolve-conflicts', async (_event, basePath: string, request: unknown) => {
+    const git = await ensureGitReady(basePath);
+    const result = await git.resolveConflicts(GitConflictResolutionRequestSchema.parse(request));
+    if (result.success) {
+      await notifyWorkspaceChanged(context, basePath);
+    }
+    return result;
+  });
+
+  registerHandle('git-abort-conflict', async (_event, basePath: string) => {
+    const git = await ensureGitReady(basePath);
+    const result = await git.abortConflict();
+    if (result.success) {
+      await notifyWorkspaceChanged(context, basePath);
+    }
+    return result;
+  });
+
+  registerHandle('git-reset-to-remote', async (_event, basePath: string) => {
+    const git = await ensureGitReady(basePath);
+    const result = await git.resetToRemote();
+    if (result.success) {
+      clearQueuedSyncRetry(basePath);
+      await notifyWorkspaceChanged(context, basePath);
+    }
+    return result;
+  });
+
+  registerHandle('git-launch-external-diff', async (_event, basePath: string, conflictPath: string) => {
+    const git = await ensureGitReady(basePath);
+    const prepared = await git.prepareExternalDiff(conflictPath);
+
+    if (prepared.oursPath && prepared.theirsPath && (await hasCodeCli())) {
+      const launched = await launchCodeDiff(prepared.oursPath, prepared.theirsPath);
+      if (launched) {
+        return {
+          success: true,
+          mode: 'vscode-diff',
+          message: 'Opened the conflicted versions in VS Code diff.',
+          oursPath: prepared.oursPath,
+          theirsPath: prepared.theirsPath,
+        };
+      }
+    }
+
+    const openError = await shell.openPath(prepared.workingPath);
+    if (openError) {
+      return {
+        success: false,
+        mode: 'system-editor',
+        message: 'Could not open the conflicted file in the system editor.',
+        error: openError,
+        openedPath: prepared.workingPath,
+      };
+    }
+
+    return {
+      success: true,
+      mode: 'system-editor',
+      message: 'Opened the conflicted file in the system editor.',
+      openedPath: prepared.workingPath,
+    };
+  });
+
+  registerHandle('git-update-device-name', async (_event, basePath: string, deviceName: string) => {
+    const git = await ensureGitReady(basePath);
+    return git.updateDeviceName(deviceName);
+  });
+
+  registerHandle('git-switch-branch', async (_event, basePath: string, branchName: string) => {
+    const git = await ensureGitReady(basePath);
+    const result = await git.switchBranch(branchName);
+    if (result.success) {
+      await notifyWorkspaceChanged(context, basePath);
+    }
+    return result;
+  });
+
+  registerHandle('git-revert-commit', async (_event, basePath: string, hash: string) => {
+    const git = await ensureGitReady(basePath);
+    const result = await git.revertCommit(hash);
+    if (result.success) {
+      await notifyWorkspaceChanged(context, basePath);
+    }
+    return result;
+  });
+
+  registerHandle('settings-export-config', async () => {
+    const settings = await loadSettings(context.appPath, context.userDataPath);
+    return JSON.stringify(settings, null, 2);
   });
 
   registerHandle('create-backup', async (_event, targetPath: string) => {
@@ -766,6 +1348,12 @@ export function registerIpcHandlers(context: IpcContext): void {
   });
 
   registerHandle('get-update-state', async () => context.updateManager.getState());
-  registerHandle('check-for-updates', async () => context.updateManager.checkForUpdates());
-  registerHandle('install-update', async () => context.updateManager.installUpdate());
+  registerHandle('check-for-updates', async () => {
+    await assertNetworkAccessAllowed(context, 'update checks');
+    return context.updateManager.checkForUpdates();
+  });
+  registerHandle('install-update', async () => {
+    await assertNetworkAccessAllowed(context, 'update installs');
+    return context.updateManager.installUpdate();
+  });
 }

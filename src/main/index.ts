@@ -1,12 +1,55 @@
 import path from 'path';
-import { app, BrowserWindow, nativeTheme, session } from 'electron';
-import { APP_NAME, MODERN_CHROME_USER_AGENT, WINDOW } from '../shared/constants';
+import fs from 'fs';
+import { app, BrowserWindow, nativeTheme, session, type Session } from 'electron';
+import { APP_NAME, DEFAULT_SETTINGS, MODERN_CHROME_USER_AGENT, WINDOW } from '../shared/constants';
+import { AppSettingsSchema } from '../shared/schemas';
 import { registerIpcHandlers } from './ipcHandlers';
+import {
+  applyRuntimeSettingsToWindow,
+  getRuntimeSettings,
+  seedRuntimeSettings,
+  shouldBlockNetworkRequest,
+} from './runtimeSettings';
 import { UpdateManager } from './updateManager';
 
 let mainWindow: BrowserWindow | null = null;
 const updateManager = new UpdateManager();
 let inlineEmbedSessionInstalled = false;
+const patchedSessions = new WeakSet<Session>();
+
+function loadBootstrapRuntimeSettings(): void {
+  try {
+    const configPath = path.join(app.getPath('userData'), 'config.json');
+    if (!fs.existsSync(configPath)) {
+      seedRuntimeSettings({
+        gpuAcceleration: DEFAULT_SETTINGS.lab.gpuAcceleration,
+        embeddedDevtools: DEFAULT_SETTINGS.lab.embeddedDevtools,
+        performanceMode: DEFAULT_SETTINGS.lab.performanceMode,
+        localOnlyMode: DEFAULT_SETTINGS.privacy.localOnlyMode,
+      });
+      return;
+    }
+
+    const raw = fs.readFileSync(configPath, 'utf8');
+    const parsed = AppSettingsSchema.parse({
+      ...DEFAULT_SETTINGS,
+      ...JSON.parse(raw),
+    });
+    seedRuntimeSettings({
+      gpuAcceleration: parsed.lab.gpuAcceleration,
+      embeddedDevtools: parsed.lab.embeddedDevtools,
+      performanceMode: parsed.lab.performanceMode,
+      localOnlyMode: parsed.privacy.localOnlyMode,
+    });
+  } catch {
+    seedRuntimeSettings({
+      gpuAcceleration: DEFAULT_SETTINGS.lab.gpuAcceleration,
+      embeddedDevtools: DEFAULT_SETTINGS.lab.embeddedDevtools,
+      performanceMode: DEFAULT_SETTINGS.lab.performanceMode,
+      localOnlyMode: DEFAULT_SETTINGS.privacy.localOnlyMode,
+    });
+  }
+}
 
 function isBrokenPipeError(value: unknown): value is NodeJS.ErrnoException {
   return value instanceof Error && 'code' in value && value.code === 'EPIPE';
@@ -77,7 +120,7 @@ async function loadRenderer(window: BrowserWindow): Promise<void> {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         await window.loadURL(devServerUrl);
-        window.webContents.openDevTools({ mode: 'detach' });
+        applyRuntimeSettingsToWindow(window);
         return;
       } catch (error) {
         if (attempt === maxAttempts) {
@@ -99,6 +142,7 @@ async function loadRenderer(window: BrowserWindow): Promise<void> {
 
   const indexHtml = path.resolve(__dirname, '../../dist/index.html');
   await window.loadFile(indexHtml);
+  applyRuntimeSettingsToWindow(window);
 }
 
 function sanitizeContentSecurityPolicy(value: string): string {
@@ -120,37 +164,79 @@ function removeHeader(
   }
 }
 
+function sanitizeSecurityHeaders(
+  headers: Record<string, string[] | string | undefined>,
+): Record<string, string[] | string> {
+  const nextHeaders: Record<string, string[] | string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value !== 'undefined') {
+      nextHeaders[key] = value;
+    }
+  }
+  removeHeader(nextHeaders, 'x-frame-options');
+  removeHeader(nextHeaders, 'cross-origin-opener-policy');
+
+  for (const key of Object.keys(nextHeaders)) {
+    const lowered = key.toLowerCase();
+    if (
+      lowered === 'content-security-policy' ||
+      lowered === 'content-security-policy-report-only'
+    ) {
+      const currentValue = nextHeaders[key];
+      const entries = Array.isArray(currentValue) ? currentValue : currentValue ? [currentValue] : [];
+      const sanitized = entries
+        .map((entry) => sanitizeContentSecurityPolicy(entry))
+        .filter((entry) => entry.length > 0);
+
+      if (sanitized.length > 0) {
+        nextHeaders[key] = sanitized;
+      } else {
+        delete nextHeaders[key];
+      }
+    }
+  }
+
+  return nextHeaders;
+}
+
+function installCompatibilityHeaders(targetSession: Session | null | undefined): void {
+  if (!targetSession || patchedSessions.has(targetSession)) {
+    return;
+  }
+
+  patchedSessions.add(targetSession);
+  targetSession.setUserAgent(MODERN_CHROME_USER_AGENT);
+  targetSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+    callback({
+      cancel: shouldBlockNetworkRequest(details.url),
+    });
+  });
+  targetSession.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details, callback) => {
+    callback({
+      cancel: false,
+      requestHeaders: {
+        ...details.requestHeaders,
+        'User-Agent': MODERN_CHROME_USER_AGENT,
+      },
+    });
+  });
+  targetSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
+    callback({
+      cancel: false,
+      responseHeaders: sanitizeSecurityHeaders(details.responseHeaders ?? {}),
+    });
+  });
+}
+
 function installInlineEmbedSession(): void {
   if (inlineEmbedSessionInstalled) {
+    installCompatibilityHeaders(session.defaultSession);
     return;
   }
 
   inlineEmbedSessionInstalled = true;
-  session.defaultSession.setUserAgent(MODERN_CHROME_USER_AGENT);
-  session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
-    const headers = { ...(details.responseHeaders ?? {}) };
-
-    removeHeader(headers, 'x-frame-options');
-    removeHeader(headers, 'cross-origin-opener-policy');
-
-    for (const key of Object.keys(headers)) {
-      if (key.toLowerCase() === 'content-security-policy') {
-        const currentValue = headers[key];
-        const entries = Array.isArray(currentValue) ? currentValue : currentValue ? [currentValue] : [];
-        const sanitized = entries
-          .map((entry) => sanitizeContentSecurityPolicy(entry))
-          .filter((entry) => entry.length > 0);
-
-        if (sanitized.length > 0) {
-          headers[key] = sanitized;
-        } else {
-          delete headers[key];
-        }
-      }
-    }
-
-    callback({ cancel: false, responseHeaders: headers });
-  });
+  app.userAgentFallback = MODERN_CHROME_USER_AGENT;
+  installCompatibilityHeaders(session.defaultSession);
 }
 
 function createWindow(): BrowserWindow {
@@ -172,8 +258,10 @@ function createWindow(): BrowserWindow {
     },
   });
 
+  installCompatibilityHeaders(window.webContents.session);
   window.webContents.setUserAgent(MODERN_CHROME_USER_AGENT);
   void loadRenderer(window);
+  applyRuntimeSettingsToWindow(window);
   window.on('closed', () => {
     if (mainWindow === window) {
       mainWindow = null;
@@ -197,6 +285,11 @@ async function bootstrap(): Promise<void> {
 }
 
 installProcessGuards();
+loadBootstrapRuntimeSettings();
+
+if (!getRuntimeSettings().gpuAcceleration) {
+  app.disableHardwareAcceleration();
+}
 
 app.whenReady().then(bootstrap);
 
