@@ -25,14 +25,14 @@
       "type": "weekly-summary",
       "title": "Weekly Summary",
       "position": {
-        "x": 8,
-        "y": 3,
+        "x": 9,
+        "y": 4,
         "width": 4,
         "height": 3
       },
       "canvas": {
-        "x": 860,
-        "y": 240,
+        "x": 1180,
+        "y": 460,
         "width": 496,
         "height": 368
       },
