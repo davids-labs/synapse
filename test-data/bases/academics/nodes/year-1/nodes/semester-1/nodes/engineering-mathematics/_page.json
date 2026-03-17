@@ -13,8 +13,8 @@
         "height": 6
       },
       "canvas": {
-        "x": 24,
-        "y": 24,
+        "x": -458,
+        "y": 37,
         "width": 496,
         "height": 752
       },
@@ -111,8 +111,21 @@
     "study-mode"
   ],
   "viewport": {
-    "x": 197.64,
-    "y": -46.697500000000005,
-    "zoom": 0.66
+    "x": 371.1035087719297,
+    "y": -10.061787280701736,
+    "zoom": 0.55
+  },
+  "ui": {
+    "detailsOpen": false,
+    "detailSize": "comfortable",
+    "detailSectionOrder": [
+      "mastery",
+      "identity",
+      "templates",
+      "links",
+      "wormholes"
+    ],
+    "hiddenDetailSections": [],
+    "savedViews": []
   }
 }

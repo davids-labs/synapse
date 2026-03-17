@@ -82,26 +82,46 @@
       "type": "goal-tracker",
       "title": "Macro Goals",
       "position": {
-        "x": 5,
+        "x": 9,
         "y": 5,
         "width": 4,
         "height": 4
       },
       "canvas": {
-        "x": 536,
-        "y": 536,
+        "x": 1440,
+        "y": 592,
         "width": 496,
         "height": 496
       },
       "config": {}
+    },
+    {
+      "id": "web-embed-1773740127024-5",
+      "type": "web-embed",
+      "title": "Web Embed",
+      "position": {
+        "x": 8,
+        "y": 5,
+        "width": 5,
+        "height": 5
+      },
+      "canvas": {
+        "x": 920,
+        "y": 536,
+        "width": 624,
+        "height": 624
+      },
+      "config": {
+        "src": "https://www.youtube.com"
+      }
     }
   ],
   "templates": [
     "home-default"
   ],
   "viewport": {
-    "x": 240.50312499999995,
-    "y": -442.0341268247706,
+    "x": 122.50312500000001,
+    "y": -361.0341268247706,
     "zoom": 0.55
   },
   "ui": {
