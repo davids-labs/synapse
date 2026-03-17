@@ -7,14 +7,14 @@
       "type": "practice-bank",
       "title": "Exam Practice",
       "position": {
-        "x": 7,
-        "y": 3,
+        "x": 8,
+        "y": 5,
         "width": 5,
         "height": 7
       },
       "canvas": {
-        "x": 820,
-        "y": 300,
+        "x": 1120,
+        "y": 500,
         "width": 624,
         "height": 880
       },
