@@ -1,0 +1,1679 @@
+# SYNAPSE Module Library
+## Complete Exhaustive List
+
+**Total Modules: 75+**  
+**Organized by Category**  
+**Each with: Purpose, How It Works, Data Source**
+
+---
+
+## Category 1: Content Viewers (12 modules)
+
+### 1.1 PDF Viewer
+**Purpose:** Read and navigate PDF files  
+**How it works:**
+- Points to a PDF file in the node folder
+- Renders with react-pdf library
+- Controls: page navigation, zoom in/out, search text
+- Remembers last viewed page
+- Thumbnail sidebar for quick navigation
+- Can highlight and annotate (saves to separate JSON file)
+
+**Data:**
+```
+Config: { filepath: "./lecture-notes.pdf" }
+State: { currentPage: 5, zoom: 1.2, highlights: [...] }
+```
+
+---
+
+### 1.2 Image Gallery
+**Purpose:** Display collection of images (PNG, JPG, etc.)  
+**How it works:**
+- Points to a folder with images
+- Grid layout (2, 3, or 4 columns)
+- Click image → opens lightbox (full screen view)
+- Navigation arrows in lightbox
+- Zoom and pan in lightbox
+- Sort by: name, date, size
+- Filter by: file type, date range
+
+**Data:**
+```
+Config: { folder: "./media", columns: 3, sortBy: "date" }
+Reads: All .png, .jpg, .jpeg, .gif, .webp files in folder
+```
+
+---
+
+### 1.3 Handwriting Gallery
+**Purpose:** Specialized viewer for handwritten notes (Tab S10 exports)  
+**How it works:**
+- Same as Image Gallery but optimized for handwriting
+- Comparison mode: view 2 images side-by-side
+- OCR button (future): convert handwriting to text
+- Tag images: "lecture-1", "problem-set-2", etc.
+- Auto-sort by date (newest first)
+
+**Data:**
+```
+Config: { folder: "./handwriting", compareMode: false }
+Metadata: { tags: ["lecture-3", "derivatives"] }
+```
+
+---
+
+### 1.4 Video Player
+**Purpose:** Play video files or embedded videos  
+**How it works:**
+- Points to local video file or YouTube URL
+- Standard video controls (play, pause, seek, volume)
+- Playback speed control (0.5x, 1x, 1.5x, 2x)
+- Timestamp bookmarks: save important moments
+- Fullscreen mode
+- Loop option
+
+**Data:**
+```
+Config: { 
+  source: "./demo-video.mp4" | "https://youtube.com/watch?v=...",
+  bookmarks: [
+    { time: 125, label: "Key derivation" },
+    { time: 340, label: "Example problem" }
+  ]
+}
+```
+
+---
+
+### 1.5 Audio Player
+**Purpose:** Play audio files (lectures, podcasts, voice notes)  
+**How it works:**
+- Points to audio file (.mp3, .wav, .m4a)
+- Waveform visualization
+- Playback controls
+- Speed control
+- Timestamp markers
+- Loop sections
+
+**Data:**
+```
+Config: { filepath: "./lecture-recording.mp3" }
+State: { currentTime: 325, playbackRate: 1.5 }
+```
+
+---
+
+### 1.6 Markdown Viewer
+**Purpose:** Render Markdown files as formatted HTML  
+**How it works:**
+- Points to .md file
+- Renders with react-markdown + plugins
+- Supports: headings, lists, code blocks, tables, LaTeX math
+- Syntax highlighting for code
+- Internal links to other nodes
+- Can toggle between rendered and raw view
+
+**Data:**
+```
+Config: { filepath: "./notes.md", renderMode: "formatted" }
+Renders: Markdown → HTML
+```
+
+---
+
+### 1.7 Markdown Editor
+**Purpose:** Write and edit Markdown files  
+**How it works:**
+- Monaco Editor (VS Code engine) or CodeMirror
+- Live preview (split view: editor | preview)
+- Syntax highlighting for Markdown
+- Keyboard shortcuts (Ctrl+B for bold, etc.)
+- Auto-save on change (debounced)
+- Word count, character count
+- LaTeX math support: $inline$ and $$block$$
+
+**Data:**
+```
+Config: { filepath: "./my-notes.md", autoSave: true }
+Writes: Updates .md file on change
+```
+
+---
+
+### 1.8 Rich Text Editor
+**Purpose:** WYSIWYG editor (like Notion, Google Docs)  
+**How it works:**
+- TipTap or Slate.js editor
+- Toolbar: bold, italic, underline, lists, headings
+- Supports: images, links, tables, code blocks
+- Saves to HTML or JSON format
+- No Markdown syntax needed
+
+**Data:**
+```
+Config: { filepath: "./notes.html" }
+Writes: HTML or JSON structure
+```
+
+---
+
+### 1.9 Code Viewer
+**Purpose:** Display code files with syntax highlighting  
+**How it works:**
+- Points to code file (.js, .py, .cpp, etc.)
+- Prism.js or Monaco for syntax highlighting
+- Line numbers
+- Copy button
+- Language auto-detection
+- Read-only (use Code Editor for editing)
+
+**Data:**
+```
+Config: { filepath: "./script.py", language: "python" }
+Reads: File content, applies syntax highlighting
+```
+
+---
+
+### 1.10 Code Editor
+**Purpose:** Edit code files  
+**How it works:**
+- Monaco Editor (full VS Code experience)
+- IntelliSense (autocomplete)
+- Syntax highlighting
+- Error detection (linting)
+- Auto-save
+- Multi-file support (tabs)
+
+**Data:**
+```
+Config: { folder: "./code", openFiles: ["main.py", "utils.py"] }
+Writes: Updates files on save
+```
+
+---
+
+### 1.11 Web Embed (iFrame)
+**Purpose:** Embed external websites or apps  
+**How it works:**
+- iFrame pointing to URL
+- Sandbox for security
+- Useful for: Desmos, GeoGebra, online tools
+- Can't embed sites that block iframes (security)
+
+**Data:**
+```
+Config: { url: "https://www.desmos.com/calculator" }
+Renders: iFrame with URL
+```
+
+---
+
+### 1.12 File Browser
+**Purpose:** Navigate and manage files in node folder  
+**How it works:**
+- Tree view of node's file structure
+- Click file → preview or open
+- Actions: rename, delete, move, copy
+- Upload new files (drag & drop)
+- Create new folders
+- Shows file sizes, dates
+
+**Data:**
+```
+Config: { rootFolder: "./" }
+Reads: File system structure dynamically
+```
+
+---
+
+## Category 2: Trackers & Progress (15 modules)
+
+### 2.1 Practice Bank
+**Purpose:** Manage practice questions/problems  
+**How it works:**
+- Table view: columns = Question, Type, Difficulty, Status
+- Each row = one practice question
+- Check box to mark complete
+- Attempts counter (how many times tried)
+- Last attempt date
+- Filter by: difficulty, type, status
+- Sort by: date, difficulty, completion
+- CSV import/export
+- Progress bar: X/Y completed
+
+**Data:**
+```json
+// practice-questions.csv or .json
+[
+  {
+    "id": "q-001",
+    "question": "Calculate Carnot efficiency",
+    "type": "calculation",
+    "difficulty": "medium",
+    "source": "Lecture 3",
+    "attempts": 2,
+    "correct": true,
+    "lastAttempt": "2025-03-15",
+    "tags": ["carnot", "efficiency"]
+  }
+]
+```
+
+---
+
+### 2.2 Error Log
+**Purpose:** Track mistakes and corrections  
+**How it works:**
+- List of error entries
+- Each entry: Question, What went wrong, Correction, Concept gap
+- Link to practice question (if applicable)
+- Mark as resolved (checkbox)
+- Filter: active errors vs resolved
+- Common mistakes summary (which concepts appear most)
+
+**Data:**
+```json
+// errors.json
+[
+  {
+    "id": "err-001",
+    "questionId": "q-015",
+    "mistake": "Used T instead of ΔT",
+    "correction": "Efficiency = 1 - (T_cold / T_hot)",
+    "conceptGap": "Formula memorization",
+    "resolved": false,
+    "date": "2025-03-14"
+  }
+]
+```
+
+---
+
+### 2.3 Time Tracker
+**Purpose:** Log time spent on tasks  
+**How it works:**
+- Start/stop timer button
+- Manual time entry (add past sessions)
+- List of sessions: Date, Duration, Notes
+- Total time summary
+- Breakdown by day/week/month
+- Export to CSV
+
+**Data:**
+```json
+// time-log.json
+[
+  {
+    "id": "session-001",
+    "start": "2025-03-15T14:00:00",
+    "end": "2025-03-15T16:30:00",
+    "duration": 150,  // minutes
+    "notes": "Practice problems"
+  }
+]
+```
+
+---
+
+### 2.4 Progress Bar
+**Purpose:** Visual progress indicator  
+**How it works:**
+- Simple bar showing X/Y completion
+- Configurable: what counts as progress?
+  - Files created
+  - Practice completed
+  - Custom counter
+- Shows percentage
+- Color changes based on progress (red → yellow → green)
+
+**Data:**
+```
+Config: { 
+  source: "practice-bank",
+  target: 50,
+  current: 32
+}
+Display: 32/50 (64%) [████████░░]
+```
+
+---
+
+### 2.5 Streak Tracker
+**Purpose:** Track consecutive days of work  
+**How it works:**
+- Counts days with activity
+- Resets if you skip a day
+- Shows current streak, longest streak
+- Calendar heat map (GitHub-style)
+- Motivational: "Don't break the streak!"
+
+**Data:**
+```json
+// streak.json
+{
+  "currentStreak": 15,
+  "longestStreak": 23,
+  "lastActive": "2025-03-15",
+  "history": {
+    "2025-03-15": 2.5,  // hours
+    "2025-03-14": 1.8
+  }
+}
+```
+
+---
+
+### 2.6 Checklist
+**Purpose:** Simple to-do list  
+**How it works:**
+- List of items with checkboxes
+- Add/remove items
+- Mark complete (strikethrough)
+- Reorder by drag-and-drop
+- Show completed items (toggle)
+- Progress: X/Y completed
+
+**Data:**
+```json
+// checklist.json
+[
+  { "id": "task-1", "text": "Review lecture notes", "done": true },
+  { "id": "task-2", "text": "Complete practice set 3", "done": false }
+]
+```
+
+---
+
+### 2.7 Table
+**Purpose:** Generic data table  
+**How it works:**
+- Define columns (name, type)
+- Add rows of data
+- Edit cells inline
+- Sort by column
+- Filter rows
+- Export to CSV
+- Import from CSV
+
+**Data:**
+```json
+// table-data.json
+{
+  "columns": [
+    { "key": "name", "label": "Name", "type": "text" },
+    { "key": "value", "label": "Value", "type": "number" }
+  ],
+  "rows": [
+    { "id": "row-1", "name": "Height", "value": 175 }
+  ]
+}
+```
+
+---
+
+### 2.8 Form
+**Purpose:** Structured data entry  
+**How it works:**
+- Define fields (text, number, date, select, etc.)
+- Fill out form
+- Submit → saves to JSON
+- Can create multiple entries (like a database)
+- View all submissions as table
+
+**Data:**
+```json
+// form-config.json
+{
+  "fields": [
+    { "name": "topic", "type": "text", "required": true },
+    { "name": "difficulty", "type": "select", "options": ["easy", "medium", "hard"] }
+  ]
+}
+
+// form-submissions.json
+[
+  { "id": "sub-1", "topic": "Carnot Cycle", "difficulty": "hard", "date": "2025-03-15" }
+]
+```
+
+---
+
+### 2.9 Counter
+**Purpose:** Simple number counter  
+**How it works:**
+- Display a number
+- +/- buttons to increment/decrement
+- Reset button
+- Label (what you're counting)
+- Useful for: pages read, problems solved, etc.
+
+**Data:**
+```json
+// counter.json
+{ "label": "Problems Solved", "value": 47 }
+```
+
+---
+
+### 2.10 Calendar
+**Purpose:** Date-based view of events/tasks  
+**How it works:**
+- Month view calendar
+- Click date → add event
+- Events have: title, time, notes
+- Color coding by type
+- Sync with practice deadlines, exams
+
+**Data:**
+```json
+// calendar-events.json
+[
+  {
+    "id": "evt-1",
+    "date": "2025-03-20",
+    "title": "Thermodynamics Midterm",
+    "type": "exam",
+    "notes": "Chapters 1-5"
+  }
+]
+```
+
+---
+
+### 2.11 Habit Tracker
+**Purpose:** Track daily habits  
+**How it works:**
+- List of habits
+- For each day: check if done
+- Heat map visualization (like GitHub)
+- Streak counter per habit
+- Completion percentage
+
+**Data:**
+```json
+// habits.json
+{
+  "habits": [
+    { "id": "h1", "name": "Study 2 hours", "target": "daily" }
+  ],
+  "log": {
+    "2025-03-15": ["h1"],
+    "2025-03-14": ["h1"]
+  }
+}
+```
+
+---
+
+### 2.12 Goal Tracker
+**Purpose:** Track progress toward goals  
+**How it works:**
+- Define goal: name, target, deadline
+- Update progress manually or auto (linked to other modules)
+- Progress bar
+- Days remaining countdown
+- Milestone markers
+
+**Data:**
+```json
+// goals.json
+[
+  {
+    "id": "g1",
+    "title": "Master Thermodynamics",
+    "target": 100,
+    "current": 67,
+    "unit": "percent",
+    "deadline": "2025-05-20"
+  }
+]
+```
+
+---
+
+### 2.13 Stopwatch
+**Purpose:** Measure time intervals  
+**How it works:**
+- Start/stop/reset buttons
+- Displays elapsed time (MM:SS)
+- Lap times (record splits)
+- Useful for: timed practice, pomodoro
+
+**Data:**
+```
+State only (not persisted):
+{ running: true, elapsed: 325, laps: [120, 205] }
+```
+
+---
+
+### 2.14 Countdown Timer
+**Purpose:** Count down to event/deadline  
+**How it works:**
+- Set target date/time
+- Displays: X days, Y hours, Z minutes remaining
+- Alert when time's up
+- Multiple countdowns
+
+**Data:**
+```json
+// countdowns.json
+[
+  {
+    "id": "cd1",
+    "label": "Thermodynamics Exam",
+    "target": "2025-05-20T09:00:00"
+  }
+]
+```
+
+---
+
+### 2.15 Reading List
+**Purpose:** Track books/articles to read  
+**How it works:**
+- List of items: Title, Author, Type, Status
+- Status: To Read, Reading, Completed
+- Notes field
+- Progress tracker (page X of Y)
+- Rating (1-5 stars)
+
+**Data:**
+```json
+// reading-list.json
+[
+  {
+    "id": "book1",
+    "title": "Thermodynamics: An Engineering Approach",
+    "author": "Cengel & Boles",
+    "status": "reading",
+    "currentPage": 234,
+    "totalPages": 800,
+    "notes": "Chapter 5 is crucial"
+  }
+]
+```
+
+---
+
+## Category 3: Organization (10 modules)
+
+### 3.1 Kanban Board
+**Purpose:** Task management (To Do / In Progress / Done)  
+**How it works:**
+- Columns (customizable names)
+- Cards (tasks) in columns
+- Drag cards between columns
+- Each card: title, description, tags, due date
+- Add/edit/delete cards
+- Add/remove columns
+- Archive completed cards
+
+**Data:**
+```json
+// kanban.json
+{
+  "columns": [
+    {
+      "id": "col1",
+      "title": "To Do",
+      "cards": [
+        { "id": "card1", "title": "Review Chapter 3", "tags": ["study"] }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### 3.2 Timeline
+**Purpose:** Chronological view of events  
+**How it works:**
+- Horizontal timeline
+- Events plotted on date axis
+- Zoom in/out (week, month, year view)
+- Click event → details
+- Color code by type
+- Useful for: project milestones, study schedule
+
+**Data:**
+```json
+// timeline.json
+[
+  {
+    "id": "evt1",
+    "date": "2025-03-15",
+    "title": "Started Thermodynamics",
+    "type": "milestone"
+  }
+]
+```
+
+---
+
+### 3.3 Mind Map
+**Purpose:** Visual idea organization  
+**How it works:**
+- Central node (topic)
+- Branch nodes (subtopics)
+- Drag to reposition
+- Add/remove nodes
+- Connect with lines
+- Zoom and pan
+- Export as image
+
+**Data:**
+```json
+// mindmap.json
+{
+  "root": {
+    "id": "root",
+    "text": "Thermodynamics",
+    "children": [
+      { "id": "n1", "text": "Laws", "children": [...] }
+    ]
+  }
+}
+```
+
+---
+
+### 3.4 Outline / Tree View
+**Purpose:** Hierarchical list  
+**How it works:**
+- Nested bullet points
+- Collapse/expand sections
+- Indent/outdent with Tab/Shift+Tab
+- Drag to reorder
+- Useful for: notes structure, course outline
+
+**Data:**
+```json
+// outline.json
+[
+  {
+    "id": "item1",
+    "text": "Chapter 1: Introduction",
+    "children": [
+      { "id": "item2", "text": "1.1 Basic Concepts" }
+    ]
+  }
+]
+```
+
+---
+
+### 3.5 Bookmark List
+**Purpose:** Collection of links  
+**How it works:**
+- List of URLs with titles
+- Click → opens in browser
+- Categories/tags
+- Search/filter
+- Import from browser bookmarks
+- Export to HTML
+
+**Data:**
+```json
+// bookmarks.json
+[
+  {
+    "id": "bm1",
+    "title": "Khan Academy - Thermodynamics",
+    "url": "https://...",
+    "tags": ["video", "reference"]
+  }
+]
+```
+
+---
+
+### 3.6 Tag Cloud
+**Purpose:** Visual tag browser  
+**How it works:**
+- Shows all tags used in current node
+- Size = frequency (more uses = bigger)
+- Click tag → filter/search by that tag
+- Useful for: seeing common themes
+
+**Data:**
+```
+Generated from: All tags across practice, files, etc.
+Display: Interactive word cloud
+```
+
+---
+
+### 3.7 Graph View (Mini)
+**Purpose:** Local knowledge graph  
+**How it works:**
+- Shows current node + connected nodes
+- Prerequisites (incoming links)
+- Unlocks (outgoing links)
+- Wormholes (cross-base links)
+- Click node → navigate there
+- Smaller version of main graph
+
+**Data:**
+```
+Generated from:
+- Node prerequisites
+- Node unlocks
+- Wormholes involving this node
+```
+
+---
+
+### 3.8 Breadcrumb Navigator
+**Purpose:** Show current location path  
+**How it works:**
+- Home > Base > Parent > Current
+- Click any segment → navigate there
+- Compressed view if too long
+- Always visible
+
+**Data:**
+```
+Generated from: Current node's path
+```
+
+---
+
+### 3.9 Quick Links
+**Purpose:** Shortcuts to other nodes/files  
+**How it works:**
+- List of links (internal or external)
+- Click → navigate to node or open URL
+- Drag to reorder
+- Icons for different types
+
+**Data:**
+```json
+// quicklinks.json
+[
+  { "id": "ql1", "label": "Laws of Thermo", "target": "node://thermo-laws" },
+  { "id": "ql2", "label": "Textbook PDF", "target": "file://textbook.pdf" }
+]
+```
+
+---
+
+### 3.10 File Organizer
+**Purpose:** Auto-organize files by type  
+**How it works:**
+- Scans node folder
+- Groups files by extension (.pdf, .png, .md)
+- Shows file count per type
+- Quick access to each group
+- Can move files between folders
+
+**Data:**
+```
+Generated: Scans file system
+Display: PDFs (5), Images (23), Notes (3), etc.
+```
+
+---
+
+## Category 4: Math & Science (8 modules)
+
+### 4.1 Formula Vault
+**Purpose:** Collection of equations  
+**How it works:**
+- Table: Name, Formula (LaTeX), Variables, Description
+- Renders LaTeX beautifully
+- Search formulas
+- Filter by tag
+- Copy formula to clipboard
+- Variable definitions expandable
+
+**Data:**
+```json
+// formulas.json
+[
+  {
+    "id": "f1",
+    "name": "Carnot Efficiency",
+    "formula": "\\eta = 1 - \\frac{T_C}{T_H}",
+    "variables": [
+      { "symbol": "T_C", "desc": "Cold temp", "unit": "K" }
+    ],
+    "tags": ["carnot", "efficiency"]
+  }
+]
+```
+
+---
+
+### 4.2 Calculator
+**Purpose:** Basic and scientific calculations  
+**How it works:**
+- Number pad + operations
+- Scientific functions (sin, cos, log, etc.)
+- Unit conversion
+- History of calculations
+- Can save results
+
+**Data:**
+```
+State: Current calculation, history
+```
+
+---
+
+### 4.3 Graph Plotter
+**Purpose:** Plot mathematical functions  
+**How it works:**
+- Input: f(x) = x^2 - 3x + 2
+- Renders graph on coordinate plane
+- Zoom, pan
+- Multiple functions on same plot
+- Export as image
+- Uses: Desmos-like functionality
+
+**Data:**
+```json
+// plots.json
+[
+  { "id": "p1", "function": "x^2", "color": "#3B82F6", "range": [-10, 10] }
+]
+```
+
+---
+
+### 4.4 Unit Converter
+**Purpose:** Convert between units  
+**How it works:**
+- Categories: Length, Mass, Temperature, Pressure, etc.
+- Input value + unit
+- Select target unit
+- Instantly shows conversion
+- Common conversions saved
+
+**Data:**
+```
+State only: Current conversion
+```
+
+---
+
+### 4.5 Periodic Table
+**Purpose:** Interactive element reference  
+**How it works:**
+- Full periodic table grid
+- Click element → shows properties
+- Color code by: category, state, electronegativity
+- Search by name or symbol
+- Useful for chemistry courses
+
+**Data:**
+```
+Built-in: Element data (static JSON)
+```
+
+---
+
+### 4.6 Equation Solver
+**Purpose:** Solve algebraic equations  
+**How it works:**
+- Input: 2x + 5 = 13
+- Solves for x
+- Shows step-by-step solution
+- Handles: linear, quadratic, systems
+- Uses: math.js library
+
+**Data:**
+```
+State: Current equation, solution
+```
+
+---
+
+### 4.7 Matrix Calculator
+**Purpose:** Matrix operations  
+**How it works:**
+- Input matrices (grid interface)
+- Operations: add, multiply, inverse, determinant
+- Shows result matrix
+- Useful for: linear algebra
+
+**Data:**
+```
+State: Current matrices, operation, result
+```
+
+---
+
+### 4.8 Chemistry Balancer
+**Purpose:** Balance chemical equations  
+**How it works:**
+- Input: H2 + O2 → H2O
+- Balances: 2H2 + O2 → 2H2O
+- Shows stoichiometry
+- Molecular mass calculations
+
+**Data:**
+```
+State: Current equation, balanced result
+```
+
+---
+
+## Category 5: Visualization & Analytics (10 modules)
+
+### 5.1 Bar Chart
+**Purpose:** Compare values across categories  
+**How it works:**
+- Data source: CSV, JSON, or manual entry
+- X-axis: categories (e.g., topics)
+- Y-axis: values (e.g., mastery scores)
+- Hover → shows exact value
+- Export as image
+
+**Data:**
+```json
+// chart-data.json
+{
+  "type": "bar",
+  "data": [
+    { "label": "Thermodynamics", "value": 78 },
+    { "label": "Calculus", "value": 92 }
+  ]
+}
+```
+
+---
+
+### 5.2 Line Chart
+**Purpose:** Show trends over time  
+**How it works:**
+- X-axis: time (dates)
+- Y-axis: value
+- Multiple lines (different metrics)
+- Useful for: mastery over time, study hours per week
+
+**Data:**
+```json
+{
+  "type": "line",
+  "data": [
+    { "date": "2025-03-01", "value": 45 },
+    { "date": "2025-03-08", "value": 62 }
+  ]
+}
+```
+
+---
+
+### 5.3 Pie Chart
+**Purpose:** Show proportions  
+**How it works:**
+- Slices = percentage of total
+- Hover → shows percentage
+- Useful for: time distribution, topic coverage
+
+**Data:**
+```json
+{
+  "type": "pie",
+  "data": [
+    { "label": "Study", "value": 60 },
+    { "label": "Projects", "value": 30 },
+    { "label": "Other", "value": 10 }
+  ]
+}
+```
+
+---
+
+### 5.4 Scatter Plot
+**Purpose:** Show correlation between variables  
+**How it works:**
+- X-axis: one variable (e.g., study time)
+- Y-axis: another variable (e.g., test score)
+- Each point = one data entry
+- Trendline option
+
+**Data:**
+```json
+{
+  "type": "scatter",
+  "data": [
+    { "x": 5, "y": 75 },   // 5 hours → 75% score
+    { "x": 8, "y": 88 }
+  ]
+}
+```
+
+---
+
+### 5.5 Heatmap
+**Purpose:** Activity over time (GitHub-style)  
+**How it works:**
+- Grid: days × weeks
+- Color intensity = activity level
+- Hover → shows exact count
+- Useful for: study consistency, habit tracking
+
+**Data:**
+```json
+{
+  "type": "heatmap",
+  "data": {
+    "2025-03-15": 2.5,  // hours
+    "2025-03-14": 1.8
+  }
+}
+```
+
+---
+
+### 5.6 Progress Chart
+**Purpose:** Multiple progress bars  
+**How it works:**
+- List of items with progress
+- Each row: name + progress bar + percentage
+- Sort by progress
+- Color code (red → green)
+
+**Data:**
+```json
+{
+  "items": [
+    { "name": "Thermodynamics", "progress": 78, "total": 100 },
+    { "name": "Calculus", "progress": 45, "total": 50 }
+  ]
+}
+```
+
+---
+
+### 5.7 Analytics Dashboard
+**Purpose:** Overview of multiple metrics  
+**How it works:**
+- Grid of stat cards
+- Each card: metric name, value, change
+- Cards: Total nodes, Avg mastery, Study hours, Weak spots
+- Configurable which metrics to show
+
+**Data:**
+```
+Generated from:
+- Node count, mastery scores
+- Time logs
+- Practice completion
+```
+
+---
+
+### 5.8 Statistics Summary
+**Purpose:** Statistical analysis of data  
+**How it works:**
+- Input: array of numbers
+- Outputs: mean, median, mode, std dev, min, max
+- Useful for: analyzing test scores, study hours
+
+**Data:**
+```
+Input: [75, 82, 90, 78, 85]
+Output: Mean: 82, Median: 82, StdDev: 5.4
+```
+
+---
+
+### 5.9 Gantt Chart
+**Purpose:** Project timeline with dependencies  
+**How it works:**
+- Horizontal bars = tasks
+- Length = duration
+- Dependencies shown as arrows
+- Useful for: project planning, study schedule
+
+**Data:**
+```json
+{
+  "tasks": [
+    {
+      "id": "t1",
+      "name": "Review Chapter 1",
+      "start": "2025-03-15",
+      "duration": 3,
+      "dependencies": []
+    }
+  ]
+}
+```
+
+---
+
+### 5.10 Comparison Table
+**Purpose:** Side-by-side comparison  
+**How it works:**
+- Rows = features/attributes
+- Columns = items being compared
+- Checkmarks, text, numbers in cells
+- Useful for: comparing concepts, methods
+
+**Data:**
+```json
+{
+  "rows": ["Efficiency", "Complexity", "Cost"],
+  "columns": ["Method A", "Method B"],
+  "cells": {
+    "0-0": "High",
+    "0-1": "Medium"
+  }
+}
+```
+
+---
+
+## Category 6: Learning Tools (8 modules)
+
+### 6.1 Flashcard Deck
+**Purpose:** Spaced repetition learning  
+**How it works:**
+- Cards have: front (question), back (answer)
+- Study mode: flip card to reveal answer
+- Mark: Easy, Medium, Hard
+- Scheduling based on difficulty (spaced repetition algorithm)
+- Progress tracking
+
+**Data:**
+```json
+// flashcards.json
+[
+  {
+    "id": "card1",
+    "front": "What is Carnot efficiency?",
+    "back": "η = 1 - (T_C / T_H)",
+    "nextReview": "2025-03-16",
+    "interval": 3  // days
+  }
+]
+```
+
+---
+
+### 6.2 Quiz Maker
+**Purpose:** Create and take quizzes  
+**How it works:**
+- Question types: multiple choice, true/false, short answer
+- Create quiz → take quiz → see score
+- Timed mode (optional)
+- Randomize question order
+- Explanations for answers
+
+**Data:**
+```json
+// quiz.json
+{
+  "title": "Thermodynamics Quiz 1",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "question": "Which law...",
+      "options": ["First", "Second", "Third"],
+      "correct": 1,
+      "explanation": "The second law states..."
+    }
+  ]
+}
+```
+
+---
+
+### 6.3 Definition Cards
+**Purpose:** Glossary of terms  
+**How it works:**
+- Term + Definition pairs
+- Optional: example, related terms
+- Search/filter
+- Alphabetical index
+- Useful for: vocabulary, concepts
+
+**Data:**
+```json
+// definitions.json
+[
+  {
+    "id": "def1",
+    "term": "Entropy",
+    "definition": "A measure of disorder in a system",
+    "example": "Ice melting increases entropy",
+    "related": ["Enthalpy", "Second Law"]
+  }
+]
+```
+
+---
+
+### 6.4 Cornell Notes
+**Purpose:** Structured note-taking format  
+**How it works:**
+- Three sections: Cues (left), Notes (right), Summary (bottom)
+- Cues: keywords, questions
+- Notes: main content
+- Summary: recap at end
+- Template layout enforced
+
+**Data:**
+```json
+// cornell-notes.json
+{
+  "cues": ["Carnot Cycle", "Efficiency"],
+  "notes": "Main notes go here...",
+  "summary": "Key takeaway: efficiency depends on temp difference"
+}
+```
+
+---
+
+### 6.5 Citation Manager
+**Purpose:** Track sources and generate citations  
+**How it works:**
+- Add sources: book, article, website, etc.
+- Fields: author, title, year, URL
+- Generate citation (APA, MLA, Chicago)
+- Copy to clipboard
+- Export bibliography
+
+**Data:**
+```json
+// citations.json
+[
+  {
+    "id": "cite1",
+    "type": "book",
+    "author": "Cengel, Y.A.",
+    "title": "Thermodynamics",
+    "year": 2015,
+    "publisher": "McGraw-Hill"
+  }
+]
+```
+
+---
+
+### 6.6 Concept Map
+**Purpose:** Visual concept connections  
+**How it works:**
+- Similar to mind map but more structured
+- Concepts in boxes
+- Labeled arrows showing relationships
+- Useful for: understanding how concepts connect
+
+**Data:**
+```json
+{
+  "nodes": [
+    { "id": "n1", "text": "Heat" },
+    { "id": "n2", "text": "Temperature" }
+  ],
+  "links": [
+    { "from": "n1", "to": "n2", "label": "increases" }
+  ]
+}
+```
+
+---
+
+### 6.7 Feynman Technique
+**Purpose:** Explain concept in simple terms  
+**How it works:**
+- 4-step process:
+  1. Choose concept
+  2. Explain it simply (write here)
+  3. Identify gaps (what you couldn't explain)
+  4. Review and simplify
+- Text editor for each step
+- Useful for: deep understanding
+
+**Data:**
+```json
+{
+  "concept": "Carnot Cycle",
+  "explanation": "It's a theoretical...",
+  "gaps": ["Still confused about isothermal expansion"],
+  "simplified": "Final simple explanation"
+}
+```
+
+---
+
+### 6.8 Study Guide Generator
+**Purpose:** Create study guide from notes  
+**How it works:**
+- Scans notes in node
+- Extracts: headings, formulas, key terms
+- Generates formatted study guide
+- Can edit generated guide
+- Export as PDF
+
+**Data:**
+```
+Input: notes.md files in node
+Output: study-guide.md
+```
+
+---
+
+## Category 7: Creative & Visual (6 modules)
+
+### 7.1 Whiteboard / Canvas
+**Purpose:** Free-form drawing and diagramming  
+**How it works:**
+- Infinite canvas
+- Tools: pen, highlighter, shapes, text, images
+- Zoom and pan
+- Export as PNG
+- Useful for: brainstorming, diagrams, sketches
+
+**Data:**
+```json
+// canvas.json
+{
+  "objects": [
+    { "type": "path", "points": [...], "color": "#000" },
+    { "type": "text", "x": 100, "y": 200, "content": "Hello" }
+  ]
+}
+```
+
+---
+
+### 7.2 Screenshot Annotator
+**Purpose:** Mark up images  
+**How it works:**
+- Load image
+- Draw: arrows, boxes, text, highlights
+- Save annotated version
+- Useful for: marking diagrams, highlighting errors
+
+**Data:**
+```
+Input: original image
+Output: annotated image (new file)
+Annotations: stored in JSON
+```
+
+---
+
+### 7.3 Color Palette
+**Purpose:** Color reference for design/art  
+**How it works:**
+- Save colors with hex codes
+- Color picker
+- Generate palette from image
+- Export palette
+
+**Data:**
+```json
+// palette.json
+[
+  { "name": "Primary", "hex": "#3B82F6" },
+  { "name": "Accent", "hex": "#F59E0B" }
+]
+```
+
+---
+
+### 7.4 Mood Board
+**Purpose:** Visual inspiration collection  
+**How it works:**
+- Grid of images
+- Drag images to rearrange
+- Add from: files, URLs
+- Useful for: design projects, aesthetic reference
+
+**Data:**
+```json
+// moodboard.json
+{
+  "images": [
+    { "id": "img1", "source": "./image1.png", "position": { "x": 0, "y": 0 } }
+  ]
+}
+```
+
+---
+
+### 7.5 CAD Render Viewer
+**Purpose:** Display 3D model renders  
+**How it works:**
+- Points to folder with render images
+- Gallery view
+- Auto-refresh when new renders added
+- Compare mode (before/after)
+- Useful for: M15 project, engineering projects
+
+**Data:**
+```
+Config: { folder: "./renders", autoRefresh: true }
+Reads: PNG/JPG files in folder
+```
+
+---
+
+### 7.6 Diagram Builder
+**Purpose:** Create flowcharts, system diagrams  
+**How it works:**
+- Drag-and-drop shapes (boxes, circles, arrows)
+- Connect shapes with lines
+- Text labels
+- Export as SVG/PNG
+- Like: Lucidchart, draw.io
+
+**Data:**
+```json
+{
+  "nodes": [
+    { "id": "n1", "type": "box", "x": 100, "y": 100, "text": "Start" }
+  ],
+  "edges": [
+    { "from": "n1", "to": "n2", "type": "arrow" }
+  ]
+}
+```
+
+---
+
+## Category 8: Utility Modules (6 modules)
+
+### 8.1 Notes / Scratchpad
+**Purpose:** Quick notes, temporary thoughts  
+**How it works:**
+- Simple text area
+- Auto-save
+- No formatting needed
+- Useful for: brainstorming, quick thoughts
+
+**Data:**
+```
+Saves to: scratchpad.txt
+```
+
+---
+
+### 8.2 Clock
+**Purpose:** Display current time  
+**How it works:**
+- Shows: HH:MM:SS
+- 12hr or 24hr format
+- Optional: date, timezone
+
+**Data:**
+```
+State: Current time (updates every second)
+```
+
+---
+
+### 8.3 Weather Widget
+**Purpose:** Current weather  
+**How it works:**
+- Shows: temp, conditions, icon
+- Location: set in config
+- Fetches from weather API
+- (Note: requires internet, optional module)
+
+**Data:**
+```
+Config: { location: "Dublin, IE" }
+Fetches: Weather data from API
+```
+
+---
+
+### 8.4 Quote Display
+**Purpose:** Motivational quotes  
+**How it works:**
+- Displays random quote
+- Refresh for new quote
+- Can add custom quotes
+
+**Data:**
+```json
+// quotes.json
+[
+  { "text": "Success is not final...", "author": "Churchill" }
+]
+```
+
+---
+
+### 8.5 Pomodoro Timer
+**Purpose:** 25-min work / 5-min break intervals  
+**How it works:**
+- 25 min work timer
+- 5 min break timer
+- 4 cycles → long break (15 min)
+- Notifications when timer ends
+- Track completed pomodoros
+
+**Data:**
+```json
+{
+  "workDuration": 25,
+  "breakDuration": 5,
+  "longBreakDuration": 15,
+  "completedToday": 8
+}
+```
+
+---
+
+### 8.6 Random Picker
+**Purpose:** Choose random item from list  
+**How it works:**
+- Input: list of options
+- Click "Pick" → randomly selects one
+- Useful for: choosing practice topic, what to study next
+
+**Data:**
+```json
+{
+  "items": ["Review Carnot", "Practice problems", "Read chapter 5"],
+  "lastPicked": "Practice problems"
+}
+```
+
+---
+
+## TOTAL: 75 Modules
+
+**By Category:**
+- Content Viewers: 12
+- Trackers & Progress: 15
+- Organization: 10
+- Math & Science: 8
+- Visualization & Analytics: 10
+- Learning Tools: 8
+- Creative & Visual: 6
+- Utility: 6
+
+---
+
+## Priority Ranking for MVP
+
+### Tier 1: Essential (Build First)
+1. Markdown Editor
+2. PDF Viewer
+3. Image Gallery
+4. Practice Bank
+5. Error Log
+6. Checklist
+7. Kanban Board
+8. Progress Bar
+9. Time Tracker
+10. Formula Vault
+
+### Tier 2: Important (Build Second)
+11. Handwriting Gallery
+12. Table
+13. Calendar
+14. Timeline
+15. Bar Chart
+16. Line Chart
+17. Definition Cards
+18. Bookmark List
+19. Quick Links
+20. Notes/Scratchpad
+
+### Tier 3: Nice to Have (Build Later)
+21-40. Rest of the modules
+
+### Tier 4: Future/Optional
+41-75. Advanced/specialized modules
+
+---
+
+## Module Development Template
+
+For each module, you need:
+
+```typescript
+// 1. Type definition
+interface ModuleConfig {
+  type: 'practice-bank';
+  config: {
+    dataFile: string;
+    sortBy?: string;
+    filterTags?: string[];
+  };
+}
+
+// 2. Component
+function PracticeBankModule({ config, onUpdate }: Props) {
+  // Load data
+  // Render UI
+  // Handle interactions
+  // Save changes
+}
+
+// 3. Schema (for validation)
+const PracticeBankSchema = z.object({
+  dataFile: z.string(),
+  sortBy: z.string().optional(),
+  // ...
+});
+
+// 4. Registry entry
+MODULES.register('practice-bank', {
+  component: PracticeBankModule,
+  schema: PracticeBankSchema,
+  name: 'Practice Bank',
+  description: 'Track practice questions',
+  icon: '📝',
+  category: 'trackers',
+  defaultSize: { width: 4, height: 6 }
+});
+```
+
+---
+
+This is your complete module library. Start with Tier 1, expand from there. Each module is self-contained and follows the same pattern.

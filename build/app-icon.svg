@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SYNAPSE icon">
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+    <linearGradient id="stroke" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#4A90E2" />
+      <stop offset="100%" stop-color="#50C878" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)" />
+  <circle cx="140" cy="150" r="34" fill="#ffffff" />
+  <circle cx="370" cy="145" r="34" fill="#FFD700" />
+  <circle cx="120" cy="360" r="34" fill="#70AD47" />
+  <circle cx="390" cy="360" r="34" fill="#4A90E2" />
+  <circle cx="256" cy="256" r="46" fill="#111827" stroke="#ffffff" stroke-width="14" />
+  <path d="M140 150 L256 256 L370 145 M120 360 L256 256 L390 360" fill="none" stroke="url(#stroke)" stroke-linecap="round" stroke-width="24" />
+</svg>

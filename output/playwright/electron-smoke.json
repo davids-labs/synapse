@@ -1,0 +1,224 @@
+[
+  {
+    "label": "home",
+    "sidebarState": "hidden",
+    "window": {
+      "width": 1600,
+      "height": 980
+    },
+    "pageStage": null,
+    "sidebar": null,
+    "canvasViewport": {
+      "width": 859,
+      "height": 1162,
+      "left": 375,
+      "top": 738
+    },
+    "moduleCard": {
+      "width": 624,
+      "height": 496,
+      "left": 456,
+      "top": 811
+    },
+    "moduleCount": 5,
+    "homeIndexGroups": 3,
+    "buttonTexts": [
+      "SYNAPSE",
+      "Home",
+      "Search",
+      "Settings",
+      "Add Galaxy",
+      "Add Home Module",
+      "Settings",
+      "Check Updates",
+      "Academic0%0 direct surfaces • 0 nested nodes",
+      "Academics12%1 direct surfaces • 7 nested nodes",
+      "Health50%1 direct surfaces • 2 nested nodes",
+      "Code Repos0%1 direct surfaces • 2 nested nodes",
+      "Personal Projects0%1 direct surfaces • 2 nested nodes",
+      "Search All",
+      "AcademicsAcademics16 Mar 2026",
+      "AcademicAcademic16 Mar 2026",
+      "Code ReposCode Repos16 Mar 2026",
+      "TrainingHealth16 Mar 2026",
+      "HealthHealth16 Mar 2026",
+      "Week 12 SplitHealth16 Mar 2026",
+      "Add Module",
+      "Teleport",
+      "Center View",
+      "-",
+      "+",
+      "",
+      "•••",
+      "",
+      "",
+      "•••",
+      "",
+      "",
+      "•••",
+      "Save",
+      "",
+      "",
+      "•••",
+      "",
+      "",
+      "•••",
+      "Add Goal",
+      "",
+      "Git Sync"
+    ],
+    "domSummary": {
+      "bodyText": "SYNAPSE\nYour Knowledge Operating System\nHome\nSearch\nSettings\nMACRO-GALAXY\nDavid's Knowledge Operating System\n\nHome is now a real surface: browse the galaxy index on the left, keep personal modules on the canvas, and teleport straight into any node without drowning in admin chrome.\n\nGALAXIES\n5\nTOTAL NODES\n13\nAVERAGE MASTERY\n14%\nWORMHOLES\n1\nAdd Galaxy\nAdd Home Module\nSettings\nCheck Updates\nGalaxy Index\n\nTreat the nested file structure like a first-class navigator, not hidden plumbing.\n\n1/13 complete\nAcademics\n2\nAcademic\n0%\n0 direct surfaces • 0 nested nodes\nAcademics\n12%\n1 direct surfaces • 7 nested nodes\nHealth\n1\nHealth\n50%\n1 direct surfaces • 2 nested nodes\nProjects\n2\nCode Repos\n0%\n1 direct surfaces • 2 nested nodes\nPersonal Projects\n0%\n1 direct surfaces • 2 nested nodes\nRecent Teleports\n\nResume a node instantly from the home stage.\n\nSearch All\nAcademics\nAcademics\n16 Mar 2026\nAcademic\nAcademic\n16 Mar 2026\nCode Repos\nCode Repos\n16 Mar 2026\nTraining\nHealth\n16 Mar 2026\nHealth\nHealth\n16 Mar 2026\nWeek 12 Split\nHealth\n16 Mar 2026\nHome Modules\n\nKeep your launchpad personal: notes, high-level analytics, shortcuts, and custom widgets all live here now.\n\nAdd Module\nSpatial Canvas\nDrag cards ",
+      "htmlSnippet": "\n    <div id=\"root\"><div class=\"synapse-shell \" data-density=\"sparse\" data-surface=\"home\"><header class=\"topbar\"><div class=\"topbar-brand\"><button class=\"brand-button\">SYNAPSE</button><span class=\"brand-tagline\">Your Knowledge Operating System</span></div><nav class=\"breadcrumbs\"><button>Home</button></nav><div class=\"topbar-actions\"><button>Search</button><button>Settings</button></div></header><main class=\"workspace-home\" data-sidebar-state=\"hidden\"><section class=\"home-surface\"><div class=\"home-hero\"><div class=\"home-hero-copy\"><div class=\"page-kicker\">Macro-Galaxy</div><h1>David's Knowledge Operating System</h1><p>Home is now a real surface: browse the galaxy index on the left, keep personal modules on the canvas, and teleport straight into any node without drowning in admin chrome.</p><div class=\"hero-stat-strip\"><div class=\"hero-stat\"><span>Galaxies</span><strong>5</strong></div><div class=\"hero-stat\"><span>Total nodes</span><strong>13</strong></div><div class=\"hero-stat\"><span>Average mastery</span><strong>14%</strong></div><div class=\"hero-stat\"><span>Wormholes</span><strong>1</strong></div></div></div><div class=\"home-hero-actions\"><button class=\"primary-button\">Add Galaxy"
+    },
+    "consoleMessages": [
+      {
+        "type": "warning",
+        "text": "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+      }
+    ]
+  },
+  {
+    "label": "canvas-expanded",
+    "sidebarState": "expanded",
+    "window": {
+      "width": 1600,
+      "height": 980
+    },
+    "pageStage": {
+      "width": 1245,
+      "height": 1400,
+      "left": 320,
+      "top": 82
+    },
+    "sidebar": {
+      "width": 320,
+      "height": 1400,
+      "left": 18,
+      "top": 82
+    },
+    "canvasViewport": {
+      "width": 1195,
+      "height": 857,
+      "left": 345,
+      "top": 600
+    },
+    "moduleCard": {
+      "width": 624,
+      "height": 880,
+      "left": 718,
+      "top": 877
+    },
+    "moduleCount": 3,
+    "homeIndexGroups": 0
+  },
+  {
+    "label": "module-drag",
+    "moved": true,
+    "before": {
+      "x": 718,
+      "y": 877
+    },
+    "after": {
+      "x": 858,
+      "y": 977
+    }
+  },
+  {
+    "label": "canvas-collapsed",
+    "sidebarState": "collapsed",
+    "window": {
+      "width": 1600,
+      "height": 980
+    },
+    "pageStage": {
+      "width": 1547,
+      "height": 1263,
+      "left": 18,
+      "top": 82
+    },
+    "sidebar": null,
+    "canvasViewport": {
+      "width": 1497,
+      "height": 730,
+      "left": 43,
+      "top": 590
+    },
+    "moduleCard": {
+      "width": 624,
+      "height": 880,
+      "left": 556,
+      "top": 967
+    },
+    "moduleCount": 3,
+    "homeIndexGroups": 0
+  },
+  {
+    "label": "import-modal",
+    "sidebarState": "expanded",
+    "window": {
+      "width": 1600,
+      "height": 980
+    },
+    "pageStage": {
+      "width": 1245,
+      "height": 1400,
+      "left": 320,
+      "top": 82
+    },
+    "sidebar": {
+      "width": 320,
+      "height": 1400,
+      "left": 18,
+      "top": 82
+    },
+    "canvasViewport": {
+      "width": 1195,
+      "height": 857,
+      "left": 345,
+      "top": 600
+    },
+    "moduleCard": {
+      "width": 624,
+      "height": 880,
+      "left": 858,
+      "top": 977
+    },
+    "moduleCount": 3,
+    "homeIndexGroups": 0
+  },
+  {
+    "label": "settings",
+    "sidebarState": "expanded",
+    "window": {
+      "width": 1600,
+      "height": 980
+    },
+    "pageStage": {
+      "width": 1245,
+      "height": 1400,
+      "left": 320,
+      "top": 82
+    },
+    "sidebar": {
+      "width": 320,
+      "height": 1400,
+      "left": 18,
+      "top": 82
+    },
+    "canvasViewport": {
+      "width": 1195,
+      "height": 857,
+      "left": 345,
+      "top": 600
+    },
+    "moduleCard": {
+      "width": 624,
+      "height": 880,
+      "left": 858,
+      "top": 977
+    },
+    "moduleCount": 3,
+    "homeIndexGroups": 0
+  }
+]

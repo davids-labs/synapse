@@ -1,0 +1,55 @@
+{
+  "appId": "com.synapse.app",
+  "productName": "SYNAPSE",
+  "copyright": "Copyright © 2025",
+  "directories": {
+    "buildResources": "build",
+    "output": "release"
+  },
+  "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+  "asar": true,
+  "compression": "normal",
+  "files": [
+    "dist-electron/**/*",
+    "dist/**/*",
+    "package.json",
+    "test-data/**/*"
+  ],
+  "extraMetadata": {
+    "main": "dist-electron/main/index.js"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64", "ia32"]
+      }
+    ],
+    "signAndEditExecutable": false
+  },
+  "mac": {
+    "category": "public.app-category.education",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      }
+    ],
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.plist"
+  },
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "category": "Education",
+    "maintainer": "davids-labs"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  }
+}
