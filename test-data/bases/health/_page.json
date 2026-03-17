@@ -7,14 +7,14 @@
       "type": "progress-bar",
       "title": "Progress Snapshot",
       "position": {
-        "x": 3,
-        "y": 3,
+        "x": 6,
+        "y": 4,
         "width": 4,
         "height": 3
       },
       "canvas": {
-        "x": 340,
-        "y": 240,
+        "x": 660,
+        "y": 460,
         "width": 496,
         "height": 368
       },
