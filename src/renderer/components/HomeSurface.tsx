@@ -36,6 +36,7 @@ interface HomeSurfaceProps {
   onTeleport: () => void;
   onToggleCanvasFocus: () => void;
   onImportFiles?: (entityPath: string) => void;
+  onDeleteFile?: (entityPath: string, filePath: string) => Promise<void>;
 }
 
 export function HomeSurface({
@@ -56,6 +57,7 @@ export function HomeSurface({
   onTeleport,
   onToggleCanvasFocus,
   onImportFiles,
+  onDeleteFile,
 }: HomeSurfaceProps) {
   const totalNodes = workspace.bases.reduce((sum, base) => sum + base.stats.totalNodes, 0);
   const completedNodes = workspace.bases.reduce((sum, base) => sum + base.stats.completedNodes, 0);
@@ -120,6 +122,7 @@ export function HomeSurface({
       onDeleteModule={onDeleteModule}
       onTeleport={onTeleport}
       onImportFiles={onImportFiles}
+      onDeleteFile={onDeleteFile}
     />
   ) : null;
 

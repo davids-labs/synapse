@@ -45,6 +45,8 @@ export class UpdateManager {
 
   private initialized = false;
   private autoUpdater = loadAutoUpdater();
+  private installQueued = false;
+  private appIsShuttingDown = false;
 
   initialize(getMainWindow: () => BrowserWindow | null): void {
     if (this.initialized) {
@@ -54,6 +56,19 @@ export class UpdateManager {
     this.initialized = true;
     const updateUrl = process.env.SYNAPSE_UPDATE_URL;
     const autoUpdater = this.autoUpdater;
+    app.on('before-quit', () => {
+      this.appIsShuttingDown = true;
+    });
+
+    if (!app.isPackaged && !updateUrl) {
+      this.state = {
+        configured: false,
+        manualOnly: true,
+        status: 'disabled',
+        message: 'Automatic updates are disabled in development builds.',
+      };
+      return;
+    }
 
     if (!autoUpdater) {
       this.state = {
@@ -76,7 +91,9 @@ export class UpdateManager {
         configured: true,
         manualOnly: false,
         status: 'idle',
-        message: 'Update feed configured.',
+        message: app.isPackaged
+          ? 'Update feed configured.'
+          : 'Development update feed configured via SYNAPSE_UPDATE_URL.',
       };
     } else if (hasBundledUpdaterConfig()) {
       this.state = {
@@ -141,6 +158,7 @@ export class UpdateManager {
     });
 
     autoUpdater.on('update-downloaded', (info) => {
+      this.installQueued = false;
       this.publish(getMainWindow, {
         configured: true,
         manualOnly: false,
@@ -154,6 +172,7 @@ export class UpdateManager {
     });
 
     autoUpdater.on('error', (error) => {
+      this.installQueued = false;
       this.publish(getMainWindow, {
         ...this.state,
         status: 'error',
@@ -167,6 +186,15 @@ export class UpdateManager {
   }
 
   async checkForUpdates(): Promise<UpdateState> {
+    if (!app.isPackaged && !process.env.SYNAPSE_UPDATE_URL) {
+      return {
+        configured: false,
+        manualOnly: true,
+        status: 'disabled',
+        message: 'Automatic updates are disabled in development builds.',
+      };
+    }
+
     if (!this.autoUpdater || !this.state.configured) {
       return {
         ...this.state,
@@ -186,13 +214,33 @@ export class UpdateManager {
       return this.state;
     }
 
+    if (this.installQueued) {
+      return {
+        ...this.state,
+        message: 'Update installation is already being prepared. Please wait.',
+      };
+    }
+
+    this.installQueued = true;
+
     setTimeout(() => {
-      this.autoUpdater?.quitAndInstall();
-    }, 100);
+      try {
+        this.autoUpdater?.quitAndInstall();
+      } catch (error) {
+        this.installQueued = false;
+        this.state = {
+          ...this.state,
+          status: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }, this.appIsShuttingDown ? 0 : 120);
 
     return {
       ...this.state,
-      message: 'Restarting to install update...',
+      message: this.appIsShuttingDown
+        ? 'Finalizing update install during shutdown...'
+        : 'Restarting to install update...',
     };
   }
 

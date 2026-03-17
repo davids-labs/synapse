@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { stat } from 'fs/promises';
 import { BrowserWindow, dialog, ipcMain, powerMonitor, shell, type IpcMainInvokeEvent } from 'electron';
 import path from 'path';
 import {
@@ -46,6 +47,7 @@ import {
   moveFile,
   readJsonFile,
   readTextFile,
+  removePath,
   safeJoin,
   writeBinaryFile,
   writeJsonFile,
@@ -95,6 +97,7 @@ const backgroundAutoSaveTimers = new Map<string, NodeJS.Timeout>();
 const backgroundAutoSaveLastActivity = new Map<string, number>();
 const backgroundAutoSaveLastCommit = new Map<string, number>();
 const queuedSyncTimers = new Map<string, NodeJS.Timeout>();
+const activeSyncByWorkspace = new Map<string, Promise<SyncResult>>();
 let allowMainWindowClose = false;
 let closeFlowRunning = false;
 let skipCloseSyncPromptForSession = false;
@@ -1095,6 +1098,49 @@ export function registerIpcHandlers(context: IpcContext): void {
     );
   });
 
+  registerHandle('delete-file', async (_event, targetPath: string) => {
+    const settings = await loadSettings(context.appPath, context.userDataPath);
+    const resolvedTargetPath = path.resolve(targetPath);
+    const relativeToBase = path.relative(settings.basePath, resolvedTargetPath);
+
+    if (
+      !relativeToBase ||
+      relativeToBase.startsWith('..') ||
+      path.isAbsolute(relativeToBase)
+    ) {
+      throw new Error('Cannot delete files outside the active workspace.');
+    }
+
+    const segments = relativeToBase.split(path.sep).filter(Boolean);
+    const filesIndex = segments.indexOf('files');
+    if (filesIndex === -1 || segments.length <= filesIndex + 1) {
+      throw new Error('Only files inside an entity files folder can be deleted.');
+    }
+
+    const metadata = await stat(resolvedTargetPath).catch(() => null);
+    if (!metadata) {
+      throw new Error('File not found.');
+    }
+    if (!metadata.isFile()) {
+      throw new Error('Delete supports files only.');
+    }
+
+    await removePath(resolvedTargetPath);
+    await scheduleBackgroundAutoSave(
+      context,
+      settings.basePath,
+      `Delete file: ${path.basename(resolvedTargetPath)}`,
+    );
+    return buildWorkspaceSnapshot(
+      settings.basePath,
+      hotDropManager?.getStatus() ?? {
+        folderPath: getHotDropFolderPath(context.userDataPath),
+        activeEntityPath: null,
+      },
+      settings,
+    );
+  });
+
   registerHandle('preview-csv', async (_event, request) =>
     previewCsvFile(CsvPreviewRequestSchema.parse(request)),
   );
@@ -1194,6 +1240,17 @@ export function registerIpcHandlers(context: IpcContext): void {
   });
 
   registerHandle('git-sync', async (_event, basePath: string) => {
+    const workspaceKey = path.resolve(basePath);
+    const existingSync = activeSyncByWorkspace.get(workspaceKey);
+    if (existingSync) {
+      return {
+        success: false,
+        code: 'sync-in-progress',
+        message: 'A workspace sync is already in progress. Please wait for it to finish.',
+        recovery: ['Wait for the current sync to complete, then retry if needed.'],
+      } satisfies SyncResult;
+    }
+
     const settings = await loadSettings(context.appPath, context.userDataPath);
     if (settings.privacy.localOnlyMode) {
       return buildLocalOnlySyncResult(
@@ -1201,14 +1258,26 @@ export function registerIpcHandlers(context: IpcContext): void {
       );
     }
 
-    const git = await ensureGitReady(basePath);
-    const result = await git.sync();
-    if (result.queuedOffline) {
-      scheduleQueuedSyncRetry(context, basePath);
-    } else {
-      clearQueuedSyncRetry(basePath);
+    const syncPromise = (async () => {
+      const git = await ensureGitReady(basePath);
+      const result = await git.sync();
+      if (result.queuedOffline) {
+        scheduleQueuedSyncRetry(context, basePath);
+      } else {
+        clearQueuedSyncRetry(basePath);
+      }
+      return result;
+    })();
+
+    activeSyncByWorkspace.set(workspaceKey, syncPromise);
+
+    try {
+      return await syncPromise;
+    } finally {
+      if (activeSyncByWorkspace.get(workspaceKey) === syncPromise) {
+        activeSyncByWorkspace.delete(workspaceKey);
+      }
     }
-    return result;
   });
 
   registerHandle('git-conflicts', async (_event, basePath: string) => {

@@ -63,6 +63,7 @@ interface ModuleCanvasProps {
   onDeleteModule: (moduleId: string) => void;
   onTeleport: () => void;
   onImportFiles?: (entityPath: string) => void;
+  onDeleteFile?: (entityPath: string, filePath: string) => Promise<void>;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -187,6 +188,7 @@ export function ModuleCanvas({
   onDeleteModule,
   onTeleport,
   onImportFiles,
+  onDeleteFile,
 }: ModuleCanvasProps) {
   const snapping = workspace.settings.moduleSnapping;
   const effectiveCompactToolbar = compactToolbar || fullscreen;
@@ -964,6 +966,7 @@ export function ModuleCanvas({
                     onSavePractice={onSavePractice}
                     onSaveErrors={onSaveErrors}
                     onImportFiles={onImportFiles}
+                    onDeleteFile={onDeleteFile}
                     onPatchModule={(patcher) => patchModuleById(module.id, patcher)}
                   />
                 </div>
@@ -1001,6 +1004,7 @@ export function ModuleCanvas({
               onSavePractice={onSavePractice}
               onSaveErrors={onSaveErrors}
               onImportFiles={onImportFiles}
+              onDeleteFile={onDeleteFile}
               onPatchModule={(patcher) => patchModuleById(focusedModule.id, patcher)}
             />
           </div>

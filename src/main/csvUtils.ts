@@ -10,7 +10,7 @@ function normalizeLineEndings(value: string): string {
 }
 
 export function parseCsv(text: string, delimiter = ','): ParsedCsv {
-  const normalized = normalizeLineEndings(text);
+  const normalized = normalizeLineEndings(text).replace(/^\uFEFF/, '');
   const rows: string[][] = [];
   let currentField = '';
   let currentRow: string[] = [];
@@ -54,6 +54,10 @@ export function parseCsv(text: string, delimiter = ','): ParsedCsv {
     if (currentRow.some((value) => value.trim().length > 0)) {
       rows.push(currentRow);
     }
+  }
+
+  if (insideQuotes) {
+    throw new Error('CSV appears malformed: an opening quote is missing its closing quote.');
   }
 
   if (rows.length === 0) {

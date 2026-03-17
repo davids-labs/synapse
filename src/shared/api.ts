@@ -48,6 +48,7 @@ export interface SynapseApi {
   saveErrorLog: (entityPath: string, entries: ErrorEntry[]) => Promise<ErrorEntry[]>;
   createEntity: (request: CreateEntityRequest) => Promise<WorkspaceSnapshot>;
   deleteEntity: (entityPath: string) => Promise<WorkspaceSnapshot>;
+  deleteFile: (targetPath: string) => Promise<WorkspaceSnapshot>;
   previewCsv: (request: CsvPreviewRequest) => Promise<CsvPreview>;
   importCsv: (request: CsvImportRequest) => Promise<CsvImportResult>;
   exportCsv: (request: CsvExportRequest) => Promise<CsvExportResult>;

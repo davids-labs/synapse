@@ -20,6 +20,12 @@ export function GraphSurface({
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const offsetRef = useRef(offset);
+  const frameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
 
   const currentBase =
     selectedEntity.kind === 'base'
@@ -40,9 +46,19 @@ export function GraphSurface({
     const levels = [...new Set(visibleNodes.map((node) => node.level))].sort(
       (left, right) => left - right,
     );
+    const nodesByLevel = new Map<number, typeof visibleNodes>();
+    visibleNodes.forEach((node) => {
+      const group = nodesByLevel.get(node.level);
+      if (group) {
+        group.push(node);
+      } else {
+        nodesByLevel.set(node.level, [node]);
+      }
+    });
+
     const positionedNodes = visibleNodes.map((node) => {
       const levelIndex = levels.indexOf(node.level);
-      const siblings = visibleNodes.filter((candidate) => candidate.level === node.level);
+      const siblings = nodesByLevel.get(node.level) ?? [node];
       const siblingIndex = siblings.findIndex((candidate) => candidate.id === node.id);
       const x = 140 + levelIndex * 240;
       const y = 100 + ((siblingIndex + 1) * 520) / (siblings.length + 1);
@@ -56,11 +72,27 @@ export function GraphSurface({
   }, [currentBase, filter, workspace.graph.links, workspace.graph.nodes]);
 
   const lookup = new Map(positioned.map((node) => [node.id, node]));
+  const entityPathByRelativeId = useMemo(() => {
+    const map = new Map<string, string>();
+    Object.values(workspace.entities).forEach((entity) => {
+      map.set(entity.relativeEntityPath, entity.entityPath);
+    });
+    return map;
+  }, [workspace.entities]);
 
   useEffect(() => {
     setZoom(1);
     setOffset({ x: 0, y: 0 });
   }, [currentBase.entityPath, resetSignal]);
+
+  useEffect(
+    () => () => {
+      if (frameRef.current) {
+        window.cancelAnimationFrame(frameRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <div className="graph-shell">
@@ -87,6 +119,7 @@ export function GraphSurface({
           if ((event.target as SVGElement).tagName === 'circle') {
             return;
           }
+          (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
           dragRef.current = {
             x: event.clientX - offset.x,
             y: event.clientY - offset.y,
@@ -96,12 +129,25 @@ export function GraphSurface({
           if (!dragRef.current) {
             return;
           }
-          setOffset({
+          const nextOffset = {
             x: event.clientX - dragRef.current.x,
             y: event.clientY - dragRef.current.y,
+          };
+
+          if (frameRef.current) {
+            window.cancelAnimationFrame(frameRef.current);
+          }
+
+          frameRef.current = window.requestAnimationFrame(() => {
+            setOffset(nextOffset);
+            offsetRef.current = nextOffset;
+            frameRef.current = null;
           });
         }}
-        onPointerUp={() => {
+        onPointerUp={(event) => {
+          if ((event.currentTarget as HTMLDivElement).hasPointerCapture(event.pointerId)) {
+            (event.currentTarget as HTMLDivElement).releasePointerCapture(event.pointerId);
+          }
           dragRef.current = null;
         }}
         onPointerLeave={() => {
@@ -109,6 +155,11 @@ export function GraphSurface({
         }}
       >
         <svg viewBox="0 0 1400 760" className="graph-svg">
+          <defs>
+            <filter id="graph-node-shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="5" stdDeviation="6" floodOpacity="0.28" />
+            </filter>
+          </defs>
           <g transform={`translate(${offset.x} ${offset.y}) scale(${zoom})`}>
             {visibleLinks.map((link) => {
               const source = lookup.get(link.source);
@@ -117,17 +168,18 @@ export function GraphSurface({
                 return null;
               }
 
+              const controlX = (source.x + target.x) / 2;
+              const curve = `M ${source.x} ${source.y} C ${controlX} ${source.y}, ${controlX} ${target.y}, ${target.x} ${target.y}`;
+
               return (
                 <g key={link.id}>
-                  <line
-                    x1={source.x}
-                    y1={source.y}
-                    x2={target.x}
-                    y2={target.y}
+                  <path
+                    d={curve}
                     stroke={link.color}
                     strokeWidth={link.width}
                     strokeOpacity={link.opacity}
                     strokeDasharray={link.dashArray}
+                    fill="none"
                   />
                   {link.label && (
                     <text
@@ -147,21 +199,26 @@ export function GraphSurface({
                 key={node.id}
                 transform={`translate(${node.x}, ${node.y})`}
                 onClick={() => {
-                  const targetEntity = Object.values(workspace.entities).find(
-                    (entity) => entity.relativeEntityPath === node.id,
-                  );
-                  if (targetEntity) {
-                    onSelectEntity(targetEntity.entityPath);
+                  const entityPath = entityPathByRelativeId.get(node.id);
+                  if (entityPath) {
+                    onSelectEntity(entityPath);
                   }
                 }}
               >
                 <circle
                   r={node.size}
                   fill={node.color}
+                  filter="url(#graph-node-shadow)"
                   fillOpacity={node.id === selectedEntity.relativeEntityPath ? 1 : 0.84}
                   stroke={node.id === selectedEntity.relativeEntityPath ? 'var(--text-primary)' : 'white'}
                   strokeOpacity={node.id === selectedEntity.relativeEntityPath ? 0.9 : 0.18}
                   strokeWidth={node.id === selectedEntity.relativeEntityPath ? 3 : 2}
+                />
+                <circle
+                  r={Math.max(5, node.size - 7)}
+                  fill="rgba(255, 255, 255, 0.08)"
+                  stroke="none"
+                  pointerEvents="none"
                 />
                 <text y={node.size + 18} textAnchor="middle" className="graph-node-title">
                   {node.title}

@@ -93,8 +93,10 @@ select {
 }
 
 .synapse-shell {
+  --topbar-height: 64px;
+  --statusbar-height: 40px;
   display: grid;
-  grid-template-rows: 64px 1fr 40px;
+  grid-template-rows: var(--topbar-height) 1fr var(--statusbar-height);
   height: 100vh;
   min-height: 100vh;
   background:
@@ -1225,12 +1227,17 @@ select {
 .graph-svg {
   width: 100%;
   min-height: 640px;
+  shape-rendering: geometricPrecision;
 }
 
 .graph-label,
 .graph-node-title {
   fill: var(--text-secondary);
   font-size: 12px;
+  paint-order: stroke;
+  stroke: rgba(10, 12, 18, 0.75);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .modal-backdrop {
@@ -1274,8 +1281,50 @@ select {
   padding-top: 8px;
 }
 
+.import-export-panel .status-inline {
+  display: inline-block;
+  color: var(--text-muted);
+}
+
+.import-export-panel .status-inline.warning {
+  color: var(--warning);
+}
+
 .command-palette {
   width: min(760px, calc(100vw - 32px));
+}
+
+@media (max-height: 900px) {
+  .synapse-shell:not(.surface-fullscreen) {
+    --topbar-height: 56px;
+    --statusbar-height: 34px;
+  }
+
+  .synapse-shell:not(.surface-fullscreen) .page-stage {
+    margin: 12px;
+    gap: 12px;
+  }
+
+  .synapse-shell:not(.surface-fullscreen) .page-header {
+    gap: 8px;
+  }
+
+  .synapse-shell:not(.surface-fullscreen) .page-header-copy {
+    gap: 6px;
+  }
+
+  .synapse-shell:not(.surface-fullscreen) .page-header h1 {
+    font-size: clamp(22px, 2.7vw, 30px);
+  }
+
+  .synapse-shell:not(.surface-fullscreen) .page-header p {
+    margin-top: 2px;
+  }
+
+  .synapse-shell:not(.surface-fullscreen) .page-stat-chip {
+    min-width: 84px;
+    padding: 6px 8px;
+  }
 }
 
 .settings-layout {

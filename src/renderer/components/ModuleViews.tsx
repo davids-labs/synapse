@@ -51,6 +51,7 @@ interface ModuleViewProps {
   onSaveErrors: (entries: ErrorEntry[]) => void;
   onPatchModule: (patcher: (module: SynapseModule) => SynapseModule) => void;
   onImportFiles?: (entityPath: string) => void;
+  onDeleteFile?: (entityPath: string, filePath: string) => Promise<void>;
 }
 
 interface GoalItem {
@@ -111,6 +112,7 @@ export function ModuleView({
   onSaveErrors,
   onPatchModule,
   onImportFiles,
+  onDeleteFile,
 }: ModuleViewProps) {
   if (
     module.type === 'markdown-editor' ||
@@ -227,6 +229,7 @@ export function ModuleView({
     onSaveErrors,
     onPatchModule,
     onImportFiles,
+    onDeleteFile,
   });
 
   if (extended) {

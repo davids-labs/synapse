@@ -9,6 +9,16 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
+function toFileUrl(filePath: string): string {
+  if (/^file:\/\//i.test(filePath)) {
+    return filePath;
+  }
+
+  const normalized = filePath.replace(/\\/g, '/');
+  const withLeadingSlash = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  return encodeURI(`file://${withLeadingSlash}`);
+}
+
 interface PDFPortalProps {
   media: MediaAsset[];
   resources: ResourceFile[];
@@ -33,6 +43,7 @@ export function PDFPortal({ media, resources, nodeJson, onPageChange }: PDFPorta
   const [search, setSearch] = useState('');
   const [matchingPages, setMatchingPages] = useState<number[]>([]);
   const [pageIndex, setPageIndex] = useState<string[]>([]);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedPdf && pdfCandidates[0]) {
@@ -44,14 +55,16 @@ export function PDFPortal({ media, resources, nodeJson, onPageChange }: PDFPorta
     if (!selectedPdf) {
       setPageIndex([]);
       setMatchingPages([]);
+      setPdfError(null);
       return;
     }
 
     let cancelled = false;
+    const loadingTask = pdfjs.getDocument(toFileUrl(selectedPdf));
 
     async function indexPdf() {
       try {
-        const document = await pdfjs.getDocument(`file://${selectedPdf}`).promise;
+        const document = await loadingTask.promise;
         const textByPage: string[] = [];
         for (let currentPage = 1; currentPage <= document.numPages; currentPage += 1) {
           const pdfPage = await document.getPage(currentPage);
@@ -65,10 +78,12 @@ export function PDFPortal({ media, resources, nodeJson, onPageChange }: PDFPorta
 
         if (!cancelled) {
           setPageIndex(textByPage);
+          setPdfError(null);
         }
       } catch {
         if (!cancelled) {
           setPageIndex([]);
+          setPdfError('Could not index this PDF. Check that the file still exists and is accessible.');
         }
       }
     }
@@ -76,6 +91,7 @@ export function PDFPortal({ media, resources, nodeJson, onPageChange }: PDFPorta
     void indexPdf();
     return () => {
       cancelled = true;
+      void loadingTask.destroy();
     };
   }, [selectedPdf]);
 
@@ -121,8 +137,12 @@ export function PDFPortal({ media, resources, nodeJson, onPageChange }: PDFPorta
       </div>
 
       <Document
-        file={`file://${selectedPdf}`}
+        file={toFileUrl(selectedPdf)}
         onLoadSuccess={(document: PDFDocumentProxy) => setPageCount(document.numPages)}
+        onLoadError={(error) => {
+          setPdfError(error.message || 'Could not load this PDF file.');
+          setPageCount(0);
+        }}
         loading={<div className="p-4 text-sm text-slate-200">Loading PDF...</div>}
       >
         <div className="grid gap-4 xl:grid-cols-[140px_1fr]">
@@ -150,6 +170,11 @@ export function PDFPortal({ media, resources, nodeJson, onPageChange }: PDFPorta
           </div>
 
           <div className="space-y-4">
+            {pdfError && (
+              <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                {pdfError}
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300">
               <div className="flex items-center gap-2">
                 <button

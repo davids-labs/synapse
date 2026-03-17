@@ -18,6 +18,7 @@ const api: SynapseApi = {
     ipcRenderer.invoke('save-error-log', entityPath, entries),
   createEntity: (request) => ipcRenderer.invoke('create-entity', request),
   deleteEntity: (entityPath) => ipcRenderer.invoke('delete-entity', entityPath),
+  deleteFile: (targetPath) => ipcRenderer.invoke('delete-file', targetPath),
   previewCsv: (request) => ipcRenderer.invoke('preview-csv', request),
   importCsv: (request) => ipcRenderer.invoke('import-csv', request),
   exportCsv: (request) => ipcRenderer.invoke('export-csv', request),

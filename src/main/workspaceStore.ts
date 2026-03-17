@@ -49,8 +49,10 @@ import type {
   ErrorEntry,
   CreateEntityRequest,
   SynapseModule,
+  CsvImportType,
 } from '../shared/types';
 import { parseCsvFile, stringifyCsv } from './csvUtils';
+import type { ParsedCsv } from './csvUtils';
 import { calculateSimpleMastery, getMasteryColor } from './masteryEngine';
 import { ensureSeedWorkspace } from './starterWorkspace';
 import {
@@ -78,6 +80,68 @@ const PRACTICE_FOLDER = path.join('files', 'practice');
 const PRACTICE_FILE = path.join(PRACTICE_FOLDER, 'questions.csv');
 const ERROR_LOG_FILE = path.join(PRACTICE_FOLDER, 'error-log.json');
 const FREEFORM_COLUMN_WIDTH = 112;
+const SUPPORTED_CSV_DELIMITERS: Array<',' | ';' | '\t'> = [',', ';', '\t'];
+
+function describeDelimiter(delimiter: ',' | ';' | '\t'): string {
+  if (delimiter === '\t') {
+    return 'tab';
+  }
+  if (delimiter === ';') {
+    return 'semicolon';
+  }
+  return 'comma';
+}
+
+function suggestDelimiterFromHeader(headers: string[], delimiter: ',' | ';' | '\t'): ',' | ';' | '\t' | null {
+  if (headers.length !== 1) {
+    return null;
+  }
+
+  const header = headers[0];
+  for (const candidate of SUPPORTED_CSV_DELIMITERS) {
+    if (candidate !== delimiter && header.includes(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function assertCsvImportReady(
+  parsed: ParsedCsv,
+  importType: CsvImportType,
+  delimiter: ',' | ';' | '\t',
+): void {
+  if (parsed.headers.length === 0) {
+    throw new Error('CSV is empty. Add a header row and at least one data row before importing.');
+  }
+
+  const suggested = suggestDelimiterFromHeader(parsed.headers, delimiter);
+  if (suggested) {
+    throw new Error(
+      `CSV delimiter appears incorrect. Try ${describeDelimiter(suggested)} instead of ${describeDelimiter(delimiter)}.`,
+    );
+  }
+
+  if (parsed.rows.length === 0) {
+    throw new Error('CSV has headers but no data rows to import.');
+  }
+
+  const headers = new Set(parsed.headers.map((header) => header.trim().toLowerCase()));
+  const hasAny = (names: string[]) => names.some((name) => headers.has(name));
+
+  if (importType === 'syllabus' && !hasAny(['title'])) {
+    throw new Error('Syllabus import requires a `title` column.');
+  }
+
+  if (importType === 'modules' && !hasAny(['title', 'type', 'module_id'])) {
+    throw new Error('Modules import requires at least one of: `title`, `type`, or `module_id`.');
+  }
+
+  if (importType === 'practice' && !hasAny(['title', 'question_id', 'id'])) {
+    throw new Error('Practice import requires at least one of: `title`, `question_id`, or `id`.');
+  }
+}
 const FREEFORM_ROW_HEIGHT = 112;
 const FREEFORM_GAP = 16;
 const FREEFORM_PADDING = 24;
@@ -954,6 +1018,17 @@ export async function deleteEntityPath(entityPath: string): Promise<void> {
 export async function previewCsvFile(request: CsvPreviewRequest): Promise<CsvPreview> {
   const validated = CsvPreviewRequestSchema.parse(request);
   const parsed = await parseCsvFile(validated.sourcePath, validated.delimiter || ',');
+  if (parsed.headers.length === 0) {
+    throw new Error('CSV is empty. Add a header row and try again.');
+  }
+
+  const suggested = suggestDelimiterFromHeader(parsed.headers, validated.delimiter || ',');
+  if (suggested) {
+    throw new Error(
+      `CSV delimiter appears incorrect. Try ${describeDelimiter(suggested)} instead of ${describeDelimiter(validated.delimiter || ',')}.`,
+    );
+  }
+
   return {
     headers: parsed.headers,
     rows: parsed.rows.slice(0, 6),
@@ -980,6 +1055,7 @@ async function importModulesCsv(
   settings: AppSettings,
 ): Promise<number> {
   const parsed = await parseCsvFile(sourcePath, delimiter);
+  assertCsvImportReady(parsed, 'modules', delimiter);
   const page = await loadPage(entityPath, (await loadRecord(entityPath)).kind, settings);
   const imported = parsed.rows.map((row, index) => ({
     id: row.module_id || `imported-${Date.now()}-${index}`,
@@ -1010,6 +1086,7 @@ async function importModulesCsv(
 
 async function importPracticeCsv(entityPath: string, sourcePath: string, delimiter: ',' | ';' | '\t'): Promise<number> {
   const parsed = await parseCsvFile(sourcePath, delimiter);
+  assertCsvImportReady(parsed, 'practice', delimiter);
   const existing = await loadPracticeBank(entityPath);
   const mapped = parsed.rows.map((row) =>
     PracticeQuestionSchema.parse({
@@ -1040,6 +1117,7 @@ async function importSyllabusCsv(
   settings: AppSettings,
 ): Promise<number> {
   const parsed = await parseCsvFile(sourcePath, delimiter);
+  assertCsvImportReady(parsed, 'syllabus', delimiter);
   const created = new Map<string, string>();
   let importedCount = 0;
 

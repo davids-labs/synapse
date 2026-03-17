@@ -1462,9 +1462,86 @@ export function ImportExportModal({
   onRun,
 }: ImportExportModalProps) {
   const guide = CSV_IMPORT_GUIDES[state.importType];
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const delimiterHint = useMemo(() => {
+    if (!state.preview || state.preview.headers.length !== 1) {
+      return null;
+    }
+
+    const header = state.preview.headers[0] || '';
+    const candidate = [',', ';', '\t'].find(
+      (delimiter) => delimiter !== state.delimiter && header.includes(delimiter),
+    ) as ',' | ';' | '\t' | undefined;
+
+    if (!candidate) {
+      return null;
+    }
+
+    const label = candidate === '\t' ? 'tab' : candidate === ';' ? 'semicolon' : 'comma';
+    return `This file looks ${label}-delimited. Switch delimiter and preview again before importing.`;
+  }, [state.delimiter, state.preview]);
+
+  useEffect(() => {
+    const container = panelRef.current;
+    if (!container) {
+      return;
+    }
+
+    const selector = 'button:not([disabled]), select:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const first = container.querySelector<HTMLElement>(selector);
+    (first ?? container).focus();
+  }, []);
+
+  const handlePanelKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    const container = panelRef.current;
+    if (!container) {
+      return;
+    }
+
+    const selector = 'button:not([disabled]), select:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = Array.from(container.querySelectorAll<HTMLElement>(selector));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+
+    if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  };
+
   return (
     <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div className="modal-panel medium module-library-panel import-export-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+      <motion.div
+        ref={panelRef}
+        className="modal-panel medium module-library-panel import-export-panel"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 16 }}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        onKeyDown={handlePanelKeyDown}
+      >
         <div className="modal-head">
           <h2>{state.mode === 'import' ? 'Import CSV' : 'Export CSV'}</h2>
           <button onClick={onClose}>Close</button>
@@ -1503,6 +1580,10 @@ export function ImportExportModal({
               Choose CSV
             </button>
             {state.sourcePath && <small>{state.sourcePath}</small>}
+            {delimiterHint && <small className="status-inline warning">{delimiterHint}</small>}
+            {state.sourcePath && !state.preview && !state.loading && (
+              <small className="status-inline">Preview this file before importing.</small>
+            )}
             {state.preview && (
               <div className="csv-preview">
                 <div className="list-row">
@@ -1524,7 +1605,11 @@ export function ImportExportModal({
           </select>
         )}
         <div className="modal-foot">
-          <button className="primary-button" disabled={state.loading || (state.mode === 'import' && !state.sourcePath)} onClick={onRun}>
+          <button
+            className="primary-button"
+            disabled={state.loading || (state.mode === 'import' && (!state.sourcePath || !state.preview || Boolean(delimiterHint)))}
+            onClick={onRun}
+          >
             {state.loading ? 'Working...' : state.mode === 'import' ? 'Import' : 'Export'}
           </button>
         </div>

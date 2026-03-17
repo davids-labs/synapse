@@ -37,6 +37,7 @@ interface ExtendedModuleViewProps {
   onSaveErrors: (entries: ErrorEntry[]) => void;
   onPatchModule: (patcher: (module: SynapseModule) => SynapseModule) => void;
   onImportFiles?: (entityPath: string) => void;
+  onDeleteFile?: (entityPath: string, filePath: string) => Promise<void>;
 }
 
 interface ListItem {
@@ -798,12 +799,13 @@ function WebEmbedModule({ module, onPatchModule }: ExtendedModuleViewProps) {
   );
 }
 
-function FileBrowserModule({ entity, onImportFiles }: ExtendedModuleViewProps) {
+function FileBrowserModule({ entity, onImportFiles, onDeleteFile }: ExtendedModuleViewProps) {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const grouped = useMemo(() => {
     const filtered = entity.files.filter((file) => filter === 'all' || file.type === filter);
     const searched = query.trim()
@@ -825,6 +827,20 @@ function FileBrowserModule({ entity, onImportFiles }: ExtendedModuleViewProps) {
       setSelectedPath(selected.path);
     }
   }, [grouped, selected, selectedPath]);
+
+  const handleDeleteSelected = async () => {
+    if (!selected || !onDeleteFile || deletingPath) {
+      return;
+    }
+
+    const targetPath = selected.path;
+    setDeletingPath(targetPath);
+    try {
+      await onDeleteFile(entity.entityPath, targetPath);
+    } finally {
+      setDeletingPath((current) => (current === targetPath ? null : current));
+    }
+  };
 
   return (
     <div className="file-browser-shell">
@@ -895,9 +911,23 @@ function FileBrowserModule({ entity, onImportFiles }: ExtendedModuleViewProps) {
                   <strong>{selected.name}</strong>
                   <small>{compactPath(selected.relativePath, 4)}</small>
                 </div>
-                <a className="tiny-button" href={fileUrl(selected.path)} target="_blank" rel="noreferrer">
-                  Open Raw
-                </a>
+                <div className="button-row compact">
+                  {onDeleteFile ? (
+                    <button
+                      type="button"
+                      className="tiny-button"
+                      onClick={() => {
+                        void handleDeleteSelected();
+                      }}
+                      disabled={deletingPath === selected.path}
+                    >
+                      {deletingPath === selected.path ? 'Deleting...' : 'Delete File'}
+                    </button>
+                  ) : null}
+                  <a className="tiny-button" href={fileUrl(selected.path)} target="_blank" rel="noreferrer">
+                    Open Raw
+                  </a>
+                </div>
               </div>
               <div className="file-browser-meta-grid">
                 <div className="metric-card">

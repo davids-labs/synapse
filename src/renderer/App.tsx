@@ -639,6 +639,14 @@ export function App() {
 
     const settings = workspace.settings;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (importExport) {
+        if (event.key === 'Escape' || matchesShortcut(event, settings.shortcuts.back)) {
+          event.preventDefault();
+          setImportExport(null);
+        }
+        return;
+      }
+
       if ((event.target as HTMLElement | null)?.closest('input, textarea, select')) {
         if (matchesShortcut(event, settings.shortcuts.commandPalette)) {
           event.preventDefault();
@@ -1336,6 +1344,31 @@ export function App() {
     }
   };
 
+  const handleDeleteFile = async (entityPath: string, filePath: string) => {
+    const targetEntity =
+      entityPath === HOME_ENTITY_PATH ? homeEntity : workspace?.entities[entityPath];
+    const targetFile = targetEntity?.files.find((file) => file.path === filePath);
+    if (!targetFile) {
+      return;
+    }
+
+    if (!window.confirm(`Delete "${targetFile.name}" from this surface?`)) {
+      return;
+    }
+
+    try {
+      const nextWorkspace = await window.synapse.deleteFile(filePath);
+      setWorkspace(nextWorkspace);
+      pushToast({
+        tone: 'warning',
+        title: 'File deleted',
+        description: `${targetFile.name} was removed.`,
+      });
+    } catch (cause) {
+      notifyError('Delete failed', cause, 'Could not remove this file.');
+    }
+  };
+
   const openImportExport = (mode: 'import' | 'export') => {
     if (!selectedEntity || !workspace) {
       return;
@@ -1709,6 +1742,7 @@ export function App() {
             onImportFiles={(entityPath) => {
               void handleImportFiles(entityPath);
             }}
+            onDeleteFile={handleDeleteFile}
           />
         ) : (
           <>
@@ -1857,6 +1891,7 @@ export function App() {
                       onImportFiles={(entityPath) => {
                         void handleImportFiles(entityPath);
                       }}
+                      onDeleteFile={handleDeleteFile}
                     />
                   )}
                 </>
@@ -1968,7 +2003,21 @@ export function App() {
               void handlePreviewCsv();
             }}
             onChange={(patch) =>
-              setImportExport((current) => (current ? { ...current, ...patch } : current))
+              setImportExport((current) => {
+                if (!current) {
+                  return current;
+                }
+
+                const shouldResetPreview =
+                  (patch.delimiter && patch.delimiter !== current.delimiter) ||
+                  (patch.importType && patch.importType !== current.importType);
+
+                return {
+                  ...current,
+                  ...patch,
+                  preview: shouldResetPreview ? null : current.preview,
+                };
+              })
             }
             onRun={() => {
               void handleRunImportExport();

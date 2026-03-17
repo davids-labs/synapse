@@ -1,7 +1,7 @@
 {
   "name": "synapse",
   "productName": "SYNAPSE",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "Desktop-first visual learning operating system",
   "main": "dist-electron/main/index.js",
   "private": true,
