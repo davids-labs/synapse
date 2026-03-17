@@ -1,8 +1,8 @@
 {
-  "basePath": "c:\\dev2\\synapse\\test-data",
-  "theme": "light",
+  "basePath": "C:\\dev2\\synapse\\test-data",
+  "theme": "dark",
   "colorScheme": {
-    "bgPrimary": "#000000",
+    "bgPrimary": "#0F0F0F",
     "bgSecondary": "#1A1A1A",
     "bgTertiary": "#242424",
     "bgHover": "#2A2A2A",
@@ -19,7 +19,7 @@
     "accentError": "#EF4444",
     "accentInfo": "#8B5CF6"
   },
-  "density": "sparse",
+  "density": "dense",
   "animations": true,
   "masteryColors": {
     "locked": "#4A4A4A",
@@ -131,7 +131,7 @@
       }
     }
   ],
-  "moduleSnapping": true,
+  "moduleSnapping": false,
   "gridColumns": 12,
   "csvDelimiter": ",",
   "dateFormat": "yyyy-MM-dd",
@@ -166,7 +166,7 @@
     "importCsv": "Ctrl+Shift+I"
   },
   "gitEnabled": true,
-  "autoCommit": true,
+  "autoCommit": false,
   "autoSync": false,
   "developerMode": false,
   "recentLimit": 8

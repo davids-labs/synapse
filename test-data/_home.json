@@ -7,14 +7,14 @@
       "type": "analytics-chart",
       "title": "Galaxy Overview",
       "position": {
-        "x": 1,
+        "x": 4,
         "y": 1,
         "width": 5,
         "height": 4
       },
       "canvas": {
-        "x": 24,
-        "y": 24,
+        "x": 399,
+        "y": 28,
         "width": 624,
         "height": 496
       },
@@ -25,14 +25,14 @@
       "type": "progress-bar",
       "title": "System Progress",
       "position": {
-        "x": 6,
+        "x": 1,
         "y": 1,
         "width": 3,
         "height": 4
       },
       "canvas": {
-        "x": 664,
-        "y": 24,
+        "x": 6,
+        "y": 19,
         "width": 368,
         "height": 496
       },
@@ -43,16 +43,16 @@
       "type": "text-entry",
       "title": "Home Notes",
       "position": {
-        "x": 9,
+        "x": 8,
         "y": 1,
-        "width": 4,
-        "height": 5
+        "width": 5,
+        "height": 6
       },
       "canvas": {
         "x": 1048,
         "y": 24,
-        "width": 496,
-        "height": 624
+        "width": 583,
+        "height": 699
       },
       "config": {
         "filepath": "files/home-notes.md",
@@ -88,8 +88,8 @@
         "height": 4
       },
       "canvas": {
-        "x": 1725,
-        "y": 47,
+        "x": 1675,
+        "y": 20,
         "width": 496,
         "height": 496
       },
@@ -100,19 +100,19 @@
       "type": "web-embed",
       "title": "Web Embed",
       "position": {
-        "x": 8,
-        "y": 7,
-        "width": 5,
-        "height": 5
+        "x": 1,
+        "y": 13,
+        "width": 12,
+        "height": 9
       },
       "canvas": {
-        "x": 1255,
-        "y": 818,
-        "width": 624,
-        "height": 624
+        "x": -480,
+        "y": 1563,
+        "width": 1984,
+        "height": 1084
       },
       "config": {
-        "src": "https://www.youtube.com"
+        "src": "https://www.google.com/search?q=dove+and+cameron"
       }
     },
     {
@@ -128,19 +128,61 @@
       "canvas": {
         "x": 24,
         "y": 1048,
-        "width": 368,
-        "height": 368
+        "width": 428,
+        "height": 359
       },
       "config": {}
+    },
+    {
+      "id": "handwriting-gallery-1773744630415-7",
+      "type": "handwriting-gallery",
+      "title": "Handwriting Gallery",
+      "position": {
+        "x": 2,
+        "y": 4,
+        "width": 11,
+        "height": 8
+      },
+      "canvas": {
+        "x": 268,
+        "y": 437,
+        "width": 1424,
+        "height": 957
+      },
+      "config": {
+        "folder": "files",
+        "columns": 3,
+        "sortBy": "date"
+      }
+    },
+    {
+      "id": "audio-player-1773752909944-8",
+      "type": "audio-player",
+      "title": "Audio Player",
+      "position": {
+        "x": 9,
+        "y": 9,
+        "width": 4,
+        "height": 4
+      },
+      "canvas": {
+        "x": 1048,
+        "y": 1048,
+        "width": 496,
+        "height": 496
+      },
+      "config": {
+        "filepath": "files/media/audio.mp3"
+      }
     }
   ],
   "templates": [
     "home-default"
   ],
   "viewport": {
-    "x": 180.56562500000007,
-    "y": 16.872123175229405,
-    "zoom": 0.55
+    "x": -213.2178373760387,
+    "y": -645.441783949218,
+    "zoom": 0.73
   },
   "ui": {
     "detailsOpen": false,
