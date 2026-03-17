@@ -71,13 +71,13 @@
       "title": "CAD Render Viewer",
       "position": {
         "x": 6,
-        "y": 6,
+        "y": 7,
         "width": 7,
         "height": 4
       },
       "canvas": {
-        "x": 960,
-        "y": 600,
+        "x": 1260,
+        "y": 800,
         "width": 880,
         "height": 496
       },
