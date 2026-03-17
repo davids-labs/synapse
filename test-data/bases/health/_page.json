@@ -7,14 +7,14 @@
       "type": "kanban-board",
       "title": "Kanban Board",
       "position": {
-        "x": 3,
-        "y": 3,
+        "x": 6,
+        "y": 4,
         "width": 5,
         "height": 7
       },
       "canvas": {
-        "x": 320,
-        "y": 220,
+        "x": 620,
+        "y": 420,
         "width": 624,
         "height": 880
       },
