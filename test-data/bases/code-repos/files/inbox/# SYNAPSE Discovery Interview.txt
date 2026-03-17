@@ -1,0 +1,1233 @@
+# SYNAPSE Discovery Interview
+## Deep-Dive Personalization & Workflow Analysis
+
+**Purpose**: This interview will help us understand exactly how you work, learn, and organize knowledge so we can refine SYNAPSE into your perfect learning operating system.
+
+**Instructions**: Take your time with each section. Be as verbose as you want - the more detail you provide, the better we can tailor the app. Don't worry about being "too specific" or "too picky" - that's exactly what we want.
+
+---
+
+## Part 1: Your Learning Context
+
+### 1.1 Academic Structure
+
+**Your current situation:**
+- You're a Year 1 Mechanical Engineering (Integrated Master's) student at Trinity College Dublin
+- You're building David's Lab (2026-2030) alongside studies
+
+Let's understand your course structure in detail:
+
+**Q1.1**: Walk me through your current semester structure. How many modules do you have? What are they called? How are they weighted?
+
+```
+Example answer:
+- Semester 1 has 5 modules
+- Engineering Mathematics (15 ECTS, exam-heavy)
+- Thermodynamics (10 ECTS, 60% exam, 40% project)
+- etc.
+```
+
+**Your answer:**
+```
+Yep, semester 1 & 2 5 modules examinable, generally weighted by a higher exam mark and a lower assesment marrk (assesment is usually broken into tests, assignments, labs, etc_), but i would want all this to be in settings and not hardcoded
+
+```
+
+**Q1.2**: How does Trinity structure prerequisites? Is it explicit (must pass X to take Y) or implicit (recommended but not enforced)?
+
+**Your answer:**
+```
+Not necissereily, you should pass everyhting, but you go through both semsters no matter what, but you must retake nay fialed modules in the supplemental exams to move on
+
+```
+
+**Q1.3**: Do you have a syllabus document for each module? What format (PDF, online portal, printed)? Would you want SYNAPSE to parse existing syllabi or build from scratch?
+
+**Your answer:**
+```
+i have a syllabus documes for each  mdouele, and i would like syllabus (and almost eveyr other things), to be handled by a csv iumport with a certain format that the software can parse, and also edit on the fly
+
+```
+
+**Q1.4**: Beyond "Academics," what other knowledge bases do you want to track in SYNAPSE? You mentioned:
+- Personal Projects (Porttfolio) is a big one yes, this should be as indepth as academics
+- Code Repos
+- Health
+-Aesthetics and Physique
+- Goals
+- Travel
+- Honestly loads of othe things,
+
+Describe each base in detail:
+- What would go in "Personal Projects"? (
+- What would "Code Repos" contain? (Language learning, framework knowledge?): whatever you think should be in it
+- Any others? (Fitness knowledge, rugby tactics, climbing techniques?): yep, should be totally moduler, wiuth loads of modules and blocks i can add in to whatever subpage i want
+
+**Your answer:**
+```
+-FlowState, M15 Twin-Arm, etc.?)
+  Personal projects would be my prtfolio,a nd other miscllaneous projects, track, view progres, save files, add contextual modules, track time, etc
+- What would "Code Repos" contain? (Language learning, framework knowledge?): whatever you think should be in it
+- Any others? (Fitness knowledge, rugby tactics, climbing techniques?): yep, should be totally moduler, wiuth loads of modules and blocks i can add in to whatever subpage i want
+
+
+```
+
+---
+
+### 1.2 Learning Style & Workflow
+
+**Q1.5**: Describe your ideal study session, step by step, from the moment you decide "I'm going to study Thermodynamics" to when you close your laptop.
+
+```
+Example:
+1. Open notes from last lecture
+2. Watch a YouTube explainer
+3. Work through 3 practice problems
+4. Create flashcards for formulas
+5. etc.
+```
+
+**Your answer:**
+```
+1. Open notes from last lecture, find questions
+2. do loads of exam questions
+3. Work through 3 practice problems
+4. create an error logo and do yet mor epractice questions
+
+```
+
+**Q1.6**: Where do you currently take notes? (OneNote, Notion, handwritten, combination?)
+- If handwritten: Do you digitize them? How?
+- If digital: What's your organization system?
+- Would you want SYNAPSE to be your note-taking app, or integrate with existing notes?
+
+**Your answer:**
+```
+I use an app called notein, on my tbalet, synpase can beb my text based place, but i geenrally take notes oina  seeprate papp, if needed,m i can export those notes into synapse, jsut make it so i can read images, pdfs, etc in   SYNAPSE, IN A MODULE that i can resize, move around, etc
+
+```
+
+**Q1.7**: You have a Tab S10 Ultra. Paint the picture of how you use it:
+- When do you use it vs laptop? (Lectures, studying, commute?)
+- Samsung Notes vs other apps?
+- Do you export notes, or leave them on the tablet?
+- Would you want SYNAPSE to have a tablet companion app, or is file sync enough?
+
+**Your answer:**
+```
+Yeah i use it by screenshoting problems, pasting them into my notes, and then writing out the answers, i geenrally eave notes on the tablet, but i screenshot them if needed
+
+SYNAPSE wille ventaulyl  hae a tablet and phoen comanion app, but thats not the goal RIGHT now, but this should be considered
+
+```
+
+**Q1.8**: Describe your relationship with practice problems:
+- Do you work through them on paper, then check answers?
+- Do you redo problems to test retention?
+- Do you track which problems you got wrong?
+- Would you want SYNAPSE to track problem-level detail (e.g., "Problem 3.14 - attempted 3 times, got wrong twice")?
+
+**Your answer:**
+```
+I do MASSIVE amounts of practie projblems by building a bank of practice problkems, and organiseing them by type, lectuter, and difficulty
+
+i do redo questions, load of tgimes, to get it into a muscle memeort
+
+i want to start an errpr log
+
+snynapse could trac that, if i make a module for it, thats the vibe im going for
+
+```
+
+**Q1.9**: How do you currently know when you've "mastered" a topic?
+- Gut feeling?
+- Can explain it to someone?
+- Get 90% on practice problems?
+- What would make you trust SYNAPSE's mastery calculation?
+
+**Your answer:**
+```
+generally when i can pquestions on it convingly and on seperate days over and over, mastery calculation should be very simple, planned vs cmpleted, and i would trust it if the maths behind it is ismple, and i can also manually overide the mastery colour
+
+```
+
+---
+
+## Part 2: Visual & Aesthetic Preferences
+
+### 2.1 Graph Visualization
+
+**Q2.1**: When you imagine looking at your knowledge graph for "Engineering Mathematics," what do you see?
+- How many nodes? (10? 50? 100?)
+- What shape/pattern does the graph make? (Linear chain? Clustered? Star?)
+- What draws your eye first?
+
+**Your answer:**
+```
+as many nodes as i want, on the first page, it would just be engineeign maths, then have only say, 5 bancehs, for the 5 modules, then i can clock on oen of these, and it would be say, the engineeign maths 2, which can go into its topicsm, and in those topics, there could be more nodes, but as much as a want, but whenevr i click on a dnbode, i want to go intot the dashboard page where i can change anything to my hearts conet, have modules and blocks and trackers and filkes etc etc
+
+```
+
+**Q2.2**: The spec uses these colors for mastery:
+- Grey (#808080) - Locked/Not started
+- White (#FFFFFF) - Activated/Just started  
+- Blue (#4472C4) - Understanding
+- Green (#70AD47) - Practicing
+- Gold (#FFD700) - Mastered
+- Red (#E74C3C) - Weak spot
+
+Do these resonate with you, or would you change any?
+- Different colors?
+- Different meanings?
+- Add intermediate states?
+
+**Your answer:**
+```
+those are fine, but they should be changable in settings, in fact, eevrything should be changeable and adaptable in settings
+
+```
+
+**Q2.3**: Node size: Should all nodes be the same size, or should size indicate something?
+- Exam weight (bigger = more important)?
+- Time spent (bigger = more studied)?
+- Complexity (bigger = harder topic)?
+- Prefer uniform size?
+
+**Your answer:**
+```
+yyeah they should be biggeerr the higher leve they are, and how many nodes they interlink with, but not too big, should be subtle, but of cours,e i should be able to make any node whateevr size i want
+
+```
+
+**Q2.4**: Links between nodes: The spec has:
+- Solid lines for prerequisites
+- Dashed for related topics
+- Manual links you create
+
+Would you want to distinguish:
+- "Hard prerequisite" (can't proceed without) vs "soft prerequisite" (helpful but optional)?
+- Strength of relationship (thick vs thin lines)?
+- Bi-directional relationships?
+
+**Your answer:**
+```
+sof prerequiste, im in contorl, but i could make certian nodes red when i do a csv import to build the starting scaffolding knoledge maps (Mage that a csv option the software shoudl read and parse)
+
+```
+
+**Q2.5**: Animation preference:
+- The spec has particle bursts when nodes unlock and level up
+- Do you like flashy effects, or prefer minimal/subtle?
+- Any animations you'd definitely NOT want?
+
+**Your answer:**
+```
+minimal animations, but yeah, some sparkle, should be fairly minimlaist, and mdoern
+
+```
+
+---
+
+### 2.2 Topic Center Layout
+
+**Q2.6**: When you open a topic (like "Carnot Cycle"), what do you want to see FIRST?
+- Notes?
+- Practice tracker?
+- Related topics?
+- PDF of textbook chapter?
+- Formula list?
+
+**Your answer:**
+```
+YEAH THIS IS SUPER IMPORTANT, I WANT ORIGINALLY  ABLACNMNK PAGE THAT I CAN ADD MODULES INTO THAT HAS ALL OF THES ERTHINGS AND MUCH, MUCH MORE, I CAN THEN ORGABNMSIE THEM hOWERVER I WANT, AND HAVE AS MANY MODULES AND STUFF I WANT, AND MADKE THEM RESIABLE, FULLY CUSTOMISABLE THIS IDEA IS THE NNUMBER ONE IDEA
+
+```
+
+**Q2.7**: The spec proposes a grid layout with draggable blocks. Alternatively, we could do:
+- Fixed layout (same for every topic)
+- Tab-based (Notes tab, Practice tab, Resources tab)
+- Sidebar panels (collapsible sections)
+- Free-form canvas (blocks can overlap, be any size)
+
+Which appeals to you? Why?
+
+**Your answer:**
+```
+I WANT  GRID WITH DDRAGGABLE BLOCK, BUT I COULD ALSO M AMKE REPEATEABLE TEMPLATES, ADD DIFFERENT TABS WITH DIFFERNT VIEWS OF TE SAME THINGF (on the sidepanal if i want), and a free form mode, so all of thes rethiogs are great
+
+```
+
+**Q2.8**: View block priorities: Rank these in order of importance (1 = most important):
+- [ ] Handwriting Gallery (Tab S10 PNG files)
+- [ ] PDF Portal (textbook chapters)
+- [ ] Notes Editor (Markdown)
+- [ ] Formula Vault (LaTeX equations)
+- [ ] Practice Tracker (problem sets)
+- [ ] Image Grid (screenshots, diagrams)
+- [ ] Kanban Board (to-dos)
+- [ ] Timeline (chronological history)
+- [ ] Related Topics (graph snippet)
+
+**Your ranking:**
+```
+MOST IMPROTANT: modules and modules all the modules all of them i want every type i want choice im not even jokinf
+1: pdf portal
+2: markdown edito
+3. practice tracker and other stuff liek that
+4. grpahs and image gallerys and statiustics
+5. kanban boards
+6. handwriting gllery
+7. timeline
+
+```
+
+**Q2.9**: The handwriting gallery: You have PNG exports from Samsung Notes.
+- Do you typically have 5 images per topic? 20? 50?
+- Do you want to compare images side-by-side? (e.g., "my notes vs textbook diagram")
+- Do you annotate on the images, or are they read-only?
+- Would you want OCR (convert handwriting to searchable text)?
+
+**Your answer:**
+```
+nah ill jsut export the whole note as a pdf and use the pdf viewr, or use the image viewer module, or the image gallery mdoule, etc
+
+```
+
+---
+
+### 2.3 Information Density
+
+**Q2.10**: You mentioned liking "dense/modular layouts" and "high-information-density tools."
+
+On a scale of 1-10:
+- 1 = Sparse (lots of whitespace, minimal info per screen)
+- 10 = Dense (packed with data, minimal whitespace)
+
+Where do you want SYNAPSE to be? For:
+- Homepage: ___
+- Knowledge graph: ___
+- Topic center: ___
+- Settings screens: ___
+
+**Your answer:**
+```
+- Homepage: 3
+- Knowledge graph: 4
+- Topic center: 7
+- Settings screens: 100
+
+but always changeablke by me 
+```
+
+**Q2.11**: Typography preference:
+- The spec uses Inter for UI, Georgia for notes
+- You mentioned "SF Pro Black headings" for FlowState
+- Would you want bold/heavy headings in SYNAPSE?
+- Preference for sans-serif vs serif for reading long notes?
+
+**Your answer:**
+```
+obvioudly this should be user customisable in settings
+
+```
+
+**Q2.12**: Dark mode is assumed. But:
+- Pure black (#000000) or dark grey (#1A1A1A)?
+- Do you want a light mode option?
+- Any accent colors you particularly like? (The spec uses blue #4A90E2)
+
+**Your answer:**
+```
+any colours i want, use it in system, but in geeneral iu want a grey close to balck witrh white letters, and yeah, some customisable accent colours
+
+```
+
+---
+
+## Part 3: Data Organization & File Structure
+
+### 3.1 Course Structure
+
+**Q3.1**: The spec proposes this hierarchy:
+```
+academics/
+  year-2/
+    semester-1/
+      thermodynamics/
+        _meta/
+        01-fundamentals/
+        02-laws/
+```
+
+Would you prefer:
+- Folders named by date (e.g., `2025-semester-1/`)?
+- Shorter names (e.g., `y2/s1/thermo/`)?
+- Different organization (by topic type, not chronological)?
+
+**Your answer:**
+```
+shorter names would be good, yes, so academics - semester - module - topic - assignment/exam/questions/practice/labs/ etc whatever
+
+```
+
+**Q3.2**: Node naming: The spec uses `01-fundamentals`, `02-laws`, etc. (prefix numbers for ordering).
+
+Do you like this, or prefer:
+- No numbers (alphabetical order)?
+- Date-based (when you started the topic)?
+- Free-form (whatever you want to call it)?
+
+**Your answer:**
+```
+FREE FORM ALWAYS
+
+```
+
+**Q3.3**: Inside a node folder, the spec has:
+```
+01-fundamentals/
+  _node.json
+  notes.md
+  media/
+  practice/
+  resources/
+```
+
+Would you add folders for:
+- `code/` (scripts, simulations)?
+- `exports/` (PDFs you generate)?
+- `archive/` (old versions)?
+- Different structure entirely?
+
+**Your answer:**
+```
+01-fundamentals/
+  _node.json
+  notes.md
+  media/
+  practice/
+  resources/
+```
+
+Would you add folders for:
+- `code/` (scripts, simulations)?
+- `exports/` (PDFs you generate)?
+- `archive/` (old versions)?
+
+this is a great structure yes, but make it expandable, more, more stuff
+
+```
+
+---
+
+### 3.2 Practice Problem Organization
+
+**Q3.4**: How do you organize practice problems now?
+- One file per problem set? (problem-set-1.md, problem-set-2.md)
+- One file per problem? (3-14-carnot-efficiency.md)
+- Handwritten on paper?
+- In textbook (not digitized)?
+
+**Your answer:**
+```
+
+i dont reall organise them and i would liek them, but yes, they should be either a subset of a specific topic in a odule, or even a subset of a specific exam or tutorial in a module
+```
+
+**Q3.5**: For tracking completion:
+- Check boxes in Markdown? (- [ ] Problem 3.14)
+- Separate tracking file? (practice-log.json)
+- Embedded in _node.json?
+- Don't track individual problems, just "completed 8/15 total"?
+
+**Your answer:**
+```
+seperate tracking module that reads to a fiule, but is specifc or general oeither a problem or a problem type
+
+```
+
+**Q3.6**: Would you want to track:
+- Difficulty rating (easy/medium/hard)?
+- Time taken per problem?
+- Number of attempts?
+- Your confidence level?
+- Or is "done/not done" enough?
+
+**Your answer:**
+```
+**Q3.6**: Would you want to track:
+- Difficulty rating (easy/medium/hard)?
+- Time taken per problem?
+- Number of attempts?
+- Your confidence level?
+- Or is "done/not done" enough?
+
+all fo this and more if i want t, use modules
+ 
+```
+
+---
+
+### 3.3 Formula Management
+
+**Q3.7**: The spec proposes a `formulas.json` file:
+```json
+{
+  "formulas": [
+    {
+      "name": "Carnot Efficiency",
+      "formula": "\\eta = 1 - \\frac{T_C}{T_H}",
+      "variables": [
+        { "symbol": "T_C", "description": "Cold reservoir temp", "unit": "K" }
+      ]
+    }
+  ]
+}
+```
+
+Is this useful, or would you prefer:
+- Formulas in notes.md?
+- Separate LaTeX files?
+- Images of formulas (from textbook)?
+- Flashcard-style (formula on front, derivation on back)?
+
+**Your answer:**
+```
+
+a lastex reneder woudl be grewat, we could also have a flashcard mpdule i can use, maybe it makes a flashcard gallery i can go thjrough
+```
+
+**Q3.8**: Do you memorize formulas, derive them, or always have a reference sheet?
+- If memorize: Would you want spaced repetition prompts?
+- If derive: Would you want step-by-step derivations stored?
+- If reference: Would you want quick search/filter?
+
+**Your answer:**
+```
+lets have stuff for all of these, a formula module i can search in, or pin modules or whatever, that i can see th esimple formula, an expanainton, and then if i go deeper, a drivation of the formula, thisnwould naturally buidl aupo a refernce
+
+```
+
+---
+
+### 3.4 Multimedia Assets
+
+**Q3.9**: You'll have lots of images (handwriting PNGs, diagrams, screenshots). 
+
+Do you want:
+- Automatic organization by type? (handwriting/ vs diagrams/ vs screenshots/)
+- Date-based naming? (2025-03-15-lecture-notes.png)
+- Manual naming?
+- Tags/labels on images?
+
+**Your answer:**
+```
+TAGS AND LABELS TAGS AND LABELS TAGS AND lABELS, but auto populate based on the modulke it in, and the date and time, theni can make more multi select tags
+
+```
+
+**Q3.10**: PDFs (textbook chapters, lecture slides):
+- Do you annotate PDFs, or read-only?
+- If annotate: Should SYNAPSE embed a PDF editor, or open external app?
+- Do you split large PDFs into chapters, or keep as one file?
+
+**Your answer:**
+```
+geenrally read only pdfs,. dont worry about that, and yes, i could iimport jst  afew pdf pages if possible, or a few chapters depending on the module, that would be great for performance
+
+```
+
+**Q3.11**: Videos (lectures, YouTube explainers):
+- Do you want to link to YouTube, or download locally?
+- Timestamp bookmarks? (e.g., "3:45 - key derivation")
+- Notes synced to video timeline?
+
+**Your answer:**
+```
+yep, can i embed videos, or link  them, or link to a local video, just dpeends, we could have a video viewing module i cna resize and place, and it could have a gallery of videos i can sort throguh, could be cool
+
+```
+
+---
+
+## Part 4: Mastery & Progress Tracking
+
+### 4.1 Mastery Calculation
+
+**Q4.1**: The current formula is:
+```
+mastery = (
+  notes_created * 0.10 +
+  (practice_completed / practice_total) * 0.50 +
+  (manual_links_created / 3) * 0.10
+) * time_decay_factor
+```
+
+This weights practice problems heavily (50%). Does this match your learning?
+- Would you weight notes higher? (Writing = understanding)
+- Add a "quiz score" component?
+- Add "explained to someone" boolean?
+- Different weights for different categories? (foundation vs advanced)
+
+**Your answer:**
+```
+yeah mastery isnt superm important so t could be a simpler forumla and i cna do manual overwrites always
+
+```
+
+**Q4.2**: Time decay: The spec says knowledge decays 20% over 30 days without review.
+- Is this realistic for engineering topics?
+- Should some topics decay faster (formulas) vs slower (concepts)?
+- Should mastered topics (0.86+) decay at all?
+
+**Your answer:**
+```
+ould be this is all up to you honestly, mastery is NOT htat import to me over customisation and avaibility of maters
+
+```
+
+**Q4.3**: Manual override: You can always adjust mastery with a slider.
+- Would you use this often, or prefer to trust the calculation?
+- If you override, should the app ask "why"? (to learn your preferences)
+- Should overrides be temporary or permanent?
+
+**Your answer:**
+```
+overrides should be permanent,i now myuself how i will use it, but keep the calcualtions, this data shoudl always be aailible to me
+
+```
+
+---
+
+### 4.2 Progress Visibility
+
+**Q4.4**: The homepage shows "67% mastered" for a base. What does this mean to you?
+- Percentage of nodes that are gold?
+- Average mastery across all nodes?
+- Weighted by exam importance?
+- Something else?
+
+**Your answer:**
+```
+epercentage of mandatory nodes mastered (mandatory nmodes are th enodes labelled mandatory in the cs import, which i would base base dof my own thoguhts and stuff): anothe rreasn why we need ereally robust csv improt and editing withouth reloading csv
+
+```
+
+**Q4.5**: Would you want to see:
+- Daily streak? ("Studied for 15 days in a row")
+- Weekly goals? ("Aim to master 3 topics this week")
+- Velocity tracking? ("Mastering 2 topics per week")
+- Or avoid gamification entirely?
+
+**Your answer:**
+```
+
+yeah i want to set daily, weekly, and over arching goals i could trakc, thast about the gamification i like
+```
+
+**Q4.6**: Weak spots: The app flags topics you struggle with.
+- How should it determine "weak"? (Mastery < 0.5? Declining mastery? Manual flag?)
+- What should happen? (Just a visual indicator? Notification? Suggested review?)
+- Should weak spots affect other nodes? (e.g., lock advanced topics if fundamentals are weak)
+
+**Your answer:**
+```
+nah, just tell me what modules im doing really badly on with practice questions, siple as
+
+```
+
+---
+
+### 4.3 Exam Preparation
+
+**Q4.7**: You have exams at the end of each semester. 
+
+Ideal exam prep workflow:
+- 2 weeks before: What do you do?
+- 1 week before: What changes?
+- Night before: Final review strategy?
+
+**Your answer:**
+```
+
+yep, prettymucha month before exams i stop leanring and i start heavy practicing with exam quesitons
+
+
+```
+
+**Q4.8**: Exam prep mode in SYNAPSE should:
+- [ ] Filter graph to show only exam-relevant topics
+- [ ] Highlight weak spots
+- [ ] Generate study priority list
+- [ ] Create daily study schedule
+- [ ] Show countdown timer
+- [ ] Track "exam readiness score"
+- [ ] Other: _______________
+
+Which of these do you want? Any you DON'T want?
+
+**Your answer:**
+```
+dont generate anything, i can create exam nodes views or whatevcer if i want to 
+
+```
+
+**Q4.9**: The spec proposes sorting study priority by:
+```
+priority = (100 - mastery) * exam_weight
+```
+
+So a 30% mastered topic worth 25% of exam = priority score 17.5
+
+Does this make sense? Or would you prefer:
+- Focus on weak spots first (ignore exam weight)?
+- Focus on high-weight topics first (even if mostly mastered)?
+- Manual prioritization?
+
+**Your answer:**
+```
+
+yep, that makes sense, but as always, customisationa and manual priritization
+```
+
+---
+
+## Part 5: Workflow Integration
+
+### 5.1 Quick Capture
+
+**Q5.1**: You're in a lecture. The professor draws a crucial diagram on the board.
+
+Ideal workflow:
+1. Take photo with phone
+2. Then what?
+
+Options:
+- AirDrop to laptop, manually move to SYNAPSE folder?
+- Auto-upload to cloud, SYNAPSE imports?
+- Email to yourself, drag into hot-drop folder?
+- Other?
+
+**Your answer:**
+```
+right noew, manually move to snaps folder,. but eventually have an auto uploa, and an hot drop function,  bbut drag and drop / file upload on pc is okay for now
+
+```
+
+**Q5.2**: You find a great YouTube video explaining a concept.
+
+What do you want to capture?
+- Just the URL? (link in notes)
+- Transcript? (auto-generated captions)
+- Screenshot of key moment?
+- All of the above?
+
+**Your answer:**
+```
+get teh url, embed it in a video vieing module, or download the video and embed it in a video viewing module. 
+
+```
+
+**Q5.3**: Hot-drop folder: The spec proposes `~/synapse-hotdrop/`
+
+Would you actually use this, or is it too "fiddly"?
+- Would a "Capture" button in the app be better?
+- Should it monitor your Screenshots folder automatically?
+- Should it integrate with your browser's download folder?
+
+**Your answer:**
+```
+hot drop folder is useful, but only if i geta  directowy wher i hot dfrop i can direct the file too, 
+
+nah dont integrate with anything, shoudl be innthe app,mmaybe on the hopepagfe or system tray, ic a hot drop or import a file and send it somewhere withouth having to go all the way there
+
+```
+
+---
+
+### 5.2 Multi-Device Sync
+
+**Q5.4**: You have:
+- Windows PC (primary workstation)
+- Tab S10 Ultra (handwriting, reading)
+- Phone (quick capture)
+
+Current workflow for syncing?
+- USB cable?
+- Cloud (OneDrive, Google Drive)?
+- Never sync (manual transfer)?
+
+**Your answer:**
+```
+i sue BLIP, phone lync, and manuak transfer, i also have gfoogle drive
+
+```
+
+**Q5.5**: SYNAPSE uses Git for sync. Realistically:
+- Would you run `git push` manually?
+- Want auto-sync every X minutes?
+- Sync button in UI?
+- Set it up once and forget?
+
+**Your answer:**
+```
+git needs to be robust, its not the dofcus right nowe, but the scaffoldfing needs to be build in at the very beginigng
+
+```
+
+**Q5.6**: Conflict scenario: You edit notes on laptop, then on tablet, then sync.
+
+Which version should win?
+- Most recent edit (last-write-wins) - SIMPLE
+- Show both and merge manually - SAFE
+- Automatic merge (like Google Docs) - COMPLEX
+- Prevent this (lock files when editing) - RESTRICTIVE
+
+**Your answer:**
+```
+Show both and choose manually
+
+```
+
+---
+
+### 5.3 Backup & Safety
+
+**Q5.7**: How paranoid are you about losing data?
+- Daily backups essential?
+- Weekly is fine?
+- Trust Git history?
+- Want manual export to USB/external drive?
+
+**Your answer:**
+```
+ill backup the whole folder to ondrive weejly or something, but automatic backups and export and hsitry could be considered, not as big deal though
+
+```
+
+**Q5.8**: If your laptop died tomorrow, how would you want to recover?
+- Restore from Git repo?
+- Restore from ZIP backup?
+- Have everything in cloud already?
+
+**Your answer:**
+```
+GIT repo should have a verion, and ther should be a local and cloud zip back up
+
+```
+
+---
+
+## Part 6: Keyboard Shortcuts & Power User Features
+
+### 6.1 Navigation
+
+**Q6.1**: You're a power user. How often do you use mouse vs keyboard?
+- Mouse: ___%
+- Keyboard: ___%
+- Touchscreen/stylus: ___%
+
+**Your answer:**
+```
+- Mouse: 60%
+- Keyboard: 40%
+- Touchscreen/stylus: 0% - this is like 80 on tablet, but where focusing on desktp app for now
+
+```
+
+**Q6.2**: The spec proposes:
+- `Ctrl+K` - Global search / command palette
+- `Ctrl+Shift+Space` - Quick capture
+- Arrow keys - Navigate between connected nodes
+- `Enter` - Open selected node
+- `Esc` - Back to graph
+- `0` - Zoom to fit
+
+Any you'd change? Any missing?
+
+**Your answer:**
+```
+- `Ctrl+K` - Global search / command palette
+- `Ctrl+Shift+Space` - Quick capture
+- Arrow keys - Navigate between connected nodes
+- `Enter` - Open selected node
+- `Esc` - Back to graph
+- `0` - Zoom to fit
+
+tis is all good but make more shortcuts and make them cusotmisable in setttings
+
+```
+
+**Q6.3**: Vim-style navigation: Would you want `hjkl` for movement, or prefer arrow keys?
+
+**Your answer:**
+```
+arrow keys is fine, but mosue too
+
+```
+
+**Q6.4**: Quick switcher: Type to search nodes, recent nodes at top?
+- Like Cmd+P in VS Code?
+- Like Cmd+K in Notion?
+- Not needed?
+
+**Your answer:**
+```
+yeakh a quick switer sounds great, have it bing upa vs code style directory? ordered by whats closest to the focused node? maybe command k
+
+```
+
+---
+
+### 6.2 Editing Workflows
+
+**Q6.5**: When editing notes, do you:
+- Write in SYNAPSE?
+- Write in external editor (VS Code, Typora), then save to folder?
+- Handwrite on tablet, never type?
+
+**Your answer:**
+```
+wire in synape, or i could overwrite in a diffent app and save it to a folder, handwriting notes can always be imported but i would liek to ake notes in synapse too that i can edit
+
+```
+
+**Q6.6**: Markdown shortcuts: Would you want:
+- `Ctrl+B` for bold?
+- `Ctrl+I` for italic?
+- `Ctrl+K` for link?
+- Or prefer pure Markdown syntax?
+
+**Your answer:**
+```
+yes pleae shortcuts for markdown
+
+```
+
+**Q6.7**: LaTeX input: For formulas in notes:
+- Inline mode: `$\eta = 1 - \frac{T_C}{T_H}$`?
+- Block mode: `$$...$$`?
+- Visual editor (like Notion)?
+- Copy/paste images of formulas instead?
+
+**Your answer:**
+```
+
+have literally all of these: - Inline mode: `$\eta = 1 - \frac{T_C}{T_H}$`?
+- Block mode: `$$...$$`?
+- Visual editor (like Notion)?
+- Copy/paste images of formulas instead?
+```
+
+---
+
+## Part 7: Advanced Features & Future Vision
+
+### 7.1 Analytics
+
+**Q7.1**: Analytics dashboard: What insights would actually be useful?
+- Time spent per topic (daily/weekly)?
+- Mastery growth over time (line graph)?
+- Weak spot trends ("thermodynamics keeps dropping")?
+- Exam readiness projection?
+- Study consistency (gaps in studying)?
+- Other?
+
+**Your answer:**
+```
+- Time spent per topic (daily/weekly)?
+- Mastery growth over time (line graph)?
+- Weak spot trends ("thermodynamics keeps dropping")?
+- Exam readiness projection?
+- Study consistency (gaps in studying)?
+- Other?
+
+you can add more but  nntihing gimmmiky
+
+```
+
+**Q7.2**: Would you use analytics to:
+- Optimize study time?
+- Impress yourself (gamification)?
+- Share with study group?
+- Not interested?
+
+**Your answer:**
+```
+impress myself, share iweth people, optimise my study time, etc
+
+```
+
+---
+
+### 7.2 Collaboration
+
+**Q7.3**: Study groups: Do you study with others?
+- If yes: How do you share notes/resources now?
+- Would you want to share SYNAPSE courses with classmates?
+- Compare mastery levels?
+- Shared knowledge base?
+
+**Your answer:**
+```
+yes i would love to be able to export and share and c=eventually collaborate on synapse with shared knowledge baes where we can have both our personal ones and use all all our resources together, on the cloud, oo make new stuff from the start
+
+```
+
+**Q7.4**: If SYNAPSE could export your course as a shareable package:
+- Would you share with friends?
+- Post publicly (Reddit, forums)?
+- Keep private?
+
+**Your answer:**
+```
+
+i would post it publicly wiht my university course, also, there would abve an option to just import this file into a fresh or exising synapse directorty and have all that stuff there just liek it was 
+```
+
+---
+
+### 7.3 Long-Term Vision
+
+**Q7.5**: You're building David's Lab (2026-2030). 
+
+Where does SYNAPSE fit in that portfolio?
+- Personal tool (never public)?
+- Case study project (show employers)?
+- Potential product (ship to others)?
+- Foundation for other projects?
+
+**Your answer:**
+```
+
+right no its erosnal, and then ill buiuld up to a case study/portfoplio product i can show othe rpeople, then eventallu get 10 people using sysnppse, i would consider that a sucess, i would also liek to combine it with my hardware product design
+```
+
+**Q7.6**: By Year 4, you've used SYNAPSE for 3 years. What does it look like?
+- How many courses tracked?
+- Total nodes?
+- What features exist that don't now?
+
+**Your answer:**
+```
+- allmy courses and proects and perosnal stuff and holidays etc stracked and linked like i want
+
+- hundreds of nodes but neatly indexed and organised
+
+- load sof features, super featuree rich, with hundreds of module types (like notno) i can use anywhere
+
+```
+
+**Q7.7**: Beyond academics, could SYNAPSE track:
+- Personal projects (M15 Twin-Arm, FlowState) as knowledge maps?
+- Code learning (React, Python, CAD)?
+- Physical skills (rugby plays, climbing routes)?
+- Book reading (notes, quotes)?
+
+Would this be useful, or dilute the focus?
+
+**Your answer:**
+```
+yes, its jus naopther knowdleg base (or gaalxy or solar system) i can see from the hopeage yk, maybe even cross  linking nodes, this expansiveness s fundementalk
+
+```
+
+---
+
+## Part 8: Deal-Breakers & Must-Haves
+
+### 8.1 Non-Negotiables
+
+**Q8.1**: What would make you STOP using SYNAPSE?
+- Too slow (laggy graph)?
+- Lost data?
+- Too complicated?
+- Ugly UI?
+- Other?
+
+**Your answer:**
+```
+ugly, non modern, clogged UI thats too slow
+```
+
+**Q8.2**: What's the ONE feature that must work perfectly?
+- Graph visualization?
+- Mastery calculation?
+- Note taking?
+- File sync?
+
+**Your answer:**
+```
+modules msut work perfectly, from the amunt to the treascking to the resizabilty, grid layout, drag and drop apanels and pages and eveyrthing liek that, thatys the core, the smallest pieces make the biggest differences
+
+but obvioudly everything should be perfect
+
+```
+
+---
+
+### 8.2 Inspiration & Comparisons
+
+**Q8.3**: Apps you love and why:
+```
+Example:
+- Notion: Clean UI, blocks are flexible
+- VS Code: Keyboard-first, fast
+- Things 3: Beautiful, minimal
+```
+
+**Your answer:**
+```
+things 3, notion, obsyndian, etc, it should just really, trallym not be ugly and ld looking, but modern, subtle and clean, with all the information i need and all the cusmtisation i want
+
+```
+
+**Q8.4**: Apps you hate and why:
+```
+Example:
+- OneNote: Messy, hard to navigate
+- Canvas LMS: Ugly, slow
+```
+
+**Your answer:**
+```
+one note, blackbaord, canves, etc, just ugly and not modern, i dont liek apps thatg too vibe coded and choldish, this is a tool
+
+```
+
+**Q8.5**: If SYNAPSE is "like [App X] but for learning," what's App X?
+- Obsidian? (local-first, Markdown)
+- Notion? (flexible, visual)
+- Anki? (spaced repetition)
+- Roam? (networked thought)
+- Something else?
+
+**Your answer:**
+```
+Obsidian and Notiona nd ROam all togehter, but for learning
+
+```
+
+---
+
+## Part 9: Specific Use Cases
+
+### 9.1 Scenario: First Week of Semester
+
+**Q9.1**: It's Week 1. You have 5 new modules.
+
+Walk through setting up SYNAPSE:
+1. Do you create nodes immediately?
+2. Wait until after first lecture?
+3. Import syllabus first?
+4. Set up manually or auto-generate?
+
+**Your answer:**
+```
+Nah, csv imports for all of this, like lierally, csv imports and parsing and editingm and mdodule generation from imports, but i can also exand, this weill give me allt he basic required nodes, and i can dgo in and add, remove, change or weight and fill in the nodes differnly, this is like, importing the syllabus and making it the chassis of the whole system
+
+```
+
+---
+
+### 9.2 Scenario: Midterm Panic
+
+**Q9.2**: It's 3 days before thermodynamics midterm. You're at 60% mastery.
+
+What do you need SYNAPSE to do?
+- Panic mode UI?
+- Filter to weak spots only?
+- Generate 3-day study plan?
+- Just get out of the way?
+
+**Your answer:**
+```
+ust let me work, none of that bs, but i would lieka filter mode where i can mark things witht he exam tag, or any toher tagm (be it mdodules, nodes, or wntire bases) and i can filter by that
+
+```
+
+---
+
+### 9.3 Scenario: Topic Confusion
+
+**Q9.3**: You keep confusing "entropy" and "enthalpy."
+
+How should SYNAPSE help?
+- Flag as commonly confused pair?
+- Compare side-by-side?
+- Quiz you on differences?
+- Create manual link between them with note?
+
+**Your answer:**
+```
+nah, it should have a definintion module i can compare side by side, could just be a text entry module i can link to another tex entry mdoule i cna rename to entorpy, enthalpy, and use  alink to tie them together
+
+```
+
+---
+
+### 9.4 Scenario: Summer Review
+
+**Q9.4**: It's summer. You want to review Year 1 material before Year 2 starts.
+
+What does SYNAPSE show you?
+- All nodes, filter by year?
+- Only weak spots from last year?
+- Refresher quiz mode?
+- Just browse the graph?
+
+**Your answer:**
+```
+well, jsut let me work
+
+```
+
+---
+
+## Part 10: Open-Ended Vision
+
+#8:00 AM - Morning Briefing: Open SYNAPSE on my PC. The homepage shows my "Macro-Galaxy" view. I check my daily and weekly goals in my custom tracker modules. Everything is slick, dark grey, and loads instantly. 
+10:00 AM - Lectures: Sitting in Engineering Maths. I take handwritten notes on my Tab S10 Ultra in Notein. 
+12:00 PM - Quick Capture & Processing: Back at my laptop. I export my Notein notes as a PDF and drag them straight into SYNAPSE. I auto-tag them to the specific module and topic node.
+2:00 PM - The Grind: I jump into my Thermodynamics node. The page is set up exactly how I want: a PDF portal on the left, a markdown editor in the middle, and my massive practice question bank on the right. I smash out 20 questions, logging my mistakes in my custom Error Log module. My mastery calculation ticks up, and the node subtly glows gold.
+6:00 PM - Context Switch: I zoom all the way out of "Academics" and dive into my "Personal Projects" galaxy. I open the M15 Twin-Arm node. I update the Kanban board module, check my embedded CAD renders, and log my hours. 
+10:00 PM - Review: Check my analytics module. High information density shows me exactly what I accomplished today. Close the app.
+
+---
+
+### 10.2 Surprise Me
+
+**Q10.2**: What's a feature you haven't thought of yet, but if SYNAPSE had it, you'd go "THAT'S BRILLIANT"?
+
+**Your answer:**
+Cross-Galaxy "Wormholes" and a built-in Custom Module Studio. 
+First, Wormholes: If I learn a concept in Engineering Maths (like matrices), I want to be able to physically draw a link from that academic node across the entire app directly into my "Code Repos" galaxy where I'm building a physics engine in Python. 
+Second, the Custom Module Studio: I know I want hundreds of modules, but what if SYNAPSE had a lightweight, built-in widget builder where I could write a bit of code to design my *own* bespoke modules on the fly? If the app gives me the scaffolding to invent my own tools and drop them into the grid, that would be truly next-level for David's Lab.
+
+---
+
+### 10.3 Final Thoughts
+
+**Q10.3**: Anything else? Rants, ideas, concerns, random thoughts?
+
+**Your answer:**
+Just reiterating the absolute core of this: Modularity and UI performance are non-negotiable. The blank canvas with resizable, draggable grid blocks is the number one priority. It cannot be laggy, it cannot look outdated, and it cannot restrict me. I want the freedom to make it insanely dense or totally minimalist depending on my mood. The smallest pieces make the biggest differences. If the foundation is robust, SYNAPSE isn't just a study app; it's the entire operating system for David's Lab from 2026 to 2030 and beyond.
+## Completion
+
+Once you've filled this out, we'll use your answers to generate a **Product Refinement Document** that specifies:
+- Exact UI changes from the base spec
+- Custom mastery formula for your learning style
+- Personalized workflows
+- Priority feature ranking
+- Phase adjustments (what to build first for YOUR use case)
+
+This will become the "David's SYNAPSE Config" - your personal fork of the spec.
+
+**Estimated time to complete**: 1-2 hours (take breaks!)
+
+**How to fill out**:
+- Be honest (not what sounds good, but what you'd actually use)
+- Give examples from your real workflow
+- Don't worry about technical feasibility (we'll figure that out)
+- Go deep - verbose is good
