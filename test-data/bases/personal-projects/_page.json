@@ -13,8 +13,8 @@
         "height": 7
       },
       "canvas": {
-        "x": 24,
-        "y": 24,
+        "x": -360,
+        "y": -87,
         "width": 624,
         "height": 880
       },
@@ -27,19 +27,22 @@
       "type": "time-tracker",
       "title": "Time Tracker",
       "position": {
-        "x": 6,
+        "x": 4,
         "y": 1,
         "width": 3,
         "height": 3
       },
       "canvas": {
-        "x": 664,
-        "y": 24,
+        "x": 389,
+        "y": -80,
         "width": 368,
         "height": 368
       },
       "config": {
-        "dataFile": "files/time-tracker.json"
+        "dataFile": "files/time-tracker.json",
+        "activeStart": "2026-03-17T09:55:02.455Z",
+        "activeType": "project",
+        "activeNotes": ""
       }
     },
     {
@@ -67,14 +70,14 @@
       "type": "cad-render",
       "title": "CAD Render Viewer",
       "position": {
-        "x": 6,
-        "y": 4,
+        "x": 1,
+        "y": 8,
         "width": 7,
         "height": 4
       },
       "canvas": {
-        "x": 664,
-        "y": 408,
+        "x": -216,
+        "y": 932,
         "width": 880,
         "height": 496
       },
@@ -83,14 +86,34 @@
         "autoRefresh": true,
         "compareMode": false
       }
+    },
+    {
+      "id": "web-embed-1773741367390-4",
+      "type": "web-embed",
+      "title": "Web Embed",
+      "position": {
+        "x": 1,
+        "y": 4,
+        "width": 12,
+        "height": 7
+      },
+      "canvas": {
+        "x": 241,
+        "y": 430,
+        "width": 1724,
+        "height": 864
+      },
+      "config": {
+        "src": "pornhub.com"
+      }
     }
   ],
   "templates": [
     "project-dashboard"
   ],
   "viewport": {
-    "x": 374.79999999999995,
-    "y": 140.29999999999998,
+    "x": 392.79999999999995,
+    "y": 128.2999999999999,
     "zoom": 0.55
   },
   "ui": {

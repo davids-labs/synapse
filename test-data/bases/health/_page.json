@@ -1,5 +1,5 @@
 {
-  "layout": "grid",
+  "layout": "freeform",
   "gridColumns": 12,
   "modules": [
     {
@@ -11,6 +11,12 @@
         "y": 1,
         "width": 5,
         "height": 7
+      },
+      "canvas": {
+        "x": 24,
+        "y": 24,
+        "width": 624,
+        "height": 880
       },
       "config": {
         "dataFile": "files/kanban.json"
@@ -25,6 +31,12 @@
         "y": 1,
         "width": 3,
         "height": 3
+      },
+      "canvas": {
+        "x": 664,
+        "y": 24,
+        "width": 368,
+        "height": 368
       },
       "config": {
         "dataFile": "files/time-tracker.json",
@@ -43,6 +55,12 @@
         "width": 4,
         "height": 3
       },
+      "canvas": {
+        "x": 1048,
+        "y": 24,
+        "width": 496,
+        "height": 368
+      },
       "config": {
         "dataFile": "files/goals.json"
       }
@@ -57,6 +75,12 @@
         "width": 7,
         "height": 4
       },
+      "canvas": {
+        "x": 664,
+        "y": 408,
+        "width": 880,
+        "height": 496
+      },
       "config": {
         "renderFolder": "files/renders",
         "autoRefresh": true,
@@ -66,5 +90,23 @@
   ],
   "templates": [
     "project-dashboard"
-  ]
+  ],
+  "viewport": {
+    "x": 153.79999999999995,
+    "y": 34.79999999999998,
+    "zoom": 0.55
+  },
+  "ui": {
+    "detailsOpen": false,
+    "detailSize": "comfortable",
+    "detailSectionOrder": [
+      "mastery",
+      "identity",
+      "templates",
+      "links",
+      "wormholes"
+    ],
+    "hiddenDetailSections": [],
+    "savedViews": []
+  }
 }

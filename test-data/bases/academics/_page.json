@@ -8,13 +8,13 @@
       "title": "Progress Snapshot",
       "position": {
         "x": 5,
-        "y": 4,
+        "y": 1,
         "width": 4,
         "height": 3
       },
       "canvas": {
-        "x": 520,
-        "y": 360,
+        "x": 536,
+        "y": -25,
         "width": 496,
         "height": 368
       },
@@ -25,14 +25,14 @@
       "type": "weekly-summary",
       "title": "Weekly Summary",
       "position": {
-        "x": 5,
+        "x": 1,
         "y": 1,
         "width": 4,
         "height": 3
       },
       "canvas": {
-        "x": 536,
-        "y": 24,
+        "x": -17,
+        "y": -25,
         "width": 496,
         "height": 368
       },
@@ -49,8 +49,8 @@
         "height": 3
       },
       "canvas": {
-        "x": 1048,
-        "y": 24,
+        "x": 1081,
+        "y": -23,
         "width": 496,
         "height": 368
       },
@@ -87,8 +87,8 @@
         "height": 4
       },
       "canvas": {
-        "x": 792,
-        "y": 408,
+        "x": 897,
+        "y": 401,
         "width": 752,
         "height": 496
       },
