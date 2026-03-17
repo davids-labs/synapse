@@ -525,6 +525,115 @@ Point SYNAPSE's `basePath` at your workspace folder, then enable Git integration
 - workspace opens correctly
 - diagnostics show a healthy or understandable state
 
+## CSV Import Guide
+
+SYNAPSE supports CSV preview/import from the app (`Ctrl+Shift+I`) with a practical, schema-light parser designed for real-world files.
+
+### Import types
+
+- `syllabus`: creates node entities beneath the selected entity
+- `modules`: appends modules to the selected entity page
+- `practice`: imports practice questions into `files/practice/questions.csv`
+- `custom`: copies the CSV file into `files/imports/` on the selected entity
+
+### Delimiter support
+
+- supported delimiters: comma `,`, semicolon `;`, tab `\t`
+- parser normalizes line endings (`CRLF` / `LF`)
+- quoted fields are supported, including escaped quotes (`""`)
+
+### Preview behavior
+
+- preview shows headers and first 6 rows
+- use preview to verify delimiter and header names before import
+
+### Column mapping by import type
+
+`practice` import:
+
+- required in practice: none strictly required, but `title` is strongly recommended
+- recognized columns:
+	- `question_id` or `id` (fallback: slug from title)
+	- `title`
+	- `type` (`calculation`, `derivation`, `multiple-choice`, `proof`, `custom`)
+	- `difficulty` (`easy`, `medium`, `hard`)
+	- `source` (fallback: `topic`, then `Imported CSV`)
+	- `tags` or `topic` (split on `|` or `,`)
+	- `correct` (if `> 0`, imported status becomes `correct`)
+
+`modules` import:
+
+- recognized columns:
+	- `module_id` (fallback generated id)
+	- `type` (fallback `custom`)
+	- `title` (fallback `type`, then `Imported Module`)
+	- `position_x` / `x`, `position_y` / `y`, `width`, `height`
+	- optional freeform coordinates: `canvas_x`, `canvas_y`, `canvas_width`, `canvas_height`
+	- `config` (JSON string; invalid JSON is treated as `{}`)
+
+`syllabus` import:
+
+- recognized columns:
+	- `node_id` or `id` (fallback slug from title)
+	- `title`
+	- `parent_id` (must reference another `node_id` in the same CSV to nest)
+	- `exam_weight` (number)
+	- `prerequisites` (ids split by `|` or `,`, resolved only if created in this import batch)
+	- `category` (stored as a single tag)
+	- `estimated_hours` (stored in `custom.estimatedHours`)
+
+`custom` import:
+
+- does not parse row schema into entities
+- copies file to `entity/files/imports/<original-file-name>.csv`
+
+### Merge and overwrite behavior
+
+- practice import merges by question id
+- if an imported question id already exists, the imported row replaces that question entry
+- modules import appends modules; it does not deduplicate module ids
+- syllabus import creates new nodes each run; repeat imports can create duplicates
+
+### Constraints and practical limits
+
+- file path must be readable by the app process
+- malformed CSV structure may parse unexpectedly if quoting is inconsistent
+- invalid enum values (for example `difficulty=extreme`) can fail validation for that import
+- very large CSV files are supported but can feel slow; split huge imports into batches
+
+### Recommended workflow
+
+1. Keep a stable header template per import type.
+2. Run preview first and confirm delimiter/header alignment.
+3. Import into a test node before importing into production study nodes.
+4. Sync/commit after successful import so rollback is easy.
+5. For recurring pipelines, keep ids stable (`question_id`, `node_id`) to avoid duplicates.
+
+### Minimal examples
+
+Practice CSV example:
+
+```csv
+question_id,title,type,difficulty,source,tags,correct
+q-001,First law derivation,derivation,hard,Thermodynamics,"exam|laws",0
+q-002,Entropy concept check,multiple-choice,medium,Thermodynamics,"review|entropy",1
+```
+
+Modules CSV example:
+
+```csv
+module_id,type,title,position_x,position_y,width,height,config
+m-001,markdown-editor,Theory Notes,1,1,6,6,"{""filepath"":""files/notes.md"",""autoSave"":true}"
+```
+
+Syllabus CSV example:
+
+```csv
+node_id,title,parent_id,category,exam_weight,estimated_hours,prerequisites
+intro,Intro to Thermodynamics,,core,10,2,
+laws,Laws of Thermodynamics,intro,core,30,6,intro
+```
+
 ## Shortcuts
 
 Verified defaults:
