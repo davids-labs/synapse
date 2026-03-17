@@ -1337,7 +1337,7 @@ export function App() {
   };
 
   const openImportExport = (mode: 'import' | 'export') => {
-    if (!selectedEntity) {
+    if (!selectedEntity || !workspace) {
       return;
     }
 
@@ -1346,7 +1346,7 @@ export function App() {
       entityPath: selectedEntity.entityPath,
       importType: 'syllabus' as CsvImportType,
       exportType: 'structure' as CsvExportType,
-      delimiter: settings.csvDelimiter,
+      delimiter: workspace.settings.csvDelimiter,
       sourcePath: '',
       preview: null,
       loading: false,
