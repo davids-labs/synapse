@@ -5,8 +5,9 @@ import type { UpdateState } from '../shared/types';
 export class UpdateManager {
   private state: UpdateState = {
     configured: false,
-    status: 'disabled',
-    message: 'Updates are not configured.',
+    manualOnly: true,
+    status: 'not-available',
+    message: 'Automatic updates are not configured for this build. Install newer releases manually.',
   };
 
   private initialized = false;
@@ -27,12 +28,14 @@ export class UpdateManager {
       });
       this.state = {
         configured: true,
+        manualOnly: false,
         status: 'idle',
         message: 'Update feed configured.',
       };
     } else if (app.isPackaged) {
       this.state = {
         configured: true,
+        manualOnly: false,
         status: 'idle',
         message: 'Packaged build can use bundled update configuration.',
       };
@@ -44,6 +47,7 @@ export class UpdateManager {
     autoUpdater.on('checking-for-update', () => {
       this.publish(getMainWindow, {
         ...this.state,
+        manualOnly: false,
         status: 'checking',
         message: 'Checking for updates...',
       });
@@ -52,6 +56,7 @@ export class UpdateManager {
     autoUpdater.on('update-available', (info) => {
       this.publish(getMainWindow, {
         configured: true,
+        manualOnly: false,
         status: 'available',
         message: 'Update available. Downloading now...',
         version: info.version,
@@ -63,6 +68,7 @@ export class UpdateManager {
     autoUpdater.on('update-not-available', (info) => {
       this.publish(getMainWindow, {
         configured: true,
+        manualOnly: false,
         status: 'not-available',
         message: 'You are on the latest version.',
         version: info.version,
@@ -73,6 +79,7 @@ export class UpdateManager {
       this.publish(getMainWindow, {
         ...this.state,
         configured: true,
+        manualOnly: false,
         status: 'downloading',
         progress: progress.percent,
         message: `Downloading update... ${Math.round(progress.percent)}%`,
@@ -82,6 +89,7 @@ export class UpdateManager {
     autoUpdater.on('update-downloaded', (info) => {
       this.publish(getMainWindow, {
         configured: true,
+        manualOnly: false,
         status: 'downloaded',
         message: 'Update downloaded. Restart when ready.',
         version: info.version,
@@ -106,7 +114,13 @@ export class UpdateManager {
 
   async checkForUpdates(): Promise<UpdateState> {
     if (!this.state.configured) {
-      return this.state;
+      return {
+        ...this.state,
+        manualOnly: true,
+        status: 'not-available',
+        message:
+          'Automatic updates are not configured for this build. Install newer releases manually.',
+      };
     }
 
     await autoUpdater.checkForUpdates();

@@ -1,7 +1,10 @@
-import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
-import os from 'os';
+import { BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
 import path from 'path';
-import { DEFAULT_SETTINGS, resolveThemeColorScheme } from '../shared/constants';
+import {
+  DEFAULT_SETTINGS,
+  MODERN_CHROME_USER_AGENT,
+  resolveThemeColorScheme,
+} from '../shared/constants';
 import {
   ActiveCaptureTargetSchema,
   AppSettingsSchema,
@@ -60,7 +63,6 @@ import {
   savePracticeQuestions,
   saveRootSettings,
   saveTags as saveWorkspaceTags,
-  summarizeBases,
 } from './workspaceStore';
 
 interface IpcContext {
@@ -76,6 +78,9 @@ const PDF_EXTENSIONS = new Set(['.pdf']);
 let workspaceWatcher: FileWatcher | null = null;
 let hotDropManager: HotDropManager | null = null;
 let hotDropStatus: HotDropStatus | null = null;
+const browserSurfaces = new Set<BrowserWindow>();
+let cachedSettings: AppSettings | null = null;
+let cachedSettingsKey: string | null = null;
 
 function isWritableError(value: unknown): value is NodeJS.ErrnoException {
   return value instanceof Error && 'code' in value && value.code === 'EPIPE';
@@ -130,12 +135,97 @@ function registerHandle<Args extends unknown[], Result>(
   });
 }
 
+function getSettingsCacheKey(appPath: string, userDataPath: string): string {
+  return `${appPath}::${userDataPath}`;
+}
+
+function updateSettingsCache(appPath: string, userDataPath: string, settings: AppSettings): AppSettings {
+  cachedSettingsKey = getSettingsCacheKey(appPath, userDataPath);
+  cachedSettings = settings;
+  return settings;
+}
+
 function getUserConfigPath(userDataPath: string): string {
   return path.join(userDataPath, 'config.json');
 }
 
 function getHotDropFolderPath(userDataPath: string): string {
   return path.join(userDataPath, 'hot-drop');
+}
+
+function normalizeRemoteUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    throw new Error('Enter a valid https:// URL first.');
+  }
+
+  const normalized = /^[a-z]+:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  const target = new URL(normalized);
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+    throw new Error('Only http:// and https:// URLs can open in the browser surface.');
+  }
+
+  return target.toString();
+}
+
+async function openExternalUrl(rawUrl: string): Promise<string> {
+  const normalizedUrl = normalizeRemoteUrl(rawUrl);
+  await shell.openExternal(normalizedUrl);
+  return normalizedUrl;
+}
+
+async function openBrowserSurface(rawUrl: string, title?: string): Promise<string> {
+  const normalizedUrl = normalizeRemoteUrl(rawUrl);
+  const browserSurface = new BrowserWindow({
+    width: 1280,
+    height: 860,
+    minWidth: 960,
+    minHeight: 640,
+    title: title?.trim() ? `${title.trim()} · Browser Surface` : 'Browser Surface',
+    backgroundColor: '#111111',
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  browserSurface.webContents.setUserAgent(MODERN_CHROME_USER_AGENT);
+
+  browserSurfaces.add(browserSurface);
+  browserSurface.on('closed', () => {
+    browserSurfaces.delete(browserSurface);
+  });
+
+  browserSurface.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      void browserSurface.loadURL(url).catch(async () => {
+        await shell.openExternal(url).catch(() => undefined);
+      });
+      return { action: 'deny' };
+    }
+
+    void shell.openExternal(url).catch(() => undefined);
+    return { action: 'deny' };
+  });
+
+  browserSurface.webContents.on('will-navigate', (event, nextUrl) => {
+    if (!/^https?:\/\//i.test(nextUrl)) {
+      event.preventDefault();
+      void shell.openExternal(nextUrl).catch(() => undefined);
+    }
+  });
+
+  try {
+    await browserSurface.loadURL(normalizedUrl);
+  } catch {
+    if (!browserSurface.isDestroyed()) {
+      browserSurface.close();
+    }
+    await shell.openExternal(normalizedUrl);
+  }
+
+  return normalizedUrl;
 }
 
 async function resolveDefaultBasePath(appPath: string): Promise<string> {
@@ -168,6 +258,11 @@ async function normalizeBasePath(currentBasePath: string, defaultBasePath: strin
 }
 
 async function loadSettings(appPath: string, userDataPath: string): Promise<AppSettings> {
+  const cacheKey = getSettingsCacheKey(appPath, userDataPath);
+  if (cachedSettings && cachedSettingsKey === cacheKey) {
+    return cachedSettings;
+  }
+
   const configPath = getUserConfigPath(userDataPath);
   const defaultBasePath = await resolveDefaultBasePath(appPath);
 
@@ -179,8 +274,7 @@ async function loadSettings(appPath: string, userDataPath: string): Promise<AppS
     defaults.colorScheme = resolveThemeColorScheme(defaults.theme, defaults.colorScheme);
     await ensureDir(userDataPath);
     await writeJsonFile(configPath, defaults);
-    await saveRootSettings(defaultBasePath, defaults);
-    return defaults;
+    return updateSettingsCache(appPath, userDataPath, defaults);
   }
 
   let userConfig: Record<string, unknown>;
@@ -193,34 +287,44 @@ async function loadSettings(appPath: string, userDataPath: string): Promise<AppS
     }) as AppSettings;
     defaults.colorScheme = resolveThemeColorScheme(defaults.theme, defaults.colorScheme);
     await writeJsonFile(configPath, defaults);
-    await saveRootSettings(defaultBasePath, defaults);
-    return defaults;
+    return updateSettingsCache(appPath, userDataPath, defaults);
   }
 
   const userSettings = AppSettingsSchema.parse({
     ...DEFAULT_SETTINGS,
     ...userConfig,
-    basePath: defaultBasePath,
+    basePath:
+      typeof userConfig.basePath === 'string' && userConfig.basePath.trim().length > 0
+        ? userConfig.basePath
+        : defaultBasePath,
   }) as AppSettings;
   userSettings.colorScheme = resolveThemeColorScheme(
     userSettings.theme,
     userSettings.colorScheme,
   );
   const normalizedBasePath = await normalizeBasePath(userSettings.basePath, defaultBasePath);
-  const workspaceSettings = await saveRootSettings(normalizedBasePath, {
+  const workspaceSettings = AppSettingsSchema.parse({
     ...DEFAULT_SETTINGS,
     ...userSettings,
     basePath: normalizedBasePath,
-  } as AppSettings);
+  }) as AppSettings;
+  workspaceSettings.colorScheme = resolveThemeColorScheme(
+    workspaceSettings.theme,
+    workspaceSettings.colorScheme,
+  );
 
   if (normalizedBasePath !== userSettings.basePath) {
     await writeJsonFile(configPath, workspaceSettings);
   }
 
-  return workspaceSettings;
+  return updateSettingsCache(appPath, userDataPath, workspaceSettings);
 }
 
-async function persistSettings(userDataPath: string, settings: AppSettings): Promise<AppSettings> {
+async function persistSettings(
+  appPath: string,
+  userDataPath: string,
+  settings: AppSettings,
+): Promise<AppSettings> {
   const validated = AppSettingsSchema.parse({
     ...DEFAULT_SETTINGS,
     ...settings,
@@ -229,7 +333,7 @@ async function persistSettings(userDataPath: string, settings: AppSettings): Pro
   await ensureDir(userDataPath);
   await writeJsonFile(getUserConfigPath(userDataPath), validated);
   await saveRootSettings(validated.basePath, validated);
-  return validated;
+  return updateSettingsCache(appPath, userDataPath, validated);
 }
 
 async function ensureHotDropManager(context: IpcContext): Promise<HotDropManager> {
@@ -269,9 +373,19 @@ async function buildBootstrap(context: IpcContext) {
 
   return {
     settings,
-    bases: summarizeBases(workspace.bases),
+    bases: workspace.bases.map((base) => ({
+      id: base.record.id,
+      title: base.title,
+      path: base.entityPath,
+      progress: base.stats.averageMastery,
+      totalNodes: base.stats.totalNodes,
+      completedNodes: base.stats.completedNodes,
+      icon: base.record.icon,
+      color: base.record.color,
+    })),
     defaultBasePath: settings.basePath,
     hotDrop: manager.getStatus(),
+    workspace,
   };
 }
 
@@ -368,12 +482,7 @@ async function performQuickCapture(
       };
     }
 
-    const placeholder = ['PNG_PLACEHOLDER', 'Replace this with an integrated screenshot pipeline.'].join(os.EOL);
-    await writeTextFile(destination, placeholder);
-    return {
-      savedTo: destination,
-      message: 'Screenshot placeholder captured.',
-    };
+    throw new Error('Screenshot capture did not include image data. Capture the screen again and retry.');
   }
 
   throw new Error('Unsupported quick capture request.');
@@ -428,7 +537,7 @@ export function registerIpcHandlers(context: IpcContext): void {
   registerHandle('load-settings', async () => loadSettings(context.appPath, context.userDataPath));
 
   registerHandle('save-settings', async (_event, settings: AppSettings) =>
-    persistSettings(context.userDataPath, settings),
+    persistSettings(context.appPath, context.userDataPath, settings),
   );
 
   registerHandle('save-tags', async (_event, tags: TagDefinition[]) => {
@@ -573,6 +682,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   );
 
   registerHandle('open-file', async (_event, targetPath: string) => readTextFile(targetPath));
+  registerHandle('open-browser-surface', async (_event, rawUrl: string, title?: string) =>
+    openBrowserSurface(rawUrl, title),
+  );
+  registerHandle('open-external-url', async (_event, rawUrl: string) => openExternalUrl(rawUrl));
 
   registerHandle('quick-capture', async (_event, request: QuickCaptureRequest) => {
     const settings = await loadSettings(context.appPath, context.userDataPath);

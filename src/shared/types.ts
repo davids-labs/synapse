@@ -144,6 +144,40 @@ export interface PageViewport {
   zoom: number;
 }
 
+export type DetailSectionId =
+  | 'mastery'
+  | 'identity'
+  | 'templates'
+  | 'links'
+  | 'wormholes';
+export type ModuleImplementationStatus = 'production' | 'uplift' | 'schema-driven';
+export type ModuleOwnerWave = 'foundation' | 'wave-1' | 'wave-2' | 'wave-3' | 'wave-4';
+
+export interface SavedCanvasDetailLayout {
+  detailsOpen?: boolean;
+  detailSize?: 'compact' | 'comfortable' | 'wide';
+  detailSectionOrder?: DetailSectionId[];
+  hiddenDetailSections?: DetailSectionId[];
+}
+
+export interface SavedCanvasView {
+  id: string;
+  name: string;
+  viewport: PageViewport;
+  created: string;
+  modules?: SynapseModule[];
+  detailLayout?: SavedCanvasDetailLayout;
+}
+
+export interface PageUiState {
+  surfaceTitle?: string;
+  detailsOpen?: boolean;
+  detailSize?: 'compact' | 'comfortable' | 'wide';
+  detailSectionOrder?: DetailSectionId[];
+  hiddenDetailSections?: DetailSectionId[];
+  savedViews?: SavedCanvasView[];
+}
+
 export interface CustomModuleColumn {
   key: string;
   label: string;
@@ -175,6 +209,7 @@ export interface PageLayout {
   modules: SynapseModule[];
   templates: string[];
   viewport?: PageViewport;
+  ui?: PageUiState;
 }
 
 export interface PracticeAttempt {
@@ -368,6 +403,8 @@ export interface EntityFileSummary {
   name: string;
   extension: string;
   type: 'image' | 'pdf' | 'markdown' | 'csv' | 'json' | 'text' | 'other';
+  size?: number;
+  modifiedAt?: string;
 }
 
 export interface EntityStats {
@@ -460,6 +497,7 @@ export interface BootstrapData {
   bases: BootstrapBaseSummary[];
   defaultBasePath: string;
   hotDrop: HotDropStatus;
+  workspace: WorkspaceSnapshot;
 }
 
 export interface EntityFilter {
@@ -475,12 +513,18 @@ export interface GitStatusSummary {
   modified: string[];
   ahead: number;
   behind: number;
+  currentBranch?: string;
+  trackingBranch?: string | null;
+  hasRemote?: boolean;
+  hasUpstream?: boolean;
+  syncReady?: boolean;
 }
 
 export interface SyncResult {
   success: boolean;
   message: string;
   error?: string;
+  code?: string;
 }
 
 export interface CommitInfo {
@@ -579,6 +623,7 @@ export interface UpdateState {
     | 'not-available'
     | 'error';
   message: string;
+  manualOnly?: boolean;
   version?: string;
   releaseName?: string;
   releaseDate?: string;

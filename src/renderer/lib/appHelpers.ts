@@ -4,6 +4,7 @@ import type {
   SynapseModule,
   WorkspaceSnapshot,
 } from '../../shared/types';
+import { INLINE_EMBED_PARENT_HOST } from '../../shared/constants';
 
 export const defaultFilter: EntityFilter = {
   tags: [],
@@ -16,6 +17,203 @@ export const defaultFilter: EntityFilter = {
 export function fileUrl(targetPath: string): string {
   const normalized = targetPath.replace(/\\/g, '/');
   return normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`;
+}
+
+function extractYouTubeVideoId(url: URL): string | null {
+  const hostname = url.hostname.replace(/^www\./i, '').toLowerCase();
+  const segments = url.pathname.split('/').filter(Boolean);
+
+  if (hostname === 'youtu.be') {
+    return segments[0] || null;
+  }
+
+  if (hostname !== 'youtube.com' && hostname !== 'm.youtube.com') {
+    return null;
+  }
+
+  if (url.pathname === '/watch') {
+    return url.searchParams.get('v');
+  }
+
+  if (['embed', 'shorts', 'live', 'v'].includes(segments[0] || '')) {
+    return segments[1] || null;
+  }
+
+  return null;
+}
+
+function parseTimeOffset(rawValue: string | null): string | null {
+  if (!rawValue) {
+    return null;
+  }
+
+  if (/^\d+$/.test(rawValue)) {
+    return rawValue;
+  }
+
+  const match = rawValue.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+  const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+  return totalSeconds > 0 ? String(totalSeconds) : null;
+}
+
+function buildYouTubeEmbedUrl(url: URL): string | null {
+  const videoId = extractYouTubeVideoId(url);
+  if (!videoId) {
+    return null;
+  }
+
+  const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+  const playlist = url.searchParams.get('list');
+  const index = url.searchParams.get('index');
+  const start = parseTimeOffset(url.searchParams.get('t') || url.searchParams.get('start'));
+
+  if (playlist) {
+    embedUrl.searchParams.set('list', playlist);
+  }
+  if (index) {
+    embedUrl.searchParams.set('index', index);
+  }
+  if (start) {
+    embedUrl.searchParams.set('start', start);
+  }
+
+  return embedUrl.toString();
+}
+
+function buildTwitchEmbedUrl(url: URL): string | null {
+  const hostname = url.hostname.replace(/^www\./i, '').toLowerCase();
+  const segments = url.pathname.split('/').filter(Boolean);
+
+  if (!hostname.endsWith('twitch.tv')) {
+    return null;
+  }
+
+  const playerUrl =
+    hostname === 'clips.twitch.tv'
+      ? new URL('https://clips.twitch.tv/embed')
+      : new URL('https://player.twitch.tv/');
+
+  playerUrl.searchParams.set('parent', INLINE_EMBED_PARENT_HOST);
+
+  if (hostname === 'clips.twitch.tv' && segments[0]) {
+    playerUrl.searchParams.set('clip', segments[0]);
+    return playerUrl.toString();
+  }
+
+  if (hostname === 'player.twitch.tv') {
+    for (const key of ['channel', 'video', 'collection', 'parent']) {
+      const value = url.searchParams.get(key);
+      if (value) {
+        playerUrl.searchParams.set(key, value);
+      }
+    }
+    playerUrl.searchParams.set('parent', INLINE_EMBED_PARENT_HOST);
+    return playerUrl.toString();
+  }
+
+  if (segments[0] === 'videos' && segments[1]) {
+    playerUrl.searchParams.set('video', `v${segments[1].replace(/^v/i, '')}`);
+    return playerUrl.toString();
+  }
+
+  if (segments[1] === 'clip' && segments[2]) {
+    const clipUrl = new URL('https://clips.twitch.tv/embed');
+    clipUrl.searchParams.set('clip', segments[2]);
+    clipUrl.searchParams.set('parent', INLINE_EMBED_PARENT_HOST);
+    return clipUrl.toString();
+  }
+
+  const reservedRoutes = new Set([
+    'directory',
+    'downloads',
+    'jobs',
+    'login',
+    'messages',
+    'p',
+    'search',
+    'settings',
+    'store',
+    'subscriptions',
+  ]);
+
+  const channel = segments[0];
+  if (channel && !reservedRoutes.has(channel)) {
+    playerUrl.searchParams.set('channel', channel);
+    return playerUrl.toString();
+  }
+
+  return null;
+}
+
+function buildVimeoEmbedUrl(url: URL): string | null {
+  const hostname = url.hostname.replace(/^www\./i, '').toLowerCase();
+  const segments = url.pathname.split('/').filter(Boolean);
+
+  if (!hostname.endsWith('vimeo.com')) {
+    return null;
+  }
+
+  if (hostname === 'player.vimeo.com' && segments[0] === 'video' && segments[1]) {
+    return url.toString();
+  }
+
+  const videoId = [...segments].reverse().find((segment) => /^\d+$/.test(segment));
+  return videoId ? `https://player.vimeo.com/video/${videoId}` : null;
+}
+
+export interface EmbeddableUrlResult {
+  iframeUrl: string | null;
+  normalizedUrl: string;
+  fallbackUrl: string | null;
+  reason?: string;
+  browserPreferred?: boolean;
+}
+
+export function resolveEmbeddableUrl(rawUrl: string): EmbeddableUrlResult {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return {
+      iframeUrl: null,
+      normalizedUrl: '',
+      fallbackUrl: null,
+      reason: 'Add a valid URL to embed it here.',
+    };
+  }
+
+  const normalizedInput = /^[a-z]+:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(normalizedInput);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error('Only http:// and https:// URLs can be embedded here.');
+    }
+
+    const normalizedUrl = url.toString();
+    const transformedEmbedUrl =
+      buildYouTubeEmbedUrl(url) || buildTwitchEmbedUrl(url) || buildVimeoEmbedUrl(url);
+
+    return {
+      iframeUrl: transformedEmbedUrl || normalizedUrl,
+      normalizedUrl,
+      fallbackUrl: normalizedUrl,
+      browserPreferred: false,
+    };
+  } catch {
+    return {
+      iframeUrl: null,
+      normalizedUrl: trimmed,
+      fallbackUrl: null,
+      reason: 'Enter a valid https:// URL to embed it here.',
+      browserPreferred: false,
+    };
+  }
 }
 
 export function resolveEntityPath(entityPath: string, relativePath: string): string {
@@ -394,11 +592,17 @@ export function emptyModuleConfig(moduleType: SynapseModule['type']): Record<str
   if (moduleType === 'pdf-viewer') {
     return { filepath: 'files/lecture-notes.pdf', currentPage: 1, zoom: 1 };
   }
-  if (moduleType === 'image-gallery' || moduleType === 'handwriting-gallery' || moduleType === 'mood-board') {
-    return { folder: 'files', columns: 3, sortBy: 'date' };
+  if (moduleType === 'image-gallery') {
+    return { folder: 'files', columns: 3, sortBy: 'date', sortDirection: 'desc', compareMode: false };
+  }
+  if (moduleType === 'handwriting-gallery') {
+    return { folder: 'files/handwriting', columns: 2, sortBy: 'date', sortDirection: 'desc', compareMode: true };
+  }
+  if (moduleType === 'mood-board') {
+    return { folder: 'files', columns: 4, sortBy: 'date', sortDirection: 'desc', compareMode: false };
   }
   if (moduleType === 'cad-render') {
-    return { renderFolder: 'files/renders', autoRefresh: true, compareMode: false };
+    return { folder: 'files/renders', renderFolder: 'files/renders', autoRefresh: true, columns: 3, sortBy: 'date', sortDirection: 'desc', compareMode: true };
   }
   if (moduleType === 'video-player') {
     return { filepath: 'files/media/demo.mp4' };
@@ -413,7 +617,7 @@ export function emptyModuleConfig(moduleType: SynapseModule['type']): Record<str
     return { dataFile: 'files/practice/error-log.json' };
   }
   if (moduleType === 'file-list' || moduleType === 'file-browser' || moduleType === 'file-organizer') {
-    return { folder: 'files' };
+    return { folder: 'files', sortBy: 'date', sortDirection: 'desc' };
   }
   if (moduleType === 'checklist') {
     return { items: [] };

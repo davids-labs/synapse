@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
@@ -16,8 +16,17 @@ import {
   formatPercentage,
   getEntityLineage,
   prettyTitle,
+  resolveEmbeddableUrl,
   resolveEntityPath,
 } from '../lib/appHelpers';
+import {
+  formatFileSize,
+  normalizeEntityFileSortBy,
+  normalizeEntityFileSortDirection,
+  sortEntityFiles,
+} from '../lib/entityFiles';
+import { BrowserLinkActions, EmbedFallbackPanel } from './EmbedActions';
+import { MediaCollectionModule } from './MediaCollectionModule';
 
 interface ExtendedModuleViewProps {
   workspace: WorkspaceSnapshot;
@@ -36,6 +45,8 @@ interface ListItem {
   done?: boolean;
   level?: number;
   notes?: string;
+  color?: string;
+  kind?: string;
 }
 
 interface LinkItem {
@@ -62,6 +73,15 @@ interface TimelineEvent {
   title: string;
   date: string;
   notes?: string;
+}
+
+interface GanttTask {
+  id: string;
+  name: string;
+  start: string;
+  duration: number;
+  progress?: number;
+  dependencies?: string[];
 }
 
 interface CitationEntry {
@@ -114,6 +134,18 @@ interface QuoteItem {
   author?: string;
 }
 
+interface WeatherSnapshot {
+  loading: boolean;
+  error?: string;
+  place?: string;
+  temperature?: number;
+  windspeed?: number;
+  winddirection?: number;
+  weathercode?: number;
+  high?: number;
+  low?: number;
+}
+
 const QUOTE_FALLBACK: QuoteItem[] = [
   { text: 'Consistency compounds faster than intensity.', author: 'Synapse' },
   { text: 'Make the workspace calm so the work can get hard.', author: 'Synapse' },
@@ -141,6 +173,22 @@ const PERIODIC_ELEMENTS = [
   { symbol: 'Ar', name: 'Argon', number: 18, mass: '39.948', category: 'noble gas' },
   { symbol: 'K', name: 'Potassium', number: 19, mass: '39.098', category: 'alkali metal' },
   { symbol: 'Ca', name: 'Calcium', number: 20, mass: '40.078', category: 'alkaline earth' },
+  { symbol: 'Sc', name: 'Scandium', number: 21, mass: '44.956', category: 'transition metal' },
+  { symbol: 'Ti', name: 'Titanium', number: 22, mass: '47.867', category: 'transition metal' },
+  { symbol: 'V', name: 'Vanadium', number: 23, mass: '50.942', category: 'transition metal' },
+  { symbol: 'Cr', name: 'Chromium', number: 24, mass: '51.996', category: 'transition metal' },
+  { symbol: 'Mn', name: 'Manganese', number: 25, mass: '54.938', category: 'transition metal' },
+  { symbol: 'Fe', name: 'Iron', number: 26, mass: '55.845', category: 'transition metal' },
+  { symbol: 'Co', name: 'Cobalt', number: 27, mass: '58.933', category: 'transition metal' },
+  { symbol: 'Ni', name: 'Nickel', number: 28, mass: '58.693', category: 'transition metal' },
+  { symbol: 'Cu', name: 'Copper', number: 29, mass: '63.546', category: 'transition metal' },
+  { symbol: 'Zn', name: 'Zinc', number: 30, mass: '65.38', category: 'transition metal' },
+  { symbol: 'Ga', name: 'Gallium', number: 31, mass: '69.723', category: 'post-transition' },
+  { symbol: 'Ge', name: 'Germanium', number: 32, mass: '72.63', category: 'metalloid' },
+  { symbol: 'As', name: 'Arsenic', number: 33, mass: '74.922', category: 'metalloid' },
+  { symbol: 'Se', name: 'Selenium', number: 34, mass: '78.971', category: 'nonmetal' },
+  { symbol: 'Br', name: 'Bromine', number: 35, mass: '79.904', category: 'halogen' },
+  { symbol: 'Kr', name: 'Krypton', number: 36, mass: '83.798', category: 'noble gas' },
 ];
 
 function asString(value: unknown, fallback = ''): string {
@@ -176,12 +224,68 @@ function saveConfig(
   }));
 }
 
+function countWords(value: string) {
+  return value.trim() ? value.trim().split(/\s+/).length : 0;
+}
+
+function sanitizeHtmlPreview(value: string) {
+  return value
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
+    .replace(/\son[a-z]+="[^"]*"/gi, '')
+    .replace(/\son[a-z]+='[^']*'/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
+function extractMarkdownHeadings(content: string) {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^#{1,4}\s+/.test(line))
+    .map((line) => line.replace(/^#{1,4}\s+/, ''))
+    .slice(0, 10);
+}
+
+function weatherCodeLabel(code?: number) {
+  const labels: Record<number, string> = {
+    0: 'Clear',
+    1: 'Mostly clear',
+    2: 'Partly cloudy',
+    3: 'Cloudy',
+    45: 'Fog',
+    48: 'Frost fog',
+    51: 'Light drizzle',
+    53: 'Drizzle',
+    55: 'Heavy drizzle',
+    61: 'Light rain',
+    63: 'Rain',
+    65: 'Heavy rain',
+    71: 'Light snow',
+    73: 'Snow',
+    75: 'Heavy snow',
+    80: 'Rain showers',
+    81: 'Heavy showers',
+    82: 'Violent showers',
+    95: 'Thunderstorm',
+  };
+  return code === undefined ? 'Weather unavailable' : labels[code] || `Code ${code}`;
+}
+
 function useFileContent(targetPath: string) {
   const [content, setContent] = useState('');
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
+
+    if (!targetPath) {
+      setContent('');
+      setLoaded(true);
+      return () => {
+        active = false;
+      };
+    }
+
     setLoaded(false);
     void window.synapse
       .openFile(targetPath)
@@ -379,8 +483,9 @@ export function renderExtendedModule(props: ExtendedModuleViewProps) {
     case 'color-palette':
       return <ColorPaletteModule {...props} />;
     case 'mood-board':
-    case 'handwriting-gallery':
       return <MoodBoardModule {...props} />;
+    case 'handwriting-gallery':
+      return <HandwritingGalleryModule {...props} />;
     case 'whiteboard':
       return <WhiteboardModule {...props} />;
     case 'screenshot-annotator':
@@ -428,6 +533,33 @@ function RichTextModule({ entity, module, onSaveFile }: ExtendedModuleViewProps)
   const filePath = resolveEntityPath(entity.entityPath, configured);
   const { content, setContent, loaded } = useFileContent(filePath);
   const [saved, setSaved] = useState('Saved');
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const preview = useMemo(
+    () => sanitizeHtmlPreview(content || `<p>Start writing rich text for ${entity.title}.</p>`),
+    [content, entity.title],
+  );
+  const wordCount = countWords(content);
+  const characterCount = content.length;
+
+  const insertSnippet = (before: string, after = '') => {
+    const editor = editorRef.current;
+    if (!editor) {
+      setContent(`${content}${before}${after}`);
+      setSaved('Saving...');
+      return;
+    }
+    const start = editor.selectionStart ?? content.length;
+    const end = editor.selectionEnd ?? content.length;
+    const selected = content.slice(start, end);
+    const next = `${content.slice(0, start)}${before}${selected}${after}${content.slice(end)}`;
+    setContent(next);
+    setSaved('Saving...');
+    window.requestAnimationFrame(() => {
+      const cursor = start + before.length + selected.length + after.length;
+      editor.focus();
+      editor.setSelectionRange(cursor, cursor);
+    });
+  };
 
   useEffect(() => {
     if (!loaded || saved === 'Saved') {
@@ -442,21 +574,68 @@ function RichTextModule({ entity, module, onSaveFile }: ExtendedModuleViewProps)
 
   return (
     <div className="markdown-module">
-      <textarea
-        className="editor-pane"
-        value={content}
-        placeholder="<p>Write rich text or simple HTML here...</p>"
-        onChange={(event) => {
-          setContent(event.target.value);
-          setSaved('Saving...');
-        }}
-      />
+      <div className="stack-panel">
+        <div className="module-inline-actions">
+          <div className="button-row">
+            <button className="tiny-button" onClick={() => insertSnippet('<h1>', '</h1>')}>
+              H1
+            </button>
+            <button className="tiny-button" onClick={() => insertSnippet('<h2>', '</h2>')}>
+              H2
+            </button>
+            <button className="tiny-button" onClick={() => insertSnippet('<p>', '</p>')}>
+              Paragraph
+            </button>
+            <button className="tiny-button" onClick={() => insertSnippet('<strong>', '</strong>')}>
+              Bold
+            </button>
+            <button className="tiny-button" onClick={() => insertSnippet('<em>', '</em>')}>
+              Italic
+            </button>
+            <button
+              className="tiny-button"
+              onClick={() => insertSnippet('<ul>\n  <li>', '</li>\n</ul>')}
+            >
+              List
+            </button>
+            <button
+              className="tiny-button"
+              onClick={() => insertSnippet('<blockquote>', '</blockquote>')}
+            >
+              Quote
+            </button>
+            <button
+              className="tiny-button"
+              onClick={() =>
+                insertSnippet('<pre><code>', '</code></pre>')
+              }
+            >
+              Code
+            </button>
+          </div>
+          <small>{configured.replace(/\\/g, '/')}</small>
+        </div>
+        <textarea
+          ref={editorRef}
+          className="editor-pane"
+          value={content}
+          placeholder="<p>Write rich text or simple HTML here...</p>"
+          onChange={(event) => {
+            setContent(event.target.value);
+            setSaved('Saving...');
+          }}
+        />
+      </div>
       <div className="preview-pane">
         <div className="module-inline-actions">
           <span>{saved}</span>
-          <small>{configured.replace(/\\/g, '/')}</small>
+          <small>
+            {wordCount} words · {characterCount} chars
+          </small>
         </div>
-        <div dangerouslySetInnerHTML={{ __html: content || '<p>Preview appears here.</p>' }} />
+        <div className="question-card rich-text-preview-card">
+          <div dangerouslySetInnerHTML={{ __html: preview }} />
+        </div>
       </div>
     </div>
   );
@@ -479,9 +658,19 @@ function CodeViewerModule({ entity, module }: ExtendedModuleViewProps) {
   );
 }
 
-function CodeEditorModule({ entity, module, onSaveFile }: ExtendedModuleViewProps) {
+function CodeEditorModule({ entity, module, onSaveFile, onPatchModule }: ExtendedModuleViewProps) {
   const configured = asString(module.config.filepath, 'files/code/main.ts');
-  const filePath = resolveEntityPath(entity.entityPath, configured);
+  const configuredOpenFiles = asArray<string>(module.config.openFiles, []);
+  const detectedFiles = entity.files
+    .filter((file) =>
+      ['.ts', '.tsx', '.js', '.jsx', '.py', '.json', '.css', '.html', '.md', '.cpp', '.c'].some(
+        (extension) => file.relativePath.toLowerCase().endsWith(extension),
+      ),
+    )
+    .map((file) => file.relativePath);
+  const availableFiles = Array.from(new Set([configured, ...configuredOpenFiles, ...detectedFiles]));
+  const [activeFile, setActiveFile] = useState(asString(module.config.activeFile, availableFiles[0] || configured));
+  const filePath = resolveEntityPath(entity.entityPath, activeFile || configured);
   const { content, setContent, loaded } = useFileContent(filePath);
   const [saved, setSaved] = useState('Saved');
 
@@ -496,12 +685,37 @@ function CodeEditorModule({ entity, module, onSaveFile }: ExtendedModuleViewProp
     return () => window.clearTimeout(timeout);
   }, [content, filePath, loaded, onSaveFile, saved]);
 
+  useEffect(() => {
+    if (availableFiles.length === 0) {
+      return;
+    }
+    if (!activeFile || !availableFiles.includes(activeFile)) {
+      setActiveFile(availableFiles[0]);
+    }
+  }, [activeFile, availableFiles]);
+
   return (
     <div className="stack-panel">
       <div className="module-inline-actions">
         <span>{saved}</span>
-        <small>{configured.replace(/\\/g, '/')}</small>
+        <small>{(activeFile || configured).replace(/\\/g, '/')}</small>
       </div>
+      {availableFiles.length > 0 ? (
+        <div className="module-file-tabs">
+          {availableFiles.map((file) => (
+            <button
+              key={file}
+              className={`tiny-button ${file === activeFile ? 'is-active' : ''}`}
+              onClick={() => {
+                setActiveFile(file);
+                saveConfig(onPatchModule, { activeFile: file, openFiles: availableFiles });
+              }}
+            >
+              {compactPath(file, 2)}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <textarea
         className="code-editor-area"
         value={content}
@@ -542,29 +756,78 @@ function AudioPlayerModule({ entity, module, onPatchModule }: ExtendedModuleView
 function WebEmbedModule({ module, onPatchModule }: ExtendedModuleViewProps) {
   const src = asString(module.config.src, 'https://www.desmos.com/calculator');
   const [draft, setDraft] = useState(src);
+  const embed = resolveEmbeddableUrl(src);
+  const browserUrl = embed.fallbackUrl || embed.normalizedUrl;
 
   return (
-    <div className="stack-panel">
+    <div className="stack-panel embed-module-shell">
       <div className="button-row">
         <input className="text-input" value={draft} onChange={(event) => setDraft(event.target.value)} />
         <button className="tiny-button" onClick={() => saveConfig(onPatchModule, { src: draft })}>
           Load
         </button>
       </div>
-      <iframe src={src} className="media-frame" title={module.title} />
+      {embed.iframeUrl && !embed.browserPreferred ? (
+        <>
+          <div className="module-inline-actions">
+            <small>Inline web embed</small>
+            <BrowserLinkActions url={browserUrl} title={module.title} compact />
+          </div>
+          <div className="embed-module-stage">
+            <iframe
+              src={embed.iframeUrl}
+              className="media-frame embed-module-frame"
+              title={module.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; geolocation; gyroscope; microphone; camera; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          </div>
+        </>
+      ) : (
+        <div className="embed-module-stage">
+          <EmbedFallbackPanel
+            url={browserUrl}
+            title={module.title}
+            reason={embed.reason || 'Enter a valid URL to embed it inline.'}
+            detail={embed.fallbackUrl}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function FileBrowserModule({ entity, onImportFiles }: ExtendedModuleViewProps) {
   const [filter, setFilter] = useState('all');
-  const grouped = useMemo(
-    () => entity.files.filter((file) => filter === 'all' || file.type === filter),
-    [entity.files, filter],
-  );
+  const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const grouped = useMemo(() => {
+    const filtered = entity.files.filter((file) => filter === 'all' || file.type === filter);
+    const searched = query.trim()
+      ? filtered.filter((file) =>
+          `${file.name} ${file.relativePath}`.toLowerCase().includes(query.trim().toLowerCase()),
+        )
+      : filtered;
+    return sortEntityFiles(searched, sortBy, sortDirection);
+  }, [entity.files, filter, query, sortBy, sortDirection]);
+  const selected = grouped.find((file) => file.path === selectedPath) ?? grouped[0] ?? null;
+  const preview = useFileContent(selected?.path || '');
+
+  useEffect(() => {
+    if (!selected) {
+      setSelectedPath(null);
+      return;
+    }
+    if (!selectedPath || !grouped.some((file) => file.path === selectedPath)) {
+      setSelectedPath(selected.path);
+    }
+  }, [grouped, selected, selectedPath]);
 
   return (
-    <div className="stack-panel">
+    <div className="file-browser-shell">
       <div className="module-inline-actions">
         <div className="pill-wrap">
           {['all', 'image', 'pdf', 'markdown', 'csv', 'json', 'text', 'other'].map((value) => (
@@ -581,15 +844,96 @@ function FileBrowserModule({ entity, onImportFiles }: ExtendedModuleViewProps) {
           Attach Files
         </button>
       </div>
-      <div className="list-stack">
-        {grouped.map((file) => (
-          <a key={file.path} className="list-row interactive-row" href={fileUrl(file.path)} target="_blank" rel="noreferrer">
-            <span>{file.relativePath}</span>
-            <small>{file.type}</small>
-          </a>
-        ))}
+      <div className="file-browser-toolbar">
+        <input
+          className="text-input"
+          placeholder="Search files"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <select
+          className="text-input"
+          value={sortBy}
+          onChange={(event) => setSortBy(normalizeEntityFileSortBy(event.target.value))}
+        >
+          <option value="date">Sort by date</option>
+          <option value="name">Sort by name</option>
+          <option value="size">Sort by size</option>
+        </select>
+        <button
+          className="tiny-button"
+          onClick={() =>
+            setSortDirection(
+              normalizeEntityFileSortDirection(sortDirection === 'asc' ? 'desc' : 'asc'),
+            )
+          }
+        >
+          {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+        </button>
       </div>
-      {grouped.length === 0 && <div className="module-placeholder">No files match this filter yet.</div>}
+      <div className="file-browser-layout">
+        <div className="list-stack file-browser-list">
+          {grouped.map((file) => (
+            <button
+              key={file.path}
+              className={`list-row interactive-row ${selected?.path === file.path ? 'is-selected' : ''}`}
+              onClick={() => setSelectedPath(file.path)}
+            >
+              <span>{compactPath(file.relativePath, 4)}</span>
+              <small>
+                {prettyTitle(file.type)} · {formatFileSize(file.size)}
+              </small>
+            </button>
+          ))}
+          {grouped.length === 0 ? <div className="module-placeholder">No files match this filter yet.</div> : null}
+        </div>
+        <div className="file-browser-preview">
+          {selected ? (
+            <>
+              <div className="module-inline-actions">
+                <div className="stack-panel">
+                  <strong>{selected.name}</strong>
+                  <small>{compactPath(selected.relativePath, 4)}</small>
+                </div>
+                <a className="tiny-button" href={fileUrl(selected.path)} target="_blank" rel="noreferrer">
+                  Open Raw
+                </a>
+              </div>
+              <div className="file-browser-meta-grid">
+                <div className="metric-card">
+                  <strong>{prettyTitle(selected.type)}</strong>
+                  <span>Type</span>
+                </div>
+                <div className="metric-card">
+                  <strong>{formatFileSize(selected.size)}</strong>
+                  <span>Size</span>
+                </div>
+                <div className="metric-card">
+                  <strong>{formatDate(selected.modifiedAt)}</strong>
+                  <span>Updated</span>
+                </div>
+              </div>
+              {selected.type === 'image' ? (
+                <div className="file-browser-preview-stage">
+                  <img className="annotator-preview" src={fileUrl(selected.path)} alt={selected.name} />
+                </div>
+              ) : selected.type === 'pdf' ? (
+                <iframe
+                  src={fileUrl(selected.path)}
+                  className="file-browser-preview-frame"
+                  title={selected.name}
+                />
+              ) : selected.type === 'markdown' || selected.type === 'csv' || selected.type === 'json' || selected.type === 'text' ? (
+                <pre className="code-viewer-block file-browser-code">{preview.content || '// File is empty.'}</pre>
+              ) : (
+                <div className="module-placeholder">Preview is not available for this file type. Use Open Raw to inspect it.</div>
+              )}
+            </>
+          ) : (
+            <div className="module-placeholder">Select a file to preview it here.</div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1239,16 +1583,61 @@ function OutlineTreeModule({ module, onPatchModule }: ExtendedModuleViewProps) {
 
   return (
     <div className="stack-panel">
+      <div className="module-inline-actions">
+        <small>{items.length} outline items</small>
+        <small>Use indent controls to shape the tree.</small>
+      </div>
       <div className="list-stack compact">
-        {items.map((item) => (
-          <div key={item.id} className="outline-row" style={{ paddingLeft: `${(item.level || 0) * 18}px` }}>
+        {items.map((item, index) => (
+          <div key={item.id} className="outline-row outline-row-card" style={{ paddingLeft: `${(item.level || 0) * 18}px` }}>
             <span>{item.text}</span>
-            <button
-              className="tiny-button"
-              onClick={() => saveConfig(onPatchModule, { items: items.filter((candidate) => candidate.id !== item.id) })}
-            >
-              Delete
-            </button>
+            <div className="button-row">
+              <button
+                className="tiny-button"
+                disabled={index === 0}
+                onClick={() => {
+                  const next = [...items];
+                  [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                  saveConfig(onPatchModule, { items: next });
+                }}
+              >
+                Up
+              </button>
+              <button
+                className="tiny-button"
+                onClick={() =>
+                  saveConfig(onPatchModule, {
+                    items: items.map((candidate) =>
+                      candidate.id === item.id
+                        ? { ...candidate, level: Math.max(0, (candidate.level || 0) - 1) }
+                        : candidate,
+                    ),
+                  })
+                }
+              >
+                Outdent
+              </button>
+              <button
+                className="tiny-button"
+                onClick={() =>
+                  saveConfig(onPatchModule, {
+                    items: items.map((candidate) =>
+                      candidate.id === item.id
+                        ? { ...candidate, level: Math.min(4, (candidate.level || 0) + 1) }
+                        : candidate,
+                    ),
+                  })
+                }
+              >
+                Indent
+              </button>
+              <button
+                className="tiny-button"
+                onClick={() => saveConfig(onPatchModule, { items: items.filter((candidate) => candidate.id !== item.id) })}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -1278,33 +1667,84 @@ function OutlineTreeModule({ module, onPatchModule }: ExtendedModuleViewProps) {
 }
 
 function TagCloudModule({ entity }: ExtendedModuleViewProps) {
-  const tagCounts = new Map<string, number>();
-  entity.record.tags.forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 2));
-  entity.practiceQuestions.forEach((question) =>
-    question.tags.forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)),
-  );
-  entity.errorLog.forEach((entry) =>
-    entry.tags.forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)),
-  );
-  const tags = [...tagCounts.entries()];
+  const tagDetails = useMemo(() => {
+    const counts = new Map<string, { total: number; direct: number; practice: number; errors: number }>();
+    entity.record.tags.forEach((tag) => {
+      const current = counts.get(tag) || { total: 0, direct: 0, practice: 0, errors: 0 };
+      current.total += 2;
+      current.direct += 1;
+      counts.set(tag, current);
+    });
+    entity.practiceQuestions.forEach((question) =>
+      question.tags.forEach((tag) => {
+        const current = counts.get(tag) || { total: 0, direct: 0, practice: 0, errors: 0 };
+        current.total += 1;
+        current.practice += 1;
+        counts.set(tag, current);
+      }),
+    );
+    entity.errorLog.forEach((entry) =>
+      entry.tags.forEach((tag) => {
+        const current = counts.get(tag) || { total: 0, direct: 0, practice: 0, errors: 0 };
+        current.total += 1;
+        current.errors += 1;
+        counts.set(tag, current);
+      }),
+    );
+    return [...counts.entries()].sort((left, right) => right[1].total - left[1].total || left[0].localeCompare(right[0]));
+  }, [entity.errorLog, entity.practiceQuestions, entity.record.tags]);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const active = tagDetails.find(([tag]) => tag === selectedTag) || tagDetails[0] || null;
 
   return (
-    <div className="tag-cloud">
-      {tags.length === 0 && <div className="module-placeholder">Tags will scale up here as you use them.</div>}
-      {tags.map(([tag, count]) => (
-        <span key={tag} className="tag-cloud-item" style={{ fontSize: `${12 + count * 2}px` }}>
-          {tag}
-        </span>
-      ))}
+    <div className="stack-panel">
+      <div className="tag-cloud">
+        {tagDetails.length === 0 && <div className="module-placeholder">Tags will scale up here as you use them.</div>}
+        {tagDetails.map(([tag, detail]) => (
+          <button
+            key={tag}
+            className={`tag-cloud-item ${active?.[0] === tag ? 'active' : ''}`}
+            style={{ fontSize: `${12 + detail.total * 2}px` }}
+            onClick={() => setSelectedTag(tag)}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+      {active ? (
+        <div className="mini-stat-grid">
+          <div className="metric-card">
+            <strong>{active[1].direct}</strong>
+            <span>Direct tags</span>
+          </div>
+          <div className="metric-card">
+            <strong>{active[1].practice}</strong>
+            <span>Practice refs</span>
+          </div>
+          <div className="metric-card">
+            <strong>{active[1].errors}</strong>
+            <span>Error refs</span>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function GraphMiniModule({ workspace, entity }: ExtendedModuleViewProps) {
   const children = entity.children;
+  const prerequisites = entity.record.prerequisites
+    .map((target) => workspace.entities[target])
+    .filter(Boolean);
+  const softPrerequisites = entity.record.softPrerequisites
+    .map((target) => workspace.entities[target])
+    .filter(Boolean);
   const linked = entity.record.manualLinks
     .map((target) => Object.values(workspace.entities).find((candidate) => candidate.relativeEntityPath === target))
     .filter(Boolean) as SynapseEntity[];
+  const incoming = Object.values(workspace.entities).filter((candidate) =>
+    candidate.record.prerequisites.includes(entity.relativeEntityPath),
+  );
 
   return (
     <div className="stack-panel">
@@ -1314,8 +1754,16 @@ function GraphMiniModule({ workspace, entity }: ExtendedModuleViewProps) {
           <span>Children</span>
         </div>
         <div className="metric-card">
+          <strong>{prerequisites.length + softPrerequisites.length}</strong>
+          <span>Prerequisites</span>
+        </div>
+        <div className="metric-card">
           <strong>{entity.record.wormholes.length}</strong>
           <span>Wormholes</span>
+        </div>
+        <div className="metric-card">
+          <strong>{incoming.length}</strong>
+          <span>Unlocks</span>
         </div>
       </div>
       <div className="node-cloud">
@@ -1330,6 +1778,38 @@ function GraphMiniModule({ workspace, entity }: ExtendedModuleViewProps) {
             {item.title}
           </div>
         ))}
+      </div>
+      <div className="graph-mini-grid">
+        <div className="question-card">
+          <strong>Prerequisites</strong>
+          <div className="list-stack compact">
+            {prerequisites.map((item) => (
+              <div key={item.entityPath} className="list-row">
+                <span>{item.title}</span>
+                <small>Hard</small>
+              </div>
+            ))}
+            {softPrerequisites.map((item) => (
+              <div key={item.entityPath} className="list-row">
+                <span>{item.title}</span>
+                <small>Soft</small>
+              </div>
+            ))}
+            {prerequisites.length + softPrerequisites.length === 0 ? <small>No prerequisites linked.</small> : null}
+          </div>
+        </div>
+        <div className="question-card">
+          <strong>Unlocks</strong>
+          <div className="list-stack compact">
+            {incoming.map((item) => (
+              <div key={item.entityPath} className="list-row">
+                <span>{item.title}</span>
+                <small>{formatPercentage(item.mastery.final)}</small>
+              </div>
+            ))}
+            {incoming.length === 0 ? <small>No downstream unlocks yet.</small> : null}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1354,20 +1834,68 @@ function BreadcrumbsModule({ workspace, entity }: ExtendedModuleViewProps) {
 }
 
 function FileOrganizerModule({ entity }: ExtendedModuleViewProps) {
-  const groups = entity.files.reduce<Record<string, number>>((accumulator, file) => {
-    accumulator[file.type] = (accumulator[file.type] || 0) + 1;
-    return accumulator;
-  }, {});
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const grouped = useMemo(() => {
+    const buckets = entity.files.reduce<Record<string, SynapseEntity['files']>>((accumulator, file) => {
+      if (!accumulator[file.type]) {
+        accumulator[file.type] = [];
+      }
+      accumulator[file.type].push(file);
+      return accumulator;
+    }, {});
+
+    return Object.entries(buckets)
+      .map(([type, files]) => {
+        const sorted = sortEntityFiles(files, 'date', 'desc');
+        return {
+          type,
+          count: files.length,
+          totalBytes: files.reduce((sum, file) => sum + (file.size || 0), 0),
+          latest: sorted[0]?.modifiedAt,
+          files: sorted.slice(0, 4),
+        };
+      })
+      .sort((left, right) => right.count - left.count || left.type.localeCompare(right.type));
+  }, [entity.files]);
+  const visible = selectedType === 'all' ? grouped : grouped.filter((group) => group.type === selectedType);
 
   return (
-    <div className="list-stack">
-      {Object.entries(groups).map(([type, count]) => (
-        <div key={type} className="list-row">
-          <span>{prettyTitle(type)}</span>
-          <strong>{count}</strong>
-        </div>
-      ))}
-      {Object.keys(groups).length === 0 && <div className="module-placeholder">Attach files and they will group themselves here.</div>}
+    <div className="stack-panel">
+      <div className="pill-wrap">
+        <button className={`pill ${selectedType === 'all' ? 'active' : ''}`} onClick={() => setSelectedType('all')}>
+          All
+        </button>
+        {grouped.map((group) => (
+          <button
+            key={group.type}
+            className={`pill ${selectedType === group.type ? 'active' : ''}`}
+            onClick={() => setSelectedType(group.type)}
+          >
+            {prettyTitle(group.type)}
+          </button>
+        ))}
+      </div>
+      <div className="file-organizer-grid">
+        {visible.map((group) => (
+          <div key={group.type} className="question-card file-organizer-card">
+            <div className="question-head">
+              <strong>{prettyTitle(group.type)}</strong>
+              <span>{group.count}</span>
+            </div>
+            <small>{formatFileSize(group.totalBytes)} total</small>
+            <small>{group.latest ? `Updated ${formatDate(group.latest)}` : 'No timestamps available'}</small>
+            <div className="list-stack compact">
+              {group.files.map((file) => (
+                <a key={file.path} className="list-row interactive-row" href={fileUrl(file.path)} target="_blank" rel="noreferrer">
+                  <span>{compactPath(file.relativePath, 3)}</span>
+                  <small>{formatFileSize(file.size)}</small>
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {grouped.length === 0 ? <div className="module-placeholder">Attach files and they will group themselves here.</div> : null}
     </div>
   );
 }
@@ -1375,40 +1903,113 @@ function FileOrganizerModule({ entity }: ExtendedModuleViewProps) {
 function NodeLinkEditorModule({ module, onPatchModule }: ExtendedModuleViewProps) {
   const nodes = asArray<ListItem>(module.config.nodes, []);
   const links = asArray<{ id: string; from: string; to: string; label?: string }>(module.config.links, []);
-  const [nodeDraft, setNodeDraft] = useState('');
+  const [nodeDraft, setNodeDraft] = useState({ text: '', notes: '' });
   const [linkDraft, setLinkDraft] = useState({ from: '', to: '', label: '' });
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(nodes[0]?.id ?? null);
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId) || nodes[0] || null;
+
+  useEffect(() => {
+    if (!selectedNodeId || !nodes.some((node) => node.id === selectedNodeId)) {
+      setSelectedNodeId(nodes[0]?.id ?? null);
+    }
+  }, [nodes, selectedNodeId]);
 
   return (
     <div className="stack-panel">
+      <div className="mini-stat-grid">
+        <div className="metric-card">
+          <strong>{nodes.length}</strong>
+          <span>Nodes</span>
+        </div>
+        <div className="metric-card">
+          <strong>{links.length}</strong>
+          <span>Links</span>
+        </div>
+      </div>
       <div className="node-cloud">
         {nodes.map((node) => (
-          <div key={node.id} className="node-pill">
+          <button
+            key={node.id}
+            className={`node-pill ${selectedNode?.id === node.id ? 'active' : ''}`}
+            onClick={() => setSelectedNodeId(node.id)}
+          >
             {node.text}
-          </div>
+          </button>
         ))}
       </div>
+      {selectedNode ? (
+        <div className="question-card">
+          <div className="question-head">
+            <strong>{selectedNode.text}</strong>
+            <button
+              className="tiny-button"
+              onClick={() =>
+                saveConfig(onPatchModule, {
+                  nodes: nodes.filter((node) => node.id !== selectedNode.id),
+                  links: links.filter((link) => link.from !== selectedNode.id && link.to !== selectedNode.id),
+                })
+              }
+            >
+              Delete Node
+            </button>
+          </div>
+          <textarea
+            className="text-input"
+            placeholder="What does this node represent?"
+            value={selectedNode.notes || ''}
+            onChange={(event) =>
+              saveConfig(onPatchModule, {
+                nodes: nodes.map((node) =>
+                  node.id === selectedNode.id ? { ...node, notes: event.target.value } : node,
+                ),
+              })
+            }
+          />
+        </div>
+      ) : null}
       <div className="list-stack compact">
         {links.map((link) => (
           <div key={link.id} className="list-row">
-            <span>
-              {nodes.find((node) => node.id === link.from)?.text || link.from}
-              {' -> '}
-              {nodes.find((node) => node.id === link.to)?.text || link.to}
-            </span>
-            <small>{link.label || 'Unlabeled link'}</small>
+            <div>
+              <span>
+                {nodes.find((node) => node.id === link.from)?.text || link.from}
+                {' -> '}
+                {nodes.find((node) => node.id === link.to)?.text || link.to}
+              </span>
+              <small>{link.label || 'Unlabeled link'}</small>
+            </div>
+            <button
+              className="tiny-button"
+              onClick={() => saveConfig(onPatchModule, { links: links.filter((candidate) => candidate.id !== link.id) })}
+            >
+              Delete
+            </button>
           </div>
         ))}
       </div>
       <div className="inline-form compact">
-        <input className="text-input" placeholder="New node" value={nodeDraft} onChange={(event) => setNodeDraft(event.target.value)} />
+        <input
+          className="text-input"
+          placeholder="New node"
+          value={nodeDraft.text}
+          onChange={(event) => setNodeDraft({ ...nodeDraft, text: event.target.value })}
+        />
+        <input
+          className="text-input"
+          placeholder="Notes"
+          value={nodeDraft.notes}
+          onChange={(event) => setNodeDraft({ ...nodeDraft, notes: event.target.value })}
+        />
         <button
           className="tiny-button"
           onClick={() => {
-            if (!nodeDraft.trim()) {
+            if (!nodeDraft.text.trim()) {
               return;
             }
-            saveConfig(onPatchModule, { nodes: [...nodes, { id: slug('node'), text: nodeDraft }] });
-            setNodeDraft('');
+            saveConfig(onPatchModule, {
+              nodes: [...nodes, { id: slug('node'), text: nodeDraft.text, notes: nodeDraft.notes }],
+            });
+            setNodeDraft({ text: '', notes: '' });
           }}
         >
           Add Node
@@ -1563,29 +2164,169 @@ function GraphPlotterModule({ module, onPatchModule }: ExtendedModuleViewProps) 
   const expression = asString(module.config.expression, 'x * x');
   const rangeStart = asNumber(module.config.rangeStart, -10);
   const rangeEnd = asNumber(module.config.rangeEnd, 10);
-  const [draft, setDraft] = useState(expression);
-  const points = useMemo(() => {
-    try {
-      const values = [];
-      for (let x = rangeStart; x <= rangeEnd; x += (rangeEnd - rangeStart) / 24) {
-        values.push({ label: x.toFixed(1), value: evaluateExpression(draft, { x }) });
-      }
-      return values;
-    } catch {
-      return [];
-    }
-  }, [draft, rangeEnd, rangeStart]);
+  const storedSeries = asArray<{ id?: string; label?: string; expression?: string; color?: string }>(
+    module.config.series,
+    [],
+  );
+  const series =
+    storedSeries.length > 0
+      ? storedSeries.map((entry, index) => ({
+          id: entry.id || `series-${index + 1}`,
+          label: asString(entry.label, `Series ${index + 1}`),
+          expression: asString(entry.expression, 'x'),
+          color: asString(entry.color, ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'][index % 4]),
+        }))
+      : [{ id: 'series-1', label: 'f(x)', expression, color: '#3b82f6' }];
+  const [draft, setDraft] = useState({ label: '', expression: '' });
+  const plotted = useMemo(
+    () =>
+      series.map((entry) => {
+        try {
+          const values = [];
+          const span = Math.max(rangeEnd - rangeStart, 1);
+          for (let x = rangeStart; x <= rangeEnd; x += span / 32) {
+            values.push({ label: x.toFixed(1), value: evaluateExpression(entry.expression, { x }) });
+          }
+          return { ...entry, points: values };
+        } catch {
+          return { ...entry, points: [] as Array<{ label: string; value: number }> };
+        }
+      }),
+    [rangeEnd, rangeStart, series],
+  );
+  const sampleAtZero = plotted
+    .map((entry) => ({
+      label: entry.label,
+      value: entry.points.find((point) => point.label === '0.0')?.value,
+      color: entry.color,
+    }))
+    .filter((entry) => typeof entry.value === 'number');
+  const allValues = plotted.flatMap((entry) => entry.points.map((point) => point.value));
+  const minValue = Math.min(...allValues, -1);
+  const maxValue = Math.max(...allValues, 1);
 
   return (
     <div className="stack-panel">
+      <div className="module-inline-actions">
+        <small>
+          Range {rangeStart} to {rangeEnd}
+        </small>
+        <small>
+          Y range {Number.isFinite(minValue) ? minValue.toFixed(2) : '-'} to{' '}
+          {Number.isFinite(maxValue) ? maxValue.toFixed(2) : '-'}
+        </small>
+      </div>
       <div className="button-row">
-        <input className="text-input" value={draft} onChange={(event) => setDraft(event.target.value)} />
-        <button className="tiny-button" onClick={() => saveConfig(onPatchModule, { expression: draft })}>
-          Save
+        <input
+          className="text-input"
+          type="number"
+          value={rangeStart}
+          onChange={(event) => saveConfig(onPatchModule, { rangeStart: Number(event.target.value || '-10') })}
+        />
+        <input
+          className="text-input"
+          type="number"
+          value={rangeEnd}
+          onChange={(event) => saveConfig(onPatchModule, { rangeEnd: Number(event.target.value || '10') })}
+        />
+      </div>
+      <svg viewBox="0 0 320 180" className="simple-chart">
+        {plotted.map((entry) => {
+          if (entry.points.length === 0) {
+            return null;
+          }
+          const width = 320;
+          const height = 180;
+          const padding = 12;
+          const span = Math.max(maxValue - minValue, 1);
+          const path = entry.points
+            .map((point, index) => {
+              const x = padding + (index / Math.max(entry.points.length - 1, 1)) * (width - padding * 2);
+              const y = height - padding - ((point.value - minValue) / span) * (height - padding * 2);
+              return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+            })
+            .join(' ');
+          return (
+            <path
+              key={entry.id}
+              d={path}
+              fill="none"
+              stroke={entry.color}
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+          );
+        })}
+      </svg>
+      <div className="list-stack compact">
+        {plotted.map((entry) => (
+          <div key={entry.id} className="list-row">
+            <span>
+              <span className="status-dot" style={{ background: entry.color }} /> {entry.label}
+            </span>
+            <div className="button-row">
+              <small>{entry.expression}</small>
+              <button
+                className="tiny-button"
+                onClick={() =>
+                  saveConfig(onPatchModule, {
+                    series: series.filter((candidate) => candidate.id !== entry.id),
+                  })
+                }
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {sampleAtZero.length > 0 ? (
+        <div className="mini-stat-grid">
+          {sampleAtZero.map((entry) => (
+            <div key={entry.label} className="metric-card">
+              <strong>{Number(entry.value).toFixed(2)}</strong>
+              <span>{entry.label} at x = 0</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="inline-form compact">
+        <input
+          className="text-input"
+          placeholder="Series label"
+          value={draft.label}
+          onChange={(event) => setDraft({ ...draft, label: event.target.value })}
+        />
+        <input
+          className="text-input"
+          placeholder="Expression, e.g. sin(x)"
+          value={draft.expression}
+          onChange={(event) => setDraft({ ...draft, expression: event.target.value })}
+        />
+        <button
+          className="tiny-button"
+          onClick={() => {
+            if (!draft.expression.trim()) {
+              return;
+            }
+            saveConfig(onPatchModule, {
+              series: [
+                ...series,
+                {
+                  id: slug('plot'),
+                  label: draft.label.trim() || `Series ${series.length + 1}`,
+                  expression: draft.expression,
+                  color: ['#8b5cf6', '#14b8a6', '#f97316', '#f43f5e'][series.length % 4],
+                },
+              ],
+              expression: draft.expression,
+            });
+            setDraft({ label: '', expression: '' });
+          }}
+        >
+          Add Series
         </button>
       </div>
-      {renderSvgLineChart(points)}
-      <small>Range {rangeStart} to {rangeEnd}</small>
     </div>
   );
 }
@@ -1795,12 +2536,42 @@ function MatrixCalculatorModule({ module, onPatchModule }: ExtendedModuleViewPro
 
 function PeriodicTableModule({ module, onPatchModule }: ExtendedModuleViewProps) {
   const selected = asString(module.config.selected, 'H');
+  const query = asString(module.config.query);
+  const category = asString(module.config.category, 'all');
+  const filtered = PERIODIC_ELEMENTS.filter((entry) => {
+    const matchesQuery = query
+      ? `${entry.name} ${entry.symbol}`.toLowerCase().includes(query.trim().toLowerCase())
+      : true;
+    const matchesCategory = category === 'all' || entry.category === category;
+    return matchesQuery && matchesCategory;
+  });
   const element = PERIODIC_ELEMENTS.find((entry) => entry.symbol === selected) || PERIODIC_ELEMENTS[0];
+  const categories = Array.from(new Set(PERIODIC_ELEMENTS.map((entry) => entry.category))).sort();
 
   return (
     <div className="stack-panel">
+      <div className="button-row">
+        <input
+          className="text-input"
+          placeholder="Search elements"
+          value={query}
+          onChange={(event) => saveConfig(onPatchModule, { query: event.target.value })}
+        />
+        <select
+          className="text-input"
+          value={category}
+          onChange={(event) => saveConfig(onPatchModule, { category: event.target.value })}
+        >
+          <option value="all">All categories</option>
+          {categories.map((option) => (
+            <option key={option} value={option}>
+              {prettyTitle(option)}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="periodic-grid">
-        {PERIODIC_ELEMENTS.map((entry) => (
+        {filtered.map((entry) => (
           <button
             key={entry.symbol}
             className={`periodic-cell ${entry.symbol === element.symbol ? 'active' : ''}`}
@@ -1820,6 +2591,7 @@ function PeriodicTableModule({ module, onPatchModule }: ExtendedModuleViewProps)
         <small>Atomic mass: {element.mass}</small>
         <small>Category: {element.category}</small>
       </div>
+      <small>{filtered.length} matching elements</small>
     </div>
   );
 }
@@ -1898,14 +2670,39 @@ function ChemistryBalancerModule({ module, onPatchModule }: ExtendedModuleViewPr
   const equation = asString(module.config.equation, 'H2 + O2 -> H2O');
   const [draft, setDraft] = useState(equation);
   const balanced = bruteForceBalance(draft);
+  const compounds = draft.split(/->|=/).map((part) => part.trim()).filter(Boolean);
+  const balancedCompounds = balanced.split(/->|=/).map((part) => part.trim()).filter(Boolean);
 
   return (
-    <div className="stack-panel center-panel">
-      <input className="text-input" value={draft} onChange={(event) => setDraft(event.target.value)} />
-      <button className="tiny-button" onClick={() => saveConfig(onPatchModule, { equation: draft })}>
-        Save
-      </button>
-      <strong>{balanced || 'No balance found for this parser.'}</strong>
+    <div className="stack-panel">
+      <div className="button-row">
+        <input className="text-input" value={draft} onChange={(event) => setDraft(event.target.value)} />
+        <button className="tiny-button" onClick={() => saveConfig(onPatchModule, { equation: draft })}>
+          Save
+        </button>
+      </div>
+      <div className="question-card">
+        <strong>{balanced || 'No balance found for this parser.'}</strong>
+        <small>Supports simple formulas without nested parentheses.</small>
+      </div>
+      <div className="comparison-table-shell">
+        {compounds.map((compound) => (
+          <div key={compound} className="question-card">
+            <strong>{compound}</strong>
+            <div className="list-stack compact">
+              {Object.entries(countElements(compound)).map(([symbol, count]) => (
+                <div key={`${compound}-${symbol}`} className="list-row">
+                  <span>{symbol}</span>
+                  <small>{count}</small>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {balancedCompounds.length > 0 ? (
+        <small>Balanced form: {balanced}</small>
+      ) : null}
     </div>
   );
 }
@@ -2172,24 +2969,49 @@ function AnalyticsDashboardModule({ entity }: ExtendedModuleViewProps) {
       ? 0
       : entity.practiceQuestions.filter((question) => question.status === 'correct' || question.status === 'mastered').length /
         entity.practiceQuestions.length;
+  const activeErrors = entity.errorLog.filter((entry) => !entry.resolved);
+  const weakTags = [...new Set(activeErrors.flatMap((entry) => entry.tags))].slice(0, 4);
+  const completionRate =
+    entity.stats.totalNodes === 0 ? 0 : entity.stats.completedNodes / Math.max(entity.stats.totalNodes, 1);
 
   return (
-    <div className="mini-stat-grid">
-      <div className="metric-card">
-        <strong>{entity.stats.totalNodes}</strong>
-        <span>Nested nodes</span>
+    <div className="stack-panel">
+      <div className="mini-stat-grid">
+        <div className="metric-card">
+          <strong>{entity.stats.totalNodes}</strong>
+          <span>Nested nodes</span>
+        </div>
+        <div className="metric-card">
+          <strong>{formatPercentage(entity.mastery.final)}</strong>
+          <span>Mastery</span>
+        </div>
+        <div className="metric-card">
+          <strong>{activeErrors.length}</strong>
+          <span>Active errors</span>
+        </div>
+        <div className="metric-card">
+          <strong>{formatPercentage(accuracy)}</strong>
+          <span>Accuracy</span>
+        </div>
+        <div className="metric-card">
+          <strong>{formatPercentage(completionRate)}</strong>
+          <span>Node completion</span>
+        </div>
+        <div className="metric-card">
+          <strong>{entity.files.length}</strong>
+          <span>Attached files</span>
+        </div>
       </div>
-      <div className="metric-card">
-        <strong>{formatPercentage(entity.mastery.final)}</strong>
-        <span>Mastery</span>
-      </div>
-      <div className="metric-card">
-        <strong>{entity.errorLog.filter((entry) => !entry.resolved).length}</strong>
-        <span>Active errors</span>
-      </div>
-      <div className="metric-card">
-        <strong>{formatPercentage(accuracy)}</strong>
-        <span>Accuracy</span>
+      <div className="question-card">
+        <div className="question-head">
+          <strong>What needs attention</strong>
+          <small>{weakTags.length > 0 ? weakTags.join(', ') : 'No repeated weak tags'}</small>
+        </div>
+        <small>
+          {activeErrors.length > 0
+            ? `${activeErrors.length} unresolved mistakes are still open. Close the highest-frequency concepts first.`
+            : 'No active errors are blocking this node right now.'}
+        </small>
       </div>
     </div>
   );
@@ -2233,34 +3055,91 @@ function StatisticsSummaryModule({ module, onPatchModule }: ExtendedModuleViewPr
 }
 
 function GanttChartModule({ module, onPatchModule }: ExtendedModuleViewProps) {
-  const events = asArray<TimelineEvent>(module.config.events, []);
-  const [draft, setDraft] = useState({ title: '', date: '', notes: '' });
+  const tasks = asArray<GanttTask>(module.config.tasks, []).length
+    ? asArray<GanttTask>(module.config.tasks, [])
+    : asArray<TimelineEvent>(module.config.events, []).map((event) => ({
+        id: event.id,
+        name: event.title,
+        start: event.date,
+        duration: 3,
+        progress: 0,
+        dependencies: [],
+      }));
+  const [draft, setDraft] = useState({ name: '', start: '', duration: '3', progress: '0' });
+  const sortedTasks = [...tasks].sort((left, right) => left.start.localeCompare(right.start));
+  const minStart = sortedTasks[0]?.start || new Date().toISOString().slice(0, 10);
+  const maxEnd = sortedTasks.reduce((latest, task) => {
+    const end = new Date(task.start);
+    end.setDate(end.getDate() + Math.max(1, task.duration) - 1);
+    return end > latest ? end : latest;
+  }, new Date(minStart));
+  const horizonDays = Math.max(
+    1,
+    Math.ceil((maxEnd.getTime() - new Date(minStart).getTime()) / 86400000) + 1,
+  );
   return (
     <div className="stack-panel">
       <div className="list-stack">
-        {events
-          .sort((left, right) => left.date.localeCompare(right.date))
-          .map((event) => (
-            <div key={event.id} className="gantt-row">
-              <strong>{event.title}</strong>
-              <div className="progress-track">
-                <div className="progress-fill" style={{ width: `${Math.min(100, Math.max(10, new Date(event.date).getDate() * 3))}%` }} />
+        {sortedTasks.map((task) => {
+          const offsetDays = Math.max(
+            0,
+            Math.round((new Date(task.start).getTime() - new Date(minStart).getTime()) / 86400000),
+          );
+          return (
+            <div key={task.id} className="gantt-row gantt-row-detailed">
+              <div className="stack-panel">
+                <strong>{task.name}</strong>
+                <small>{formatDate(task.start)} · {task.duration} days</small>
               </div>
-              <small>{formatDate(event.date)}</small>
+              <div className="gantt-track-shell">
+                <div
+                  className="gantt-track-bar"
+                  style={{
+                    marginLeft: `${(offsetDays / horizonDays) * 100}%`,
+                    width: `${(Math.max(1, task.duration) / horizonDays) * 100}%`,
+                  }}
+                >
+                  <div className="gantt-track-progress" style={{ width: `${Math.max(0, Math.min(100, task.progress || 0))}%` }} />
+                </div>
+              </div>
+              <div className="button-row">
+                <small>{Math.max(0, Math.min(100, task.progress || 0))}%</small>
+                <button
+                  className="tiny-button"
+                  onClick={() => saveConfig(onPatchModule, { tasks: tasks.filter((candidate) => candidate.id !== task.id) })}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          ))}
+          );
+        })}
       </div>
       <div className="inline-form compact">
-        <input className="text-input" placeholder="Task" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-        <input className="text-input" type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
+        <input className="text-input" placeholder="Task" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+        <input className="text-input" type="date" value={draft.start} onChange={(event) => setDraft({ ...draft, start: event.target.value })} />
+        <input className="text-input" type="number" min="1" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: event.target.value })} />
+        <input className="text-input" type="number" min="0" max="100" value={draft.progress} onChange={(event) => setDraft({ ...draft, progress: event.target.value })} />
         <button
           className="tiny-button"
           onClick={() => {
-            if (!draft.title.trim() || !draft.date) {
+            if (!draft.name.trim() || !draft.start) {
               return;
             }
-            saveConfig(onPatchModule, { events: [...events, { id: slug('task'), title: draft.title, date: draft.date }] });
-            setDraft({ title: '', date: '', notes: '' });
+            saveConfig(onPatchModule, {
+              tasks: [
+                ...tasks,
+                {
+                  id: slug('task'),
+                  name: draft.name,
+                  start: draft.start,
+                  duration: Math.max(1, Number(draft.duration || '1')),
+                  progress: Math.max(0, Math.min(100, Number(draft.progress || '0'))),
+                  dependencies: [],
+                },
+              ],
+            });
+            setDraft({ name: '', start: '', duration: '3', progress: '0' });
           }}
         >
           Add Task
@@ -2270,8 +3149,97 @@ function GanttChartModule({ module, onPatchModule }: ExtendedModuleViewProps) {
   );
 }
 
-function ComparisonTableModule(props: ExtendedModuleViewProps) {
-  return <TableModule {...props} />;
+function ComparisonTableModule({ module, onPatchModule }: ExtendedModuleViewProps) {
+  const rows = asArray<string>(module.config.rows, []);
+  const columns = asArray<string>(module.config.columns, []);
+  const cells = (module.config.cells as Record<string, string> | undefined) || {};
+  const [rowDraft, setRowDraft] = useState('');
+  const [columnDraft, setColumnDraft] = useState('');
+  const [cellDraft, setCellDraft] = useState({ row: '0', column: '0', value: '' });
+
+  return (
+    <div className="stack-panel comparison-table-shell">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Attribute</th>
+            {columns.map((column, columnIndex) => (
+              <th key={`${column}-${columnIndex}`}>{column}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={`${row}-${rowIndex}`}>
+              <td>{row}</td>
+              {columns.map((column, columnIndex) => (
+                <td key={`${column}-${columnIndex}`}>{cells[`${rowIndex}-${columnIndex}`] || '-'}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="inline-form compact">
+        <input className="text-input" placeholder="Add row" value={rowDraft} onChange={(event) => setRowDraft(event.target.value)} />
+        <button
+          className="tiny-button"
+          onClick={() => {
+            if (!rowDraft.trim()) {
+              return;
+            }
+            saveConfig(onPatchModule, { rows: [...rows, rowDraft] });
+            setRowDraft('');
+          }}
+        >
+          Add Row
+        </button>
+      </div>
+      <div className="inline-form compact">
+        <input className="text-input" placeholder="Add column" value={columnDraft} onChange={(event) => setColumnDraft(event.target.value)} />
+        <button
+          className="tiny-button"
+          onClick={() => {
+            if (!columnDraft.trim()) {
+              return;
+            }
+            saveConfig(onPatchModule, { columns: [...columns, columnDraft] });
+            setColumnDraft('');
+          }}
+        >
+          Add Column
+        </button>
+      </div>
+      {rows.length > 0 && columns.length > 0 ? (
+        <div className="inline-form compact">
+          <select className="text-input" value={cellDraft.row} onChange={(event) => setCellDraft({ ...cellDraft, row: event.target.value })}>
+            {rows.map((row, index) => (
+              <option key={`${row}-${index}`} value={index}>
+                {row}
+              </option>
+            ))}
+          </select>
+          <select className="text-input" value={cellDraft.column} onChange={(event) => setCellDraft({ ...cellDraft, column: event.target.value })}>
+            {columns.map((column, index) => (
+              <option key={`${column}-${index}`} value={index}>
+                {column}
+              </option>
+            ))}
+          </select>
+          <input className="text-input" placeholder="Cell value" value={cellDraft.value} onChange={(event) => setCellDraft({ ...cellDraft, value: event.target.value })} />
+          <button
+            className="tiny-button"
+            onClick={() => {
+              const key = `${cellDraft.row}-${cellDraft.column}`;
+              saveConfig(onPatchModule, { cells: { ...cells, [key]: cellDraft.value } });
+              setCellDraft({ ...cellDraft, value: '' });
+            }}
+          >
+            Set Cell
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function FlashcardDeckModule({ module, onPatchModule }: ExtendedModuleViewProps) {
@@ -2455,6 +3423,22 @@ function StudyGuideGeneratorModule({ entity, module, onPatchModule, onSaveFile }
   const outputPath = resolveEntityPath(entity.entityPath, asString(module.config.filepath, 'files/study-guide.md'));
 
   const buildGuide = async () => {
+    const markdownFiles = entity.files.filter((file) => file.type === 'markdown').slice(0, 4);
+    const markdownContents = await Promise.all(
+      markdownFiles.map(async (file) => {
+        try {
+          const content = await window.synapse.openFile(file.path);
+          return { file, headings: extractMarkdownHeadings(content) };
+        } catch {
+          return { file, headings: [] as string[] };
+        }
+      }),
+    );
+    const unresolvedErrors = entity.errorLog.filter((entry) => !entry.resolved);
+    const errorConcepts = [...new Set(unresolvedErrors.map((entry) => entry.conceptGap).filter(Boolean))].slice(0, 5);
+    const upcomingPractice = entity.practiceQuestions
+      .filter((question) => question.status !== 'correct' && question.status !== 'mastered')
+      .slice(0, 5);
     const guide = `# ${entity.title} Study Guide
 
 ## Snapshot
@@ -2462,8 +3446,19 @@ function StudyGuideGeneratorModule({ entity, module, onPatchModule, onSaveFile }
 - Practice: ${entity.mastery.practiceCompleted}/${entity.mastery.practiceTotal}
 - Nested nodes: ${entity.stats.totalNodes}
 
+## Focus Areas
+${errorConcepts.map((concept) => `- ${concept}`).join('\n') || '- No unresolved concept gaps'}
+
 ## Tags
 ${entity.record.tags.map((tag) => `- ${tag}`).join('\n') || '- None yet'}
+
+## Practice Queue
+${upcomingPractice.map((question) => `- ${question.title} (${question.status || 'todo'})`).join('\n') || '- No open practice questions'}
+
+## Note Headings
+${markdownContents
+  .map(({ file, headings }) => `### ${file.name}\n${headings.map((heading) => `- ${heading}`).join('\n') || '- No headings detected'}`)
+  .join('\n\n') || '- No markdown notes attached'}
 
 ## Files
 ${entity.files.map((file) => `- ${file.relativePath}`).join('\n') || '- No attached files'}
@@ -2522,27 +3517,59 @@ function ColorPaletteModule({ module, onPatchModule }: ExtendedModuleViewProps) 
 
 function WhiteboardModule({ module, onPatchModule }: ExtendedModuleViewProps) {
   const notes = asArray<ListItem>(module.config.notes, []);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState({ text: '', notes: '', color: '#f59e0b' });
 
   return (
     <div className="stack-panel">
       <div className="whiteboard-surface">
         {notes.map((note) => (
-          <div key={note.id} className="sticky-note">
-            {note.text}
+          <div
+            key={note.id}
+            className="sticky-note"
+            style={{ background: `color-mix(in srgb, ${note.color || '#f59e0b'} 24%, var(--bg-tertiary))` }}
+          >
+            <div className="question-head">
+              <strong>{note.text}</strong>
+              <button
+                className="tiny-button"
+                onClick={() => saveConfig(onPatchModule, { notes: notes.filter((candidate) => candidate.id !== note.id) })}
+              >
+                Delete
+              </button>
+            </div>
+            {note.notes ? <small>{note.notes}</small> : null}
           </div>
         ))}
       </div>
-      <div className="button-row">
-        <input className="text-input" placeholder="Sticky note" value={draft} onChange={(event) => setDraft(event.target.value)} />
+      <div className="inline-form compact">
+        <input
+          className="text-input"
+          placeholder="Sticky note"
+          value={draft.text}
+          onChange={(event) => setDraft({ ...draft, text: event.target.value })}
+        />
+        <input
+          className="text-input"
+          placeholder="Context or detail"
+          value={draft.notes}
+          onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+        />
+        <input
+          className="text-input"
+          type="color"
+          value={draft.color}
+          onChange={(event) => setDraft({ ...draft, color: event.target.value })}
+        />
         <button
           className="tiny-button"
           onClick={() => {
-            if (!draft.trim()) {
+            if (!draft.text.trim()) {
               return;
             }
-            saveConfig(onPatchModule, { notes: [...notes, { id: slug('sticky'), text: draft }] });
-            setDraft('');
+            saveConfig(onPatchModule, {
+              notes: [...notes, { id: slug('sticky'), text: draft.text, notes: draft.notes, color: draft.color }],
+            });
+            setDraft({ text: '', notes: '', color: '#f59e0b' });
           }}
         >
           Add Note
@@ -2556,31 +3583,66 @@ function ScreenshotAnnotatorModule({ entity, module, onPatchModule }: ExtendedMo
   const targetImage = asString(module.config.targetImage);
   const annotations = asArray<ListItem>(module.config.annotations, []);
   const image = findEntityFile(entity, targetImage, ['.png', '.jpg', '.jpeg', '.webp']);
-  const [draft, setDraft] = useState('');
+  const imageOptions = entity.files.filter((file) => file.type === 'image');
+  const [draft, setDraft] = useState({ text: '', notes: '', kind: 'callout', color: '#3b82f6' });
 
   return (
     <div className="stack-panel">
+      <div className="button-row">
+        <select
+          className="text-input"
+          value={targetImage}
+          onChange={(event) => saveConfig(onPatchModule, { targetImage: event.target.value })}
+        >
+          <option value="">Select image</option>
+          {imageOptions.map((file) => (
+            <option key={file.path} value={file.relativePath}>
+              {compactPath(file.relativePath, 3)}
+            </option>
+          ))}
+        </select>
+      </div>
       {image ? <img className="annotator-preview" src={fileUrl(image.path)} alt={image.name} /> : <div className="module-placeholder">Point this module at an image file to annotate it.</div>}
       <div className="list-stack compact">
         {annotations.map((annotation) => (
-          <div key={annotation.id} className="list-row">
-            <span>{annotation.text}</span>
-            <button className="tiny-button" onClick={() => saveConfig(onPatchModule, { annotations: annotations.filter((item) => item.id !== annotation.id) })}>
-              Delete
-            </button>
+          <div key={annotation.id} className="question-card">
+            <div className="question-head">
+              <span>
+                <span className="status-dot" style={{ background: annotation.color || '#3b82f6' }} />{' '}
+                {annotation.text}
+              </span>
+              <button className="tiny-button" onClick={() => saveConfig(onPatchModule, { annotations: annotations.filter((item) => item.id !== annotation.id) })}>
+                Delete
+              </button>
+            </div>
+            <small>{prettyTitle(annotation.kind || 'callout')}</small>
+            {annotation.notes ? <small>{annotation.notes}</small> : null}
           </div>
         ))}
       </div>
-      <div className="button-row">
-        <input className="text-input" placeholder="Annotation" value={draft} onChange={(event) => setDraft(event.target.value)} />
+      <div className="inline-form compact">
+        <input className="text-input" placeholder="Annotation" value={draft.text} onChange={(event) => setDraft({ ...draft, text: event.target.value })} />
+        <select className="text-input" value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value })}>
+          <option value="callout">Callout</option>
+          <option value="warning">Warning</option>
+          <option value="question">Question</option>
+          <option value="highlight">Highlight</option>
+        </select>
+        <input className="text-input" type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} />
+        <input className="text-input" placeholder="Details" value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
         <button
           className="tiny-button"
           onClick={() => {
-            if (!draft.trim()) {
+            if (!draft.text.trim()) {
               return;
             }
-            saveConfig(onPatchModule, { annotations: [...annotations, { id: slug('annotation'), text: draft }] });
-            setDraft('');
+            saveConfig(onPatchModule, {
+              annotations: [
+                ...annotations,
+                { id: slug('annotation'), text: draft.text, notes: draft.notes, kind: draft.kind, color: draft.color },
+              ],
+            });
+            setDraft({ text: '', notes: '', kind: 'callout', color: '#3b82f6' });
           }}
         >
           Add Annotation
@@ -2590,34 +3652,42 @@ function ScreenshotAnnotatorModule({ entity, module, onPatchModule }: ExtendedMo
   );
 }
 
-function MoodBoardModule({ entity }: ExtendedModuleViewProps) {
-  const images = entity.files.filter((file) => file.type === 'image').slice(0, 12);
-  return images.length > 0 ? (
-    <div className="gallery-grid">
-      {images.map((image) => (
-        <figure key={image.path}>
-          <img src={fileUrl(image.path)} alt={image.name} />
-          <figcaption>{image.name}</figcaption>
-        </figure>
-      ))}
-    </div>
-  ) : (
-    <div className="module-placeholder">Drop images into this node to build a board.</div>
+function HandwritingGalleryModule(props: ExtendedModuleViewProps) {
+  return (
+    <MediaCollectionModule
+      entity={props.entity}
+      module={props.module}
+      onPatchModule={props.onPatchModule}
+      onImportFiles={props.onImportFiles}
+      variant="handwriting"
+    />
+  );
+}
+
+function MoodBoardModule(props: ExtendedModuleViewProps) {
+  return (
+    <MediaCollectionModule
+      entity={props.entity}
+      module={props.module}
+      onPatchModule={props.onPatchModule}
+      onImportFiles={props.onImportFiles}
+      variant="mood"
+    />
   );
 }
 
 function WeatherWidgetModule({ module, onPatchModule }: ExtendedModuleViewProps) {
   const location = asString(module.config.location, 'Dublin, IE');
   const [draft, setDraft] = useState(location);
-  const [state, setState] = useState<{ loading: boolean; text: string }>({
+  const [state, setState] = useState<WeatherSnapshot>({
     loading: true,
-    text: 'Loading weather...',
   });
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     let active = true;
     const run = async () => {
-      setState({ loading: true, text: 'Loading weather...' });
+      setState({ loading: true });
       try {
         const geoResponse = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1`,
@@ -2630,25 +3700,30 @@ function WeatherWidgetModule({ module, onPatchModule }: ExtendedModuleViewProps)
           throw new Error('Location not found');
         }
         const weatherResponse = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${target.latitude}&longitude=${target.longitude}&current_weather=true`,
+          `https://api.open-meteo.com/v1/forecast?latitude=${target.latitude}&longitude=${target.longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&timezone=auto`,
         );
         const weather = (await weatherResponse.json()) as {
-          current_weather?: { temperature: number; windspeed: number };
+          current_weather?: { temperature: number; windspeed: number; winddirection: number; weathercode: number };
+          daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[] };
         };
         if (active) {
           const current = weather.current_weather;
           setState({
             loading: false,
-            text: current
-              ? `${target.name}: ${current.temperature}C, wind ${current.windspeed} km/h`
-              : 'Weather unavailable',
+            place: `${target.name}${target.country ? `, ${target.country}` : ''}`,
+            temperature: current?.temperature,
+            windspeed: current?.windspeed,
+            winddirection: current?.winddirection,
+            weathercode: current?.weathercode,
+            high: weather.daily?.temperature_2m_max?.[0],
+            low: weather.daily?.temperature_2m_min?.[0],
           });
         }
       } catch (error) {
         if (active) {
           setState({
             loading: false,
-            text: error instanceof Error ? error.message : 'Could not load weather',
+            error: error instanceof Error ? error.message : 'Could not load weather',
           });
         }
       }
@@ -2657,17 +3732,46 @@ function WeatherWidgetModule({ module, onPatchModule }: ExtendedModuleViewProps)
     return () => {
       active = false;
     };
-  }, [location]);
+  }, [location, refreshNonce]);
 
   return (
-    <div className="stack-panel center-panel">
+    <div className="stack-panel">
       <div className="button-row">
         <input className="text-input" value={draft} onChange={(event) => setDraft(event.target.value)} />
         <button className="tiny-button" onClick={() => saveConfig(onPatchModule, { location: draft })}>
           Save
         </button>
+        <button className="tiny-button" onClick={() => setRefreshNonce((value) => value + 1)}>
+          Refresh
+        </button>
       </div>
-      <strong>{state.loading ? '...' : state.text}</strong>
+      {state.error ? <div className="module-placeholder">{state.error}</div> : null}
+      {!state.error ? (
+        <>
+          <div className="module-inline-actions">
+            <strong>{state.loading ? 'Loading weather...' : state.place || location}</strong>
+            <small>{state.loading ? 'Contacting Open-Meteo' : weatherCodeLabel(state.weathercode)}</small>
+          </div>
+          <div className="mini-stat-grid">
+            <div className="metric-card">
+              <strong>{state.temperature !== undefined ? `${state.temperature}C` : '--'}</strong>
+              <span>Current</span>
+            </div>
+            <div className="metric-card">
+              <strong>{state.high !== undefined ? `${state.high}C` : '--'}</strong>
+              <span>High</span>
+            </div>
+            <div className="metric-card">
+              <strong>{state.low !== undefined ? `${state.low}C` : '--'}</strong>
+              <span>Low</span>
+            </div>
+            <div className="metric-card">
+              <strong>{state.windspeed !== undefined ? `${state.windspeed} km/h` : '--'}</strong>
+              <span>Wind</span>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

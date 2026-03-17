@@ -11,13 +11,17 @@ import { moduleTone } from '../lib/appHelpers';
 import { ModuleView } from './ModuleViews';
 
 const DEFAULT_VIEWPORT = { x: 72, y: 56, zoom: 1 };
-const MIN_ZOOM = 0.55;
+const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 1.65;
 const MIN_MODULE_WIDTH = 220;
 const MIN_MODULE_HEIGHT = 160;
-const STAGE_PADDING = 320;
-const STAGE_MIN_WIDTH = 3200;
-const STAGE_MIN_HEIGHT = 2200;
+const STAGE_PADDING = 640;
+const STAGE_MIN_WIDTH = 5400;
+const STAGE_MIN_HEIGHT = 3600;
+const CANVAS_MIN_X = -STAGE_PADDING;
+const CANVAS_MIN_Y = -STAGE_PADDING;
+const CANVAS_MAX_X = STAGE_MIN_WIDTH * 2;
+const CANVAS_MAX_Y = STAGE_MIN_HEIGHT * 2;
 const GRID_COLUMN_WIDTH = 112;
 const GRID_ROW_HEIGHT = 112;
 const GRID_GAP = 16;
@@ -46,6 +50,10 @@ type CanvasInteraction =
 interface ModuleCanvasProps {
   workspace: WorkspaceSnapshot;
   entity: SynapseEntity;
+  fullscreen?: boolean;
+  compactToolbar?: boolean;
+  onToggleFullscreen?: () => void;
+  onOpenModuleLibrary?: () => void;
   onSavePage: (page: SynapseEntity['page']) => void;
   onSaveFile: (targetPath: string, content: string) => Promise<void>;
   onSavePractice: (questions: PracticeQuestion[]) => void;
@@ -137,9 +145,39 @@ function updateModuleRect(
   );
 }
 
+function cloneModuleSnapshot(module: SynapseModule): SynapseModule {
+  return {
+    ...module,
+    position: { ...module.position },
+    canvas: module.canvas ? { ...module.canvas } : undefined,
+    config: { ...module.config },
+    schema: module.schema
+      ? {
+          ...module.schema,
+          columns: module.schema.columns?.map((column) => ({ ...column })),
+          actions: module.schema.actions ? [...module.schema.actions] : undefined,
+        }
+      : undefined,
+  };
+}
+
+function updateCanvasDebug(patch: Record<string, unknown>) {
+  const debugWindow = window as typeof window & {
+    __synapseCanvasDebug?: Record<string, unknown>;
+  };
+  debugWindow.__synapseCanvasDebug = {
+    ...(debugWindow.__synapseCanvasDebug ?? {}),
+    ...patch,
+  };
+}
+
 export function ModuleCanvas({
   workspace,
   entity,
+  fullscreen = false,
+  compactToolbar = false,
+  onToggleFullscreen,
+  onOpenModuleLibrary,
   onSavePage,
   onSaveFile,
   onSavePractice,
@@ -151,14 +189,29 @@ export function ModuleCanvas({
   onImportFiles,
 }: ModuleCanvasProps) {
   const snapping = workspace.settings.moduleSnapping;
+  const effectiveCompactToolbar = compactToolbar || fullscreen;
   const [draftModules, setDraftModules] = useState(entity.page.modules);
   const [viewport, setViewport] = useState(entity.page.viewport ?? DEFAULT_VIEWPORT);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [activeViewId, setActiveViewId] = useState('');
+  const [focusedModuleId, setFocusedModuleId] = useState<string | null>(null);
+  const [isInteracting, setIsInteracting] = useState(false);
   const interactionRef = useRef<CanvasInteraction | null>(null);
   const draftModulesRef = useRef(draftModules);
   const viewportRef = useRef(viewport);
+  const previousEntityPathRef = useRef(entity.entityPath);
   const persistViewportTimeoutRef = useRef<number | null>(null);
   const viewportElementRef = useRef<HTMLDivElement | null>(null);
+
+  const commitDraftModules = (nextModules: SynapseModule[]) => {
+    draftModulesRef.current = nextModules;
+    setDraftModules(nextModules);
+  };
+
+  const commitViewport = (nextViewport: typeof viewport) => {
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
+  };
 
   useEffect(() => {
     draftModulesRef.current = draftModules;
@@ -169,10 +222,25 @@ export function ModuleCanvas({
   }, [viewport]);
 
   useEffect(() => {
+    const entityChanged = previousEntityPathRef.current !== entity.entityPath;
+    previousEntityPathRef.current = entity.entityPath;
+
+    draftModulesRef.current = entity.page.modules;
+    viewportRef.current = entity.page.viewport ?? DEFAULT_VIEWPORT;
     setDraftModules(entity.page.modules);
     setViewport(entity.page.viewport ?? DEFAULT_VIEWPORT);
-    setActiveMenuId(null);
-  }, [entity.page.modules, entity.page.viewport]);
+    setActiveMenuId((current) =>
+      entityChanged || !current || !entity.page.modules.some((module) => module.id === current)
+        ? null
+        : current,
+    );
+    setActiveViewId((current) => (entityChanged ? '' : current));
+    setFocusedModuleId((current) =>
+      entityChanged || !current || !entity.page.modules.some((module) => module.id === current)
+        ? null
+        : current,
+    );
+  }, [entity.entityPath, entity.page.modules, entity.page.viewport]);
 
   useEffect(
     () => () => {
@@ -185,12 +253,37 @@ export function ModuleCanvas({
 
   const stageBounds = useMemo(() => {
     const extents = draftModules.map((module) => getCanvasRect(module));
+    const leftEdge = extents.reduce((min, rect) => Math.min(min, rect.x), GRID_PADDING);
+    const topEdge = extents.reduce((min, rect) => Math.min(min, rect.y), GRID_PADDING);
     const rightEdge = extents.reduce((max, rect) => Math.max(max, rect.x + rect.width), 0);
     const bottomEdge = extents.reduce((max, rect) => Math.max(max, rect.y + rect.height), 0);
+    const originX = Math.min(0, leftEdge - STAGE_PADDING);
+    const originY = Math.min(0, topEdge - STAGE_PADDING);
 
     return {
-      width: Math.max(STAGE_MIN_WIDTH, rightEdge + STAGE_PADDING),
-      height: Math.max(STAGE_MIN_HEIGHT, bottomEdge + STAGE_PADDING),
+      originX,
+      originY,
+      width: Math.max(STAGE_MIN_WIDTH, rightEdge - originX + STAGE_PADDING),
+      height: Math.max(STAGE_MIN_HEIGHT, bottomEdge - originY + STAGE_PADDING),
+    };
+  }, [draftModules]);
+
+  const contentBounds = useMemo(() => {
+    const extents = draftModules.map((module) => getCanvasRect(module));
+    if (extents.length === 0) {
+      return {
+        left: GRID_PADDING,
+        top: GRID_PADDING,
+        right: GRID_PADDING + 960,
+        bottom: GRID_PADDING + 720,
+      };
+    }
+
+    return {
+      left: extents.reduce((min, rect) => Math.min(min, rect.x), GRID_PADDING),
+      top: extents.reduce((min, rect) => Math.min(min, rect.y), GRID_PADDING),
+      right: extents.reduce((max, rect) => Math.max(max, rect.x + rect.width), GRID_PADDING),
+      bottom: extents.reduce((max, rect) => Math.max(max, rect.y + rect.height), GRID_PADDING),
     };
   }, [draftModules]);
 
@@ -199,17 +292,32 @@ export function ModuleCanvas({
       ({
         width: `${stageBounds.width}px`,
         height: `${stageBounds.height}px`,
-        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        transform: `translate(${viewport.x + stageBounds.originX * viewport.zoom}px, ${
+          viewport.y + stageBounds.originY * viewport.zoom
+        }px) scale(${viewport.zoom})`,
       }) as CSSProperties,
-    [stageBounds.height, stageBounds.width, viewport.x, viewport.y, viewport.zoom],
+    [
+      stageBounds.height,
+      stageBounds.originX,
+      stageBounds.originY,
+      stageBounds.width,
+      viewport.x,
+      viewport.y,
+      viewport.zoom,
+    ],
   );
 
-  const persistPage = (modules: SynapseModule[], nextViewport = viewportRef.current) => {
+  const persistPage = (
+    modules: SynapseModule[],
+    nextViewport = viewportRef.current,
+    nextUi = entity.page.ui,
+  ) => {
     onSavePage({
       ...entity.page,
       layout: 'freeform',
       modules,
       viewport: nextViewport,
+      ui: nextUi,
     });
   };
 
@@ -224,6 +332,13 @@ export function ModuleCanvas({
   };
 
   const startPan = (clientX: number, clientY: number) => {
+    setIsInteracting(true);
+    updateCanvasDebug({
+      interaction: 'pan',
+      clientX,
+      clientY,
+      entityPath: entity.entityPath,
+    });
     interactionRef.current = {
       type: 'pan',
       pointerStartX: clientX,
@@ -233,12 +348,21 @@ export function ModuleCanvas({
     };
   };
 
-  const startMove = (
-    moduleId: string,
-    rect: NonNullable<SynapseModule['canvas']>,
-    clientX: number,
-    clientY: number,
-  ) => {
+  const startMove = (moduleId: string, clientX: number, clientY: number) => {
+    const module = draftModulesRef.current.find((entry) => entry.id === moduleId);
+    if (!module) {
+      return;
+    }
+    const rect = getCanvasRect(module);
+    setIsInteracting(true);
+    updateCanvasDebug({
+      interaction: 'move',
+      moduleId,
+      clientX,
+      clientY,
+      rect,
+      entityPath: entity.entityPath,
+    });
     interactionRef.current = {
       type: 'move',
       moduleId,
@@ -251,12 +375,21 @@ export function ModuleCanvas({
     };
   };
 
-  const startResize = (
-    moduleId: string,
-    rect: NonNullable<SynapseModule['canvas']>,
-    clientX: number,
-    clientY: number,
-  ) => {
+  const startResize = (moduleId: string, clientX: number, clientY: number) => {
+    const module = draftModulesRef.current.find((entry) => entry.id === moduleId);
+    if (!module) {
+      return;
+    }
+    const rect = getCanvasRect(module);
+    setIsInteracting(true);
+    updateCanvasDebug({
+      interaction: 'resize',
+      moduleId,
+      clientX,
+      clientY,
+      rect,
+      entityPath: entity.entityPath,
+    });
     interactionRef.current = {
       type: 'resize',
       moduleId,
@@ -270,6 +403,145 @@ export function ModuleCanvas({
   };
 
   useEffect(() => {
+    const viewportElement = viewportElementRef.current;
+    if (!viewportElement) {
+      return;
+    }
+
+    updateCanvasDebug({
+      interaction: null,
+      ready: true,
+      entityPath: entity.entityPath,
+    });
+
+    const beginPress = (
+      button: number,
+      target: HTMLElement,
+      clientX: number,
+      clientY: number,
+      event: PointerEvent,
+    ) => {
+      if (button !== 0 && button !== 1) {
+        return;
+      }
+
+      updateCanvasDebug({
+        lastPress: {
+          button,
+          className: target.className,
+          tagName: target.tagName,
+          clientX,
+          clientY,
+        },
+      });
+
+      if (!target.closest('.module-menu')) {
+        setActiveMenuId(null);
+      }
+
+      const resizeHandle = target.closest('.resize-handle');
+      if (resizeHandle) {
+        const moduleId = resizeHandle.closest<HTMLElement>('.module-card')?.dataset.moduleId;
+        if (!moduleId) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        startResize(moduleId, clientX, clientY);
+        return;
+      }
+
+      const inInteractiveControl = target.closest(
+        'input, select, textarea, a, .module-menu, .module-menu-button, button',
+      );
+      if (inInteractiveControl && !target.closest('.module-drag-handle')) {
+        return;
+      }
+
+      const moduleHead = target.closest('.module-card-head');
+      if (moduleHead) {
+        const moduleId = moduleHead.closest<HTMLElement>('.module-card')?.dataset.moduleId;
+        if (!moduleId) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        startMove(moduleId, clientX, clientY);
+        return;
+      }
+
+      const background =
+        target === viewportElement ||
+        target.classList.contains('module-canvas-grid') ||
+        target.classList.contains('module-canvas-stage');
+      if (!background) {
+        return;
+      }
+
+      event.preventDefault();
+      startPan(clientX, clientY);
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target || !viewportElement.contains(target)) {
+        return;
+      }
+      beginPress(event.button, target, event.clientX, event.clientY, event);
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      const target = event.target as HTMLElement;
+      const insideScrollableModule = target.closest('.module-card-body');
+      if (insideScrollableModule && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const rect = viewportElement.getBoundingClientRect();
+      if (event.shiftKey) {
+        const nextViewport = {
+          ...viewportRef.current,
+          x: viewportRef.current.x - event.deltaX * 0.65,
+          y: viewportRef.current.y - event.deltaY * 0.65,
+        };
+        commitViewport(nextViewport);
+        scheduleViewportPersist(nextViewport);
+        return;
+      }
+
+      const nextZoom = clamp(
+        Number((viewportRef.current.zoom + (event.deltaY < 0 ? 0.09 : -0.09)).toFixed(2)),
+        MIN_ZOOM,
+        MAX_ZOOM,
+      );
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const worldX = (pointerX - viewportRef.current.x) / viewportRef.current.zoom;
+      const worldY = (pointerY - viewportRef.current.y) / viewportRef.current.zoom;
+      const nextViewport = {
+        x: pointerX - worldX * nextZoom,
+        y: pointerY - worldY * nextZoom,
+        zoom: nextZoom,
+      };
+      commitViewport(nextViewport);
+      scheduleViewportPersist(nextViewport);
+    };
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    viewportElement.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      viewportElement.removeEventListener('wheel', onWheel);
+    };
+  }, [entity.entityPath]);
+
+  useEffect(() => {
+    if (!isInteracting) {
+      return;
+    }
+
     const handleInteractionMove = (clientX: number, clientY: number) => {
       const interaction = interactionRef.current;
       if (!interaction) {
@@ -277,11 +549,11 @@ export function ModuleCanvas({
       }
 
       if (interaction.type === 'pan') {
-        setViewport((current) => ({
-          ...current,
+        commitViewport({
           x: interaction.originPanX + (clientX - interaction.pointerStartX),
           y: interaction.originPanY + (clientY - interaction.pointerStartY),
-        }));
+          zoom: viewportRef.current.zoom,
+        });
         return;
       }
 
@@ -290,14 +562,18 @@ export function ModuleCanvas({
 
       if (interaction.type === 'move') {
         const nextRect = {
-          x: Math.max(GRID_PADDING, snap(interaction.originX + deltaX, snapping)),
-          y: Math.max(GRID_PADDING, snap(interaction.originY + deltaY, snapping)),
+          x: clamp(snap(interaction.originX + deltaX, snapping), CANVAS_MIN_X, CANVAS_MAX_X),
+          y: clamp(snap(interaction.originY + deltaY, snapping), CANVAS_MIN_Y, CANVAS_MAX_Y),
           width: interaction.originWidth,
           height: interaction.originHeight,
         };
-        setDraftModules((current) =>
-          updateModuleRect(current, interaction.moduleId, nextRect, entity.page.gridColumns),
+        const nextModules = updateModuleRect(
+          draftModulesRef.current,
+          interaction.moduleId,
+          nextRect,
+          entity.page.gridColumns,
         );
+        commitDraftModules(nextModules);
         return;
       }
 
@@ -307,9 +583,13 @@ export function ModuleCanvas({
         width: Math.max(MIN_MODULE_WIDTH, snap(interaction.originWidth + deltaX, snapping)),
         height: Math.max(MIN_MODULE_HEIGHT, snap(interaction.originHeight + deltaY, snapping)),
       };
-      setDraftModules((current) =>
-        updateModuleRect(current, interaction.moduleId, nextRect, entity.page.gridColumns),
+      const nextModules = updateModuleRect(
+        draftModulesRef.current,
+        interaction.moduleId,
+        nextRect,
+        entity.page.gridColumns,
       );
+      commitDraftModules(nextModules);
     };
 
     const handleInteractionEnd = () => {
@@ -319,6 +599,12 @@ export function ModuleCanvas({
       }
 
       interactionRef.current = null;
+      setIsInteracting(false);
+      updateCanvasDebug({
+        interaction: null,
+        lastViewport: viewportRef.current,
+        lastModuleCount: draftModulesRef.current.length,
+      });
 
       if (interaction.type === 'pan') {
         persistPage(draftModulesRef.current, viewportRef.current);
@@ -340,34 +626,123 @@ export function ModuleCanvas({
       handleInteractionEnd();
     };
 
+    const onPointerCancel = () => {
+      handleInteractionEnd();
+    };
+
     const onMouseUp = () => {
       handleInteractionEnd();
     };
 
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
 
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [entity.page, entity.page.gridColumns, snapping]);
+  }, [entity.page.gridColumns, isInteracting, snapping]);
+
+  const centerViewport = (preferredZoom?: number) => {
+    const viewportElement = viewportElementRef.current;
+    if (!viewportElement) {
+      return;
+    }
+    const rect = viewportElement.getBoundingClientRect();
+    const contentWidth = Math.max(1, contentBounds.right - contentBounds.left);
+    const contentHeight = Math.max(1, contentBounds.bottom - contentBounds.top);
+    const framePadding = 72;
+    const fitZoom = clamp(
+      Math.min(
+        (rect.width - framePadding * 2) / contentWidth,
+        (rect.height - framePadding * 2) / contentHeight,
+        preferredZoom ?? MAX_ZOOM,
+      ),
+      MIN_ZOOM,
+      MAX_ZOOM,
+    );
+    const contentCenterX = (contentBounds.left + contentBounds.right) / 2;
+    const contentCenterY = (contentBounds.top + contentBounds.bottom) / 2;
+    const nextViewport = {
+      x: rect.width / 2 - contentCenterX * fitZoom,
+      y: rect.height / 2 - contentCenterY * fitZoom,
+      zoom: fitZoom,
+    };
+    commitViewport(nextViewport);
+    persistPage(draftModulesRef.current, nextViewport);
+  };
+
+  useEffect(() => {
+    const currentViewport = entity.page.viewport ?? DEFAULT_VIEWPORT;
+    const usingDefaultViewport =
+      currentViewport.x === DEFAULT_VIEWPORT.x &&
+      currentViewport.y === DEFAULT_VIEWPORT.y &&
+      currentViewport.zoom === DEFAULT_VIEWPORT.zoom;
+
+    if (!usingDefaultViewport) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      centerViewport();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [entity.entityPath, fullscreen]);
+
+  const savedViews = entity.page.ui?.savedViews ?? [];
+  const focusedModule = draftModules.find((module) => module.id === focusedModuleId) ?? null;
+
+  const patchModuleById = (
+    moduleId: string,
+    patcher: (module: SynapseModule) => SynapseModule,
+  ) => {
+    const nextModules = draftModulesRef.current.map((entry) =>
+      entry.id === moduleId ? patcher(entry) : entry,
+    );
+    commitDraftModules(nextModules);
+    persistPage(nextModules, viewportRef.current);
+  };
 
   return (
-    <div className="module-canvas-shell">
-      <div className="module-canvas-toolbar">
-        <div className="module-canvas-copy">
-          <strong>Spatial Canvas</strong>
-          <small>
-            Drag cards by the handle, drag the backdrop to pan, use Ctrl + wheel to zoom, and use
-            Teleport to jump anywhere in the tree.
-          </small>
-        </div>
+    <div
+      className={`module-canvas-shell ${fullscreen ? 'is-fullscreen' : ''} ${isInteracting ? 'is-interacting' : ''}`}
+    >
+      <div
+        className={`module-canvas-toolbar ${effectiveCompactToolbar ? 'is-compact' : ''} ${fullscreen ? 'is-fullscreen' : ''}`}
+      >
+        {!effectiveCompactToolbar ? (
+          <div className="module-canvas-copy">
+            <strong>Spatial Canvas</strong>
+            <small>
+              Drag cards by the handle, drag empty space to pan, use the mouse wheel to zoom, and
+              use Teleport to jump anywhere in the tree.
+            </small>
+          </div>
+        ) : (
+          <div className="module-canvas-copy compact">
+            <strong>Canvas</strong>
+          </div>
+        )}
         <div className="module-canvas-tools">
+          {fullscreen ? (
+            <button className="ghost-button" type="button" onClick={onToggleFullscreen}>
+              Exit Full Screen
+            </button>
+          ) : null}
+          {onOpenModuleLibrary ? (
+            <button className="ghost-button" type="button" onClick={onOpenModuleLibrary}>
+              Add Module
+            </button>
+          ) : null}
           <button className="ghost-button" type="button" onClick={onTeleport}>
             Teleport
           </button>
@@ -375,9 +750,80 @@ export function ModuleCanvas({
             className="ghost-button"
             type="button"
             onClick={() => {
-              const nextViewport = DEFAULT_VIEWPORT;
-              setViewport(nextViewport);
-              persistPage(draftModulesRef.current, nextViewport);
+              const name = window.prompt(
+                'Save this canvas view as',
+                `View ${savedViews.length + 1}`,
+              )?.trim();
+              if (!name) {
+                return;
+              }
+              const viewId = `view-${Date.now()}`;
+              const nextUi = {
+                ...(entity.page.ui ?? {}),
+                savedViews: [
+                  ...(savedViews.filter(
+                    (view) => view.name.toLowerCase() !== name.toLowerCase(),
+                  ) ?? []),
+                  {
+                    id: viewId,
+                    name,
+                    created: new Date().toISOString(),
+                    viewport: { ...viewportRef.current },
+                    modules: draftModulesRef.current.map((module) => cloneModuleSnapshot(module)),
+                    detailLayout: {
+                      detailsOpen: entity.page.ui?.detailsOpen ?? false,
+                      detailSize: entity.page.ui?.detailSize ?? 'comfortable',
+                      detailSectionOrder: [...(entity.page.ui?.detailSectionOrder ?? [])],
+                      hiddenDetailSections: [...(entity.page.ui?.hiddenDetailSections ?? [])],
+                    },
+                  },
+                ],
+              };
+              setActiveViewId(viewId);
+              persistPage(draftModulesRef.current, viewportRef.current, nextUi);
+            }}
+          >
+            Save View
+          </button>
+          <select
+            className="text-input"
+            value={activeViewId}
+            onChange={(event) => {
+              const nextId = event.target.value;
+              setActiveViewId(nextId);
+              if (!nextId) {
+                return;
+              }
+              const targetView = savedViews.find((view) => view.id === nextId);
+              if (!targetView) {
+                return;
+              }
+              const nextModules = (targetView.modules ?? draftModulesRef.current).map((module) =>
+                cloneModuleSnapshot(module),
+              );
+              const nextViewport = { ...targetView.viewport };
+              const nextUi = {
+                ...(entity.page.ui ?? {}),
+                ...(targetView.detailLayout ?? {}),
+                savedViews,
+              };
+              commitDraftModules(nextModules);
+              commitViewport(nextViewport);
+              persistPage(nextModules, nextViewport, nextUi);
+            }}
+          >
+            <option value="">Load saved view</option>
+            {savedViews.map((view) => (
+              <option key={view.id} value={view.id}>
+                {view.name}
+              </option>
+            ))}
+          </select>
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={() => {
+              centerViewport();
             }}
           >
             Center View
@@ -390,7 +836,7 @@ export function ModuleCanvas({
                 ...viewportRef.current,
                 zoom: clamp(Number((viewportRef.current.zoom - 0.1).toFixed(2)), MIN_ZOOM, MAX_ZOOM),
               };
-              setViewport(nextViewport);
+              commitViewport(nextViewport);
               scheduleViewportPersist(nextViewport);
             }}
           >
@@ -405,7 +851,7 @@ export function ModuleCanvas({
                 ...viewportRef.current,
                 zoom: clamp(Number((viewportRef.current.zoom + 0.1).toFixed(2)), MIN_ZOOM, MAX_ZOOM),
               };
-              setViewport(nextViewport);
+              commitViewport(nextViewport);
               scheduleViewportPersist(nextViewport);
             }}
           >
@@ -414,76 +860,7 @@ export function ModuleCanvas({
         </div>
       </div>
 
-      <div
-        ref={viewportElementRef}
-        className="module-canvas-viewport"
-        onPointerDownCapture={(event) => {
-          const target = event.target as HTMLElement;
-          if (!target.closest('.module-menu')) {
-            setActiveMenuId(null);
-          }
-        }}
-        onPointerDown={(event) => {
-          const target = event.target as HTMLElement;
-          const background =
-            target === event.currentTarget ||
-            target.classList.contains('module-canvas-grid') ||
-            target.classList.contains('module-canvas-stage');
-
-          if (!background) {
-            return;
-          }
-
-          startPan(event.clientX, event.clientY);
-        }}
-        onMouseDown={(event) => {
-          const target = event.target as HTMLElement;
-          const background =
-            target === event.currentTarget ||
-            target.classList.contains('module-canvas-grid') ||
-            target.classList.contains('module-canvas-stage');
-
-          if (!background) {
-            return;
-          }
-
-          startPan(event.clientX, event.clientY);
-        }}
-        onWheel={(event) => {
-          if (!event.ctrlKey) {
-            return;
-          }
-
-          event.preventDefault();
-
-          const viewportElement = viewportElementRef.current;
-          if (!viewportElement) {
-            return;
-          }
-
-          const rect = viewportElement.getBoundingClientRect();
-          const nextZoom = clamp(
-            Number(
-              (
-                viewportRef.current.zoom + (event.deltaY < 0 ? 0.08 : -0.08)
-              ).toFixed(2),
-            ),
-            MIN_ZOOM,
-            MAX_ZOOM,
-          );
-          const pointerX = event.clientX - rect.left;
-          const pointerY = event.clientY - rect.top;
-          const worldX = (pointerX - viewportRef.current.x) / viewportRef.current.zoom;
-          const worldY = (pointerY - viewportRef.current.y) / viewportRef.current.zoom;
-          const nextViewport = {
-            x: pointerX - worldX * nextZoom,
-            y: pointerY - worldY * nextZoom,
-            zoom: nextZoom,
-          };
-          setViewport(nextViewport);
-          scheduleViewportPersist(nextViewport);
-        }}
-      >
+      <div ref={viewportElementRef} className="module-canvas-viewport">
         <div className="module-canvas-grid" />
         <div className="module-canvas-stage" style={stageStyle}>
           {draftModules.map((module) => {
@@ -491,63 +868,49 @@ export function ModuleCanvas({
             return (
               <article
                 key={module.id}
+                data-module-id={module.id}
                 className={`module-card tone-${moduleTone(module)}`}
                 style={
                   {
-                    left: `${rect.x}px`,
-                    top: `${rect.y}px`,
+                    left: `${rect.x - stageBounds.originX}px`,
+                    top: `${rect.y - stageBounds.originY}px`,
                     width: `${rect.width}px`,
                     height: `${rect.height}px`,
                   } as CSSProperties
                 }
               >
-                <div
-                  className="module-card-head"
-                  onPointerDown={(event) => {
-                    const target = event.target as HTMLElement;
-                    if (target.closest('button, input, select, textarea, a, .module-menu')) {
-                      return;
-                    }
-                    event.stopPropagation();
-                    event.preventDefault();
-                    startMove(module.id, rect, event.clientX, event.clientY);
-                  }}
-                  onMouseDown={(event) => {
-                    const target = event.target as HTMLElement;
-                    if (target.closest('button, input, select, textarea, a, .module-menu')) {
-                      return;
-                    }
-                    event.stopPropagation();
-                    event.preventDefault();
-                    startMove(module.id, rect, event.clientX, event.clientY);
-                  }}
-                >
+                <div className="module-card-head">
                   <div className="module-card-meta">
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       className="module-drag-handle"
                       aria-label={`Drag ${module.title}`}
                       title={`Drag ${module.title}`}
-                      onPointerDown={(event) => {
-                        event.stopPropagation();
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') {
+                          return;
+                        }
                         event.preventDefault();
-                        startMove(module.id, rect, event.clientX, event.clientY);
-                      }}
-                      onMouseDown={(event) => {
-                        event.stopPropagation();
-                        event.preventDefault();
-                        startMove(module.id, rect, event.clientX, event.clientY);
                       }}
                     >
                       <span />
                       <span />
-                    </button>
+                    </div>
                     <div className="module-title-group">
                       <strong>{module.title}</strong>
                       <small>{module.type}</small>
                     </div>
                   </div>
                   <div className="module-card-actions">
+                    <button
+                      type="button"
+                      className="module-expand-button"
+                      aria-label={`Open ${module.title} full screen`}
+                      onClick={() => setFocusedModuleId(module.id)}
+                    >
+                      Full
+                    </button>
                     <button
                       type="button"
                       className="module-menu-button"
@@ -598,38 +961,51 @@ export function ModuleCanvas({
                     entity={entity}
                     module={module}
                     onSaveFile={onSaveFile}
-                  onSavePractice={onSavePractice}
-                  onSaveErrors={onSaveErrors}
-                  onImportFiles={onImportFiles}
-                  onPatchModule={(patcher) => {
-                      const nextModules = draftModulesRef.current.map((entry) =>
-                        entry.id === module.id ? patcher(entry) : entry,
-                      );
-                      setDraftModules(nextModules);
-                      persistPage(nextModules, viewportRef.current);
-                    }}
+                    onSavePractice={onSavePractice}
+                    onSaveErrors={onSaveErrors}
+                    onImportFiles={onImportFiles}
+                    onPatchModule={(patcher) => patchModuleById(module.id, patcher)}
                   />
                 </div>
                 <button
                   type="button"
                   className="resize-handle"
                   aria-label={`Resize ${module.title}`}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    event.preventDefault();
-                    startResize(module.id, rect, event.clientX, event.clientY);
-                  }}
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                    event.preventDefault();
-                    startResize(module.id, rect, event.clientX, event.clientY);
-                  }}
                 />
               </article>
             );
           })}
         </div>
       </div>
+      {focusedModule ? (
+        <div className="module-focus-shell">
+          <div className="module-focus-header">
+            <div className="module-focus-copy">
+              <strong>{focusedModule.title}</strong>
+              <small>{focusedModule.type}</small>
+            </div>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setFocusedModuleId(null)}
+            >
+              Close Full Screen
+            </button>
+          </div>
+          <div className="module-focus-body">
+            <ModuleView
+              workspace={workspace}
+              entity={entity}
+              module={focusedModule}
+              onSaveFile={onSaveFile}
+              onSavePractice={onSavePractice}
+              onSaveErrors={onSaveErrors}
+              onImportFiles={onImportFiles}
+              onPatchModule={(patcher) => patchModuleById(focusedModule.id, patcher)}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

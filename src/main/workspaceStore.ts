@@ -1,3 +1,4 @@
+import { stat } from 'fs/promises';
 import path from 'path';
 import {
   DEFAULT_BASE_MODULES,
@@ -80,6 +81,13 @@ const FREEFORM_COLUMN_WIDTH = 112;
 const FREEFORM_ROW_HEIGHT = 112;
 const FREEFORM_GAP = 16;
 const FREEFORM_PADDING = 24;
+const DEFAULT_DETAIL_SECTION_ORDER = [
+  'mastery',
+  'identity',
+  'templates',
+  'links',
+  'wormholes',
+] as const;
 
 function cloneModules(modules: SynapseModule[]): PageLayout['modules'] {
   return modules.map((module) => ({
@@ -152,6 +160,47 @@ function normalizeModule(module: SynapseModule, gridColumns: number): SynapseMod
   };
 }
 
+function normalizeDetailLayoutState(
+  detailLayout: NonNullable<PageLayout['ui']> | PageLayout['ui'] | undefined,
+) {
+  const detailSectionOrder = detailLayout?.detailSectionOrder?.filter((section, index, source) => {
+    return DEFAULT_DETAIL_SECTION_ORDER.includes(section) && source.indexOf(section) === index;
+  }) ?? [];
+  const orderedSections = [
+    ...detailSectionOrder,
+    ...DEFAULT_DETAIL_SECTION_ORDER.filter((section) => !detailSectionOrder.includes(section)),
+  ];
+  const hiddenDetailSections = detailLayout?.hiddenDetailSections?.filter(
+    (section, index, source) =>
+      DEFAULT_DETAIL_SECTION_ORDER.includes(section) && source.indexOf(section) === index,
+  ) ?? [];
+
+  return {
+    detailsOpen: detailLayout?.detailsOpen ?? false,
+    detailSize: detailLayout?.detailSize ?? 'comfortable',
+    detailSectionOrder: orderedSections,
+    hiddenDetailSections,
+  };
+}
+
+function normalizePageUi(page: PageLayout): NonNullable<PageLayout['ui']> {
+  const detailLayout = normalizeDetailLayoutState(page.ui);
+  const surfaceTitle = page.ui?.surfaceTitle?.trim();
+
+  return {
+    surfaceTitle: surfaceTitle || undefined,
+    ...detailLayout,
+    savedViews: (page.ui?.savedViews ?? []).map((view) => ({
+      id: view.id,
+      name: view.name,
+      created: view.created,
+      viewport: { ...view.viewport },
+      modules: view.modules?.map((module) => normalizeModule(module, page.gridColumns)),
+      detailLayout: normalizeDetailLayoutState(view.detailLayout),
+    })),
+  };
+}
+
 function normalizePageLayout(page: PageLayout): PageLayout {
   const gridColumns = page.gridColumns || DEFAULT_SETTINGS.gridColumns;
   return {
@@ -161,6 +210,7 @@ function normalizePageLayout(page: PageLayout): PageLayout {
     modules: page.modules.map((module) => normalizeModule(module, gridColumns)),
     templates: [...page.templates],
     viewport: page.viewport ? { ...page.viewport } : undefined,
+    ui: normalizePageUi(page),
   };
 }
 
@@ -191,6 +241,9 @@ function defaultHomePage(settings: AppSettings): PageLayout {
     modules: cloneModules(DEFAULT_HOME_MODULES),
     templates: ['home-default'],
     viewport: { x: 56, y: 48, zoom: 1 },
+    ui: {
+      surfaceTitle: "David's Knowledge Operating System",
+    },
   });
 }
 
@@ -421,7 +474,7 @@ async function loadErrorLog(entityPath: string): Promise<ErrorEntry[]> {
   return raw.map((entry) => ErrorEntrySchema.parse(entry));
 }
 
-function classifyFile(filePath: string, relativePath: string): EntityFileSummary {
+async function classifyFile(filePath: string, relativePath: string): Promise<EntityFileSummary> {
   const extension = path.extname(filePath).toLowerCase();
 
   let type: EntityFileSummary['type'] = 'other';
@@ -439,12 +492,25 @@ function classifyFile(filePath: string, relativePath: string): EntityFileSummary
     type = 'text';
   }
 
+  let size: number | undefined;
+  let modifiedAt: string | undefined;
+  try {
+    const metadata = await stat(filePath);
+    size = metadata.size;
+    modifiedAt = metadata.mtime.toISOString();
+  } catch {
+    size = undefined;
+    modifiedAt = undefined;
+  }
+
   return {
     path: filePath,
     relativePath: toForwardSlashes(relativePath),
     name: path.basename(filePath),
     extension,
     type,
+    size,
+    modifiedAt,
   };
 }
 
@@ -455,8 +521,10 @@ async function loadEntityFiles(entityPath: string): Promise<EntityFileSummary[]>
   }
 
   const files = await listFiles(filesRoot, true);
-  return files.map((filePath) =>
-    classifyFile(filePath, path.relative(entityPath, filePath)),
+  return Promise.all(
+    files.map((filePath) =>
+      classifyFile(filePath, path.relative(entityPath, filePath)),
+    ),
   );
 }
 

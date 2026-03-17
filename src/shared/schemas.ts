@@ -128,7 +128,40 @@ export const FreeformPositionSchema = z.object({
 export const PageViewportSchema = z.object({
   x: z.number(),
   y: z.number(),
-  zoom: z.number().min(0.2).max(3),
+  zoom: z.number().min(0.02).max(3),
+});
+
+export const DetailSectionIdSchema = z.enum([
+  'mastery',
+  'identity',
+  'templates',
+  'links',
+  'wormholes',
+]);
+
+export const SavedCanvasDetailLayoutSchema = z.object({
+  detailsOpen: z.boolean().optional(),
+  detailSize: z.enum(['compact', 'comfortable', 'wide']).optional(),
+  detailSectionOrder: z.array(DetailSectionIdSchema).optional(),
+  hiddenDetailSections: z.array(DetailSectionIdSchema).optional(),
+});
+
+export const SavedCanvasViewSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  viewport: PageViewportSchema,
+  created: z.string().min(1),
+  modules: z.lazy(() => z.array(SynapseModuleSchema)).optional(),
+  detailLayout: SavedCanvasDetailLayoutSchema.optional(),
+});
+
+export const PageUiStateSchema = z.object({
+  surfaceTitle: z.string().optional(),
+  detailsOpen: z.boolean().optional(),
+  detailSize: z.enum(['compact', 'comfortable', 'wide']).optional(),
+  detailSectionOrder: z.array(DetailSectionIdSchema).optional(),
+  hiddenDetailSections: z.array(DetailSectionIdSchema).optional(),
+  savedViews: z.array(SavedCanvasViewSchema).optional(),
 });
 
 export const CustomModuleColumnSchema = z.object({
@@ -162,6 +195,7 @@ export const PageLayoutSchema = z.object({
   modules: z.array(SynapseModuleSchema),
   templates: z.array(z.string()),
   viewport: PageViewportSchema.optional(),
+  ui: PageUiStateSchema.optional(),
 });
 
 export const PracticeAttemptSchema = z.object({

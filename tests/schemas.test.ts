@@ -3,6 +3,7 @@ import {
   BaseRecordSchema,
   PageLayoutSchema,
   PracticeQuestionSchema,
+  QuickCaptureRequestSchema,
   SynapseModuleSchema,
 } from '../src/shared/schemas';
 import { DEFAULT_SETTINGS } from '../src/shared/constants';
@@ -105,6 +106,33 @@ describe('schema validation', () => {
         title: 'Weather',
         position: { x: 1, y: 1, width: 4, height: 4 },
         config: { location: 'Dublin, IE' },
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts deeply zoomed freeform viewports', () => {
+    expect(() =>
+      PageLayoutSchema.parse({
+        layout: 'freeform',
+        gridColumns: 12,
+        modules: [],
+        templates: [],
+        viewport: {
+          x: 24,
+          y: 18,
+          zoom: 0.02,
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts screenshot quick captures with encoded image payloads', () => {
+    expect(() =>
+      QuickCaptureRequestSchema.parse({
+        entityPath: 'bases/academics/nodes/thermo',
+        type: 'screenshot',
+        content: 'data:image/png;base64,AAAA',
+        filenameHint: 'capture.png',
       }),
     ).not.toThrow();
   });

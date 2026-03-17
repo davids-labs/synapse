@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type {
   ErrorEntry,
   PracticeQuestion,
@@ -14,9 +16,31 @@ import {
   formatDate,
   formatPercentage,
   prettyTitle,
+  resolveEmbeddableUrl,
   resolveEntityPath,
 } from '../lib/appHelpers';
+import {
+  buildPdfAnnotationPath,
+  clampPdfPage,
+  clampPdfZoom,
+  matchPdfPages,
+  normalizePdfViewerConfig,
+  parsePdfAnnotationDocument,
+  PDF_DEFAULT_ZOOM,
+  PDF_MAX_ZOOM,
+  PDF_MIN_ZOOM,
+  resolvePdfFile,
+  serializePdfAnnotationDocument,
+  type PdfAnnotation,
+} from '../lib/pdfViewer';
+import { BrowserLinkActions, EmbedFallbackPanel } from './EmbedActions';
+import { MediaCollectionModule } from './MediaCollectionModule';
 import { renderExtendedModule } from './ExtendedModuleViews';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 
 interface ModuleViewProps {
   workspace: WorkspaceSnapshot;
@@ -97,7 +121,14 @@ export function ModuleView({
   }
 
   if (module.type === 'pdf-viewer') {
-    return <PdfModule entity={entity} module={module} onImportFiles={onImportFiles} />;
+    return (
+      <PdfModule
+        entity={entity}
+        module={module}
+        onPatchModule={onPatchModule}
+        onImportFiles={onImportFiles}
+      />
+    );
   }
 
   if (module.type === 'practice-bank') {
@@ -124,7 +155,15 @@ export function ModuleView({
   }
 
   if (module.type === 'image-gallery' || module.type === 'cad-render') {
-    return <ImageGalleryModule entity={entity} onImportFiles={onImportFiles} />;
+    return (
+      <MediaCollectionModule
+        entity={entity}
+        module={module}
+        onPatchModule={onPatchModule}
+        onImportFiles={onImportFiles}
+        variant={module.type === 'cad-render' ? 'cad' : 'gallery'}
+      />
+    );
   }
 
   if (module.type === 'file-list') {
@@ -196,8 +235,8 @@ export function ModuleView({
 
   return (
     <div className="module-placeholder">
-      <p>{prettyTitle(module.type)} is ready for David-specific customization.</p>
-      <small>Edit the module config to adapt it on the fly.</small>
+      <p>{prettyTitle(module.type)} does not have a dedicated renderer yet.</p>
+      <small>Open the module editor to refine its config and shape the next pass.</small>
     </div>
   );
 }
@@ -294,20 +333,234 @@ function MarkdownModule({
 function PdfModule({
   entity,
   module,
+  onPatchModule,
   onImportFiles,
 }: {
   entity: SynapseEntity;
   module: SynapseModule;
+  onPatchModule: (patcher: (module: SynapseModule) => SynapseModule) => void;
   onImportFiles?: (entityPath: string) => void;
 }) {
-  const configured = String(module.config.filepath || 'files/lecture-notes.pdf');
-  const resolved = resolveEntityPath(entity.entityPath, configured);
-  const pdfFile =
-    entity.files.find(
-      (file) =>
-        file.type === 'pdf' &&
-        (file.path === resolved || file.relativePath === configured.replace(/\\/g, '/')),
-    ) ?? entity.files.find((file) => file.type === 'pdf');
+  const persisted = useMemo(() => normalizePdfViewerConfig(module.config), [module.config]);
+  const pdfCandidates = useMemo(() => entity.files.filter((file) => file.type === 'pdf'), [entity.files]);
+  const [pathDraft, setPathDraft] = useState(persisted.filepath);
+  const [selectedPath, setSelectedPath] = useState(persisted.filepath);
+  const [currentPage, setCurrentPage] = useState(persisted.currentPage);
+  const [zoom, setZoom] = useState(persisted.zoom);
+  const [searchQuery, setSearchQuery] = useState(persisted.searchQuery);
+  const [showSidebar, setShowSidebar] = useState(persisted.showSidebar);
+  const [pageCount, setPageCount] = useState(0);
+  const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
+  const [pageIndex, setPageIndex] = useState<string[]>([]);
+  const [loadError, setLoadError] = useState('');
+  const [indexState, setIndexState] = useState({ loading: false, error: '' });
+  const [annotations, setAnnotations] = useState<PdfAnnotation[]>([]);
+  const [annotationDraft, setAnnotationDraft] = useState({
+    page: String(persisted.currentPage),
+    label: '',
+    note: '',
+    color: '#F59E0B',
+  });
+  const [annotationState, setAnnotationState] = useState({
+    loaded: false,
+    dirty: false,
+    saving: false,
+    error: '',
+  });
+
+  useEffect(() => {
+    setPathDraft(persisted.filepath);
+    setSelectedPath(persisted.filepath);
+    setCurrentPage(persisted.currentPage);
+    setZoom(persisted.zoom);
+    setSearchQuery(persisted.searchQuery);
+    setShowSidebar(persisted.showSidebar);
+    setAnnotationDraft({
+      page: String(persisted.currentPage),
+      label: '',
+      note: '',
+      color: '#F59E0B',
+    });
+  }, [module.id]);
+
+  useEffect(() => {
+    if (selectedPath || pdfCandidates.length === 0) {
+      return;
+    }
+    setSelectedPath(pdfCandidates[0].relativePath);
+    setPathDraft(pdfCandidates[0].relativePath);
+  }, [pdfCandidates, selectedPath]);
+
+  const pdfFile = useMemo(
+    () => resolvePdfFile(entity.files, entity.entityPath, selectedPath || persisted.filepath),
+    [entity.entityPath, entity.files, persisted.filepath, selectedPath],
+  );
+  const annotationPath = pdfFile ? buildPdfAnnotationPath(pdfFile.path) : '';
+  const matchingPages = useMemo(
+    () => matchPdfPages(pageIndex, searchQuery),
+    [pageIndex, searchQuery],
+  );
+  const pageAnnotations = useMemo(
+    () =>
+      annotations
+        .filter((annotation) => annotation.page === currentPage)
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt)),
+    [annotations, currentPage],
+  );
+
+  useEffect(() => {
+    setCurrentPage((value) => clampPdfPage(value, pageCount));
+  }, [pageCount]);
+
+  useEffect(() => {
+    if (!pdfFile) {
+      setDocumentProxy(null);
+      setPageCount(0);
+      setPageIndex([]);
+      setLoadError('');
+      setAnnotations([]);
+      setAnnotationState({ loaded: true, dirty: false, saving: false, error: '' });
+      return;
+    }
+
+    setDocumentProxy(null);
+    setPageCount(0);
+    setPageIndex([]);
+    setLoadError('');
+  }, [pdfFile?.path]);
+
+  useEffect(() => {
+    setAnnotationDraft((current) =>
+      current.label || current.note ? current : { ...current, page: String(currentPage) },
+    );
+  }, [currentPage]);
+
+  useEffect(() => {
+    if (!documentProxy) {
+      return;
+    }
+
+    let cancelled = false;
+    setIndexState({ loading: true, error: '' });
+    void (async () => {
+      try {
+        const textByPage: string[] = [];
+        for (let pageNumber = 1; pageNumber <= documentProxy.numPages; pageNumber += 1) {
+          const pdfPage = await documentProxy.getPage(pageNumber);
+          const textContent = await pdfPage.getTextContent();
+          const pageText = textContent.items
+            .map((item) => ('str' in item ? item.str : ''))
+            .join(' ')
+            .toLowerCase();
+          textByPage.push(pageText);
+        }
+        if (!cancelled) {
+          setPageIndex(textByPage);
+          setIndexState({ loading: false, error: '' });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPageIndex([]);
+          setIndexState({
+            loading: false,
+            error: error instanceof Error ? error.message : 'Could not index this PDF',
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [documentProxy]);
+
+  useEffect(() => {
+    if (!annotationPath) {
+      setAnnotations([]);
+      setAnnotationState({ loaded: true, dirty: false, saving: false, error: '' });
+      return;
+    }
+
+    let active = true;
+    setAnnotationState({ loaded: false, dirty: false, saving: false, error: '' });
+    void window.synapse
+      .openFile(annotationPath)
+      .then((raw) => {
+        if (!active) {
+          return;
+        }
+        setAnnotations(parsePdfAnnotationDocument(raw));
+        setAnnotationState({ loaded: true, dirty: false, saving: false, error: '' });
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setAnnotations([]);
+        setAnnotationState({ loaded: true, dirty: false, saving: false, error: '' });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [annotationPath]);
+
+  useEffect(() => {
+    if (!annotationPath || !annotationState.loaded || !annotationState.dirty) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setAnnotationState((current) => ({ ...current, saving: true, error: '' }));
+      void window.synapse
+        .saveFile(annotationPath, serializePdfAnnotationDocument(annotations))
+        .then(() => {
+          setAnnotationState((current) => ({ ...current, dirty: false, saving: false, error: '' }));
+        })
+        .catch((error) => {
+          setAnnotationState((current) => ({
+            ...current,
+            saving: false,
+            error: error instanceof Error ? error.message : 'Could not save annotations',
+          }));
+        });
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [annotationPath, annotationState.dirty, annotationState.loaded, annotations]);
+
+  useEffect(() => {
+    const nextPath = pdfFile?.relativePath || selectedPath;
+    if (
+      persisted.filepath === nextPath &&
+      persisted.currentPage === currentPage &&
+      persisted.zoom === zoom &&
+      persisted.searchQuery === searchQuery &&
+      persisted.showSidebar === showSidebar
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      onPatchModule((current) => ({
+        ...current,
+        config: {
+          ...current.config,
+          filepath: nextPath,
+          currentPage,
+          zoom,
+          searchQuery,
+          showSidebar,
+        },
+      }));
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [currentPage, onPatchModule, pdfFile?.relativePath, persisted, searchQuery, selectedPath, showSidebar, zoom]);
 
   if (!pdfFile) {
     return (
@@ -320,10 +573,300 @@ function PdfModule({
     );
   }
 
+  const addAnnotation = () => {
+    const page = clampPdfPage(Number(annotationDraft.page || currentPage), pageCount || currentPage || 1);
+    const label = annotationDraft.label.trim();
+    const note = annotationDraft.note.trim();
+    if (!label && !note) {
+      return;
+    }
+
+    setAnnotations((current) => [
+      ...current,
+      {
+        id: `annotation-${Date.now()}`,
+        page,
+        label: label || `Note for page ${page}`,
+        note,
+        color: annotationDraft.color,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    setAnnotationDraft({
+      page: String(currentPage),
+      label: '',
+      note: '',
+      color: annotationDraft.color,
+    });
+    setAnnotationState((current) => ({ ...current, dirty: true }));
+  };
+
   return (
-    <object data={fileUrl(pdfFile.path)} type="application/pdf" className="pdf-frame">
-      PDF preview unavailable.
-    </object>
+    <div className="pdf-module-shell">
+      <div className="module-inline-actions">
+        <input
+          className="text-input"
+          value={pathDraft}
+          onChange={(event) => setPathDraft(event.target.value)}
+        />
+        <button
+          className="tiny-button"
+          type="button"
+          onClick={() => {
+            setSelectedPath(pathDraft.trim() || pdfFile.relativePath);
+            setCurrentPage(1);
+          }}
+        >
+          Load PDF
+        </button>
+        <button
+          className="tiny-button"
+          type="button"
+          onClick={() => setShowSidebar((value) => !value)}
+        >
+          {showSidebar ? 'Hide Pages' : 'Show Pages'}
+        </button>
+        <a className="tiny-button" href={fileUrl(pdfFile.path)} target="_blank" rel="noreferrer">
+          Open Raw PDF
+        </a>
+      </div>
+
+      {pdfCandidates.length > 1 ? (
+        <div className="pill-wrap">
+          {pdfCandidates.map((candidate) => (
+            <button
+              key={candidate.path}
+              className={`pill ${candidate.path === pdfFile.path ? 'active' : ''}`}
+              type="button"
+              onClick={() => {
+                setSelectedPath(candidate.relativePath);
+                setPathDraft(candidate.relativePath);
+                setCurrentPage(1);
+              }}
+            >
+              {candidate.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="module-inline-actions">
+        <small>{pdfFile.relativePath}</small>
+        <small>{pageCount > 0 ? `${pageCount} pages` : 'Preparing document...'}</small>
+        <small>{indexState.loading ? 'Indexing search...' : indexState.error || `${matchingPages.length} matches`}</small>
+        <small>
+          {annotationState.saving
+            ? 'Saving annotations...'
+            : annotationState.error || `${annotations.length} notes saved beside the PDF`}
+        </small>
+      </div>
+
+      <Document
+        file={fileUrl(pdfFile.path)}
+        loading={<div className="module-placeholder">Loading PDF...</div>}
+        onLoadError={(error) => {
+          setLoadError(error instanceof Error ? error.message : 'Could not open this PDF');
+          setDocumentProxy(null);
+          setPageCount(0);
+        }}
+        onLoadSuccess={(document) => {
+          setLoadError('');
+          setDocumentProxy(document);
+          setPageCount(document.numPages);
+          setCurrentPage((value) => clampPdfPage(value, document.numPages));
+        }}
+      >
+        <div className={`pdf-layout ${showSidebar ? 'with-sidebar' : 'without-sidebar'}`}>
+          {showSidebar ? (
+            <aside className="pdf-sidebar">
+              <div className="pdf-sidebar-header">
+                <strong>Pages</strong>
+                <small>{pageCount || '?'}</small>
+              </div>
+              <div className="pdf-thumbnail-list">
+                {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    className={`pdf-thumbnail-card ${pageNumber === currentPage ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNumber)}
+                  >
+                    <Page
+                      pageNumber={pageNumber}
+                      width={92}
+                      renderAnnotationLayer={false}
+                      renderTextLayer={false}
+                    />
+                    <span>Page {pageNumber}</span>
+                  </button>
+                ))}
+              </div>
+            </aside>
+          ) : null}
+
+          <div className="pdf-main">
+            <div className="pdf-toolbar">
+              <div className="button-row">
+                <button
+                  className="tiny-button"
+                  type="button"
+                  onClick={() => setCurrentPage((value) => clampPdfPage(value - 1, pageCount || 1))}
+                >
+                  Prev
+                </button>
+                <span className="pdf-toolbar-stat">
+                  Page {currentPage}/{pageCount || '?'}
+                </span>
+                <button
+                  className="tiny-button"
+                  type="button"
+                  onClick={() => setCurrentPage((value) => clampPdfPage(value + 1, pageCount || value + 1))}
+                >
+                  Next
+                </button>
+              </div>
+              <div className="button-row">
+                <button
+                  className="tiny-button"
+                  type="button"
+                  onClick={() => setZoom((value) => clampPdfZoom(value - 0.1))}
+                >
+                  -
+                </button>
+                <span className="pdf-toolbar-stat">{Math.round(zoom * 100)}%</span>
+                <button
+                  className="tiny-button"
+                  type="button"
+                  onClick={() => setZoom((value) => clampPdfZoom(value + 0.1))}
+                >
+                  +
+                </button>
+                <button
+                  className="tiny-button"
+                  type="button"
+                  onClick={() => setZoom(PDF_DEFAULT_ZOOM)}
+                >
+                  Reset Zoom
+                </button>
+              </div>
+            </div>
+
+            <div className="pdf-search-bar">
+              <input
+                className="text-input"
+                placeholder="Search inside this PDF"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+              {matchingPages.slice(0, 8).map((pageNumber) => (
+                <button
+                  key={pageNumber}
+                  className="pill active"
+                  type="button"
+                  onClick={() => setCurrentPage(pageNumber)}
+                >
+                  Match p.{pageNumber}
+                </button>
+              ))}
+            </div>
+
+            <div className="pdf-page-stage">
+              {loadError ? (
+                <div className="module-placeholder">{loadError}</div>
+              ) : (
+                <Page
+                  pageNumber={currentPage}
+                  width={Math.round(680 * zoom)}
+                  renderAnnotationLayer={false}
+                  renderTextLayer={false}
+                  loading={<div className="module-placeholder">Rendering page...</div>}
+                />
+              )}
+            </div>
+
+            <div className="pdf-annotation-panel">
+              <div className="pdf-annotation-header">
+                <strong>Page {currentPage} highlights and notes</strong>
+                <small>{annotationPath.split(/[\\/]/).slice(-1)[0]}</small>
+              </div>
+              <div className="pdf-annotation-form">
+                <input
+                  className="text-input"
+                  type="number"
+                  min="1"
+                  max={String(pageCount || 1)}
+                  value={annotationDraft.page}
+                  onChange={(event) =>
+                    setAnnotationDraft((current) => ({ ...current, page: event.target.value }))
+                  }
+                />
+                <input
+                  className="text-input"
+                  placeholder="Highlight label"
+                  value={annotationDraft.label}
+                  onChange={(event) =>
+                    setAnnotationDraft((current) => ({ ...current, label: event.target.value }))
+                  }
+                />
+                <input
+                  className="text-input color-picker-input"
+                  type="color"
+                  value={annotationDraft.color}
+                  onChange={(event) =>
+                    setAnnotationDraft((current) => ({ ...current, color: event.target.value }))
+                  }
+                />
+                <textarea
+                  className="text-input"
+                  placeholder="Why this page matters, or paste the excerpt you want to remember."
+                  value={annotationDraft.note}
+                  onChange={(event) =>
+                    setAnnotationDraft((current) => ({ ...current, note: event.target.value }))
+                  }
+                />
+                <button className="tiny-button" type="button" onClick={addAnnotation}>
+                  Save Annotation
+                </button>
+              </div>
+
+              <div className="pdf-annotation-list">
+                {pageAnnotations.length > 0 ? (
+                  pageAnnotations.map((annotation) => (
+                    <div key={annotation.id} className="pdf-annotation-card">
+                      <span
+                        className="pdf-annotation-swatch"
+                        style={{ background: annotation.color }}
+                      />
+                      <div className="pdf-annotation-copy">
+                        <strong>{annotation.label}</strong>
+                        <small>{annotation.note || 'No note text yet.'}</small>
+                      </div>
+                      <button
+                        className="tiny-button"
+                        type="button"
+                        onClick={() => {
+                          setAnnotations((current) =>
+                            current.filter((candidate) => candidate.id !== annotation.id),
+                          );
+                          setAnnotationState((current) => ({ ...current, dirty: true }));
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="module-placeholder">
+                    Save annotations for important pages and Synapse will keep them in a sidecar JSON
+                    beside the PDF.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Document>
+    </div>
   );
 }
 
@@ -821,37 +1364,6 @@ function ErrorLogModule({
           Add Error
         </button>
       </div>
-    </div>
-  );
-}
-
-function ImageGalleryModule({
-  entity,
-  onImportFiles,
-}: {
-  entity: SynapseEntity;
-  onImportFiles?: (entityPath: string) => void;
-}) {
-  const images = entity.files.filter((file) => file.type === 'image');
-  if (images.length === 0) {
-    return (
-      <div className="module-placeholder">
-        <p>Drop images or CAD renders into this page to build the gallery.</p>
-        <button className="tiny-button" type="button" onClick={() => onImportFiles?.(entity.entityPath)}>
-          Attach Images
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="image-grid">
-      {images.map((image) => (
-        <figure key={image.path}>
-          <img src={fileUrl(image.path)} alt={image.name} />
-          <figcaption>{image.name}</figcaption>
-        </figure>
-      ))}
     </div>
   );
 }
@@ -1388,9 +1900,11 @@ function EmbeddedIframeModule({
 }) {
   const src = asString(module.config.src);
   const [draft, setDraft] = useState(src);
+  const embed = resolveEmbeddableUrl(src);
+  const browserUrl = embed.fallbackUrl || embed.normalizedUrl;
 
   return (
-    <div className="stack-panel">
+    <div className="stack-panel embed-module-shell">
       <div className="button-row">
         <input
           className="text-input"
@@ -1413,10 +1927,32 @@ function EmbeddedIframeModule({
           Load
         </button>
       </div>
-      {src ? (
-        <iframe src={src} className="media-frame" title={module.title} />
+      {embed.iframeUrl && !embed.browserPreferred ? (
+        <>
+          <div className="module-inline-actions">
+            <small>Inline preview</small>
+            <BrowserLinkActions url={browserUrl} title={module.title} compact />
+          </div>
+          <div className="embed-module-stage">
+            <iframe
+              src={embed.iframeUrl}
+              className="media-frame embed-module-frame"
+              title={module.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          </div>
+        </>
       ) : (
-        <div className="module-placeholder">Add an embed URL to display it here.</div>
+        <div className="embed-module-stage">
+          <EmbedFallbackPanel
+            url={browserUrl}
+            title={module.title}
+            reason={embed.reason || 'This site works better in a browser surface from Electron.'}
+            detail={embed.fallbackUrl}
+          />
+        </div>
       )}
     </div>
   );
@@ -1432,15 +1968,24 @@ function VideoPlayerModule({
   onPatchModule: (patcher: (module: SynapseModule) => SynapseModule) => void;
 }) {
   const filepath = asString(module.config.filepath);
-  const resolved = filepath ? resolveEntityPath(entity.entityPath, filepath) : '';
+  const looksRemote = /^(https?:\/\/|www\.)/i.test(filepath.trim());
+  const embed = looksRemote ? resolveEmbeddableUrl(filepath) : null;
+  const directMediaUrl =
+    embed?.normalizedUrl && /\.(mp4|webm|ogg|m4v|mov)(?:$|[?#])/i.test(embed.normalizedUrl)
+      ? embed.normalizedUrl
+      : '';
+  const remoteEmbedUrl =
+    embed?.iframeUrl && embed.iframeUrl !== embed.normalizedUrl ? embed.iframeUrl : '';
+  const resolved = filepath && !looksRemote ? resolveEntityPath(entity.entityPath, filepath) : '';
   const [draft, setDraft] = useState(filepath);
+  const browserUrl = embed?.fallbackUrl || embed?.normalizedUrl || draft.trim();
 
   return (
-    <div className="stack-panel">
+    <div className="stack-panel embed-module-shell">
       <div className="button-row">
         <input
           className="text-input"
-          placeholder="files/demo.mp4"
+          placeholder="files/demo.mp4 or https://..."
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
@@ -1459,10 +2004,44 @@ function VideoPlayerModule({
           Save Path
         </button>
       </div>
-      {resolved ? (
-        <video controls className="media-frame" src={fileUrl(resolved)} />
+      {directMediaUrl ? (
+        <div className="embed-module-stage">
+          <video controls className="media-frame embed-module-frame" src={directMediaUrl} />
+        </div>
+      ) : remoteEmbedUrl && !embed?.browserPreferred ? (
+        <>
+          <div className="module-inline-actions">
+            <small>Embedded remote player</small>
+            <BrowserLinkActions url={browserUrl} title={module.title} compact />
+          </div>
+          <div className="embed-module-stage">
+            <iframe
+              src={remoteEmbedUrl}
+              className="media-frame embed-module-frame"
+              title={module.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          </div>
+        </>
+      ) : resolved ? (
+        <div className="embed-module-stage">
+          <video controls className="media-frame embed-module-frame" src={fileUrl(resolved)} />
+        </div>
+      ) : looksRemote ? (
+        <div className="embed-module-stage">
+          <EmbedFallbackPanel
+            url={browserUrl}
+            title={module.title}
+            reason={
+              embed?.reason || 'This remote video should open in a browser surface instead of inline.'
+            }
+            detail={embed?.fallbackUrl}
+          />
+        </div>
       ) : (
-        <div className="module-placeholder">Set a local video file path to start previewing.</div>
+        <div className="module-placeholder">Set a local video path or a direct video URL to start previewing.</div>
       )}
     </div>
   );
@@ -1554,7 +2133,11 @@ function LinkCollectionModule({
   ];
 
   if (links.length === 0) {
-    return <div className="module-placeholder">Manual links and wormholes will appear here.</div>;
+    return (
+      <div className="module-placeholder">
+        Add a manual link or wormhole to turn this into a local navigation hub.
+      </div>
+    );
   }
 
   return (

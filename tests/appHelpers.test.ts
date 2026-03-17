@@ -3,6 +3,7 @@ import {
   emptyModuleConfig,
   formatEntityContext,
   formatEntityLocation,
+  resolveEmbeddableUrl,
 } from '../src/renderer/lib/appHelpers';
 
 describe('appHelpers', () => {
@@ -76,5 +77,36 @@ describe('appHelpers', () => {
     expect(emptyModuleConfig('checklist')).toEqual({ items: [] });
     expect(emptyModuleConfig('weather-widget')).toEqual({ location: 'Dublin, IE' });
     expect(emptyModuleConfig('flashcard-deck')).toEqual({ cards: [] });
+  });
+
+  it('transforms YouTube watch URLs into stable inline embed URLs', () => {
+    expect(resolveEmbeddableUrl('https://www.youtube.com/watch?v=FCtI_mQ6I88')).toMatchObject({
+      iframeUrl: 'https://www.youtube-nocookie.com/embed/FCtI_mQ6I88',
+      fallbackUrl: 'https://www.youtube.com/watch?v=FCtI_mQ6I88',
+      browserPreferred: false,
+    });
+  });
+
+  it('keeps generic embeddable pages available for inline iframe usage', () => {
+    expect(resolveEmbeddableUrl('https://www.desmos.com/calculator')).toMatchObject({
+      iframeUrl: 'https://www.desmos.com/calculator',
+      browserPreferred: false,
+    });
+  });
+
+  it('keeps arbitrary websites inline when the embed resolver can sanitize the request path', () => {
+    expect(resolveEmbeddableUrl('https://example.com')).toMatchObject({
+      iframeUrl: 'https://example.com/',
+      fallbackUrl: 'https://example.com/',
+      browserPreferred: false,
+    });
+  });
+
+  it('transforms Twitch channel URLs into the player embed format', () => {
+    expect(resolveEmbeddableUrl('https://www.twitch.tv/dotacapitalist')).toMatchObject({
+      iframeUrl: 'https://player.twitch.tv/?parent=localhost&channel=dotacapitalist',
+      fallbackUrl: 'https://www.twitch.tv/dotacapitalist',
+      browserPreferred: false,
+    });
   });
 });

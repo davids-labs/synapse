@@ -47,6 +47,8 @@ export interface SynapseApi {
   exportCsv: (request: CsvExportRequest) => Promise<CsvExportResult>;
   openFile: (targetPath: string) => Promise<string>;
   saveFile: (targetPath: string, content: string) => Promise<void>;
+  openBrowserSurface: (url: string, title?: string) => Promise<string>;
+  openExternalUrl: (url: string) => Promise<string>;
   quickCapture: (request: QuickCaptureRequest) => Promise<QuickCaptureResponse>;
   watchWorkspace: (basePath: string) => Promise<boolean>;
   getGitStatus: (basePath: string) => Promise<GitStatusSummary>;

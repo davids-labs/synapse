@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type {
   ErrorEntry,
@@ -8,14 +9,17 @@ import type {
   UpdateState,
   WorkspaceSnapshot,
 } from '../../shared/types';
-import { compactPath, formatDate, formatPercentage, prettyTitle } from '../lib/appHelpers';
+import { formatDate, formatPercentage, prettyTitle } from '../lib/appHelpers';
 import { ModuleCanvas } from './ModuleCanvas';
+
+const DEFAULT_HOME_TITLE = "David's Knowledge Operating System";
 
 interface HomeSurfaceProps {
   workspace: WorkspaceSnapshot;
   homeEntity: SynapseEntity | null;
   gitStatus: GitStatusSummary | null;
   updateState: UpdateState | null;
+  canvasFocused: boolean;
   onOpenBase: (entityPath: string) => void;
   onOpenEntity: (entityPath: string) => void;
   onCreateBase: () => void;
@@ -30,19 +34,17 @@ interface HomeSurfaceProps {
   onSavePractice: (questions: PracticeQuestion[]) => void;
   onSaveErrors: (entries: ErrorEntry[]) => void;
   onTeleport: () => void;
+  onToggleCanvasFocus: () => void;
   onImportFiles?: (entityPath: string) => void;
 }
 
 export function HomeSurface({
   workspace,
   homeEntity,
-  gitStatus,
-  updateState,
+  canvasFocused,
   onOpenBase,
   onOpenEntity,
   onCreateBase,
-  onOpenSettings,
-  onCheckForUpdates,
   onSaveHomePage,
   onOpenHomeModuleLibrary,
   onEditModule,
@@ -52,6 +54,7 @@ export function HomeSurface({
   onSavePractice,
   onSaveErrors,
   onTeleport,
+  onToggleCanvasFocus,
   onImportFiles,
 }: HomeSurfaceProps) {
   const totalNodes = workspace.bases.reduce((sum, base) => sum + base.stats.totalNodes, 0);
@@ -65,7 +68,6 @@ export function HomeSurface({
           0,
         ) / Math.max(totalNodes, 1);
   const recentEntries = workspace.recent.slice(0, 6);
-  const hotDropLabel = compactPath(workspace.hotDrop.folderPath, 2);
   const groupedBases = Object.entries(
     workspace.bases.reduce<Record<string, typeof workspace.bases>>((groups, base) => {
       const key = base.itemType;
@@ -75,60 +77,111 @@ export function HomeSurface({
       return groups;
     }, {}),
   ).sort((left, right) => left[0].localeCompare(right[0]));
+  const surfaceTitle = workspace.homePage.ui?.surfaceTitle?.trim() || DEFAULT_HOME_TITLE;
+  const [titleDraft, setTitleDraft] = useState(surfaceTitle);
+
+  useEffect(() => {
+    setTitleDraft(surfaceTitle);
+  }, [surfaceTitle]);
+
+  const saveHomeUi = (patch: Partial<NonNullable<WorkspaceSnapshot['homePage']['ui']>>) => {
+    onSaveHomePage({
+      ...workspace.homePage,
+      ui: {
+        ...(workspace.homePage.ui ?? {}),
+        ...patch,
+      },
+    });
+  };
+
+  const commitTitle = () => {
+    const nextTitle = titleDraft.trim() || DEFAULT_HOME_TITLE;
+    setTitleDraft(nextTitle);
+    if (nextTitle === surfaceTitle) {
+      return;
+    }
+    saveHomeUi({ surfaceTitle: nextTitle });
+  };
+
+  const canvasContent = homeEntity ? (
+    <ModuleCanvas
+      workspace={workspace}
+      entity={homeEntity}
+      fullscreen={canvasFocused}
+      compactToolbar
+      onToggleFullscreen={onToggleCanvasFocus}
+      onOpenModuleLibrary={canvasFocused ? onOpenHomeModuleLibrary : undefined}
+      onSavePage={onSaveHomePage}
+      onSaveFile={onSaveFile}
+      onSavePractice={onSavePractice}
+      onSaveErrors={onSaveErrors}
+      onEditModule={onEditModule}
+      onDuplicateModule={onDuplicateModule}
+      onDeleteModule={onDeleteModule}
+      onTeleport={onTeleport}
+      onImportFiles={onImportFiles}
+    />
+  ) : null;
+
+  if (canvasFocused) {
+    return (
+      <section className="home-surface is-canvas-focused is-canvas-only">
+        <section className="home-canvas-panel is-standalone">{canvasContent}</section>
+      </section>
+    );
+  }
 
   return (
     <section className="home-surface">
-      <div className="home-hero">
-        <div className="home-hero-copy">
-          <div className="page-kicker">Macro-Galaxy</div>
-          <h1>David&apos;s Knowledge Operating System</h1>
-          <p>
-            Home is now a real surface: browse the galaxy index on the left, keep personal modules
-            on the canvas, and teleport straight into any node without drowning in admin chrome.
-          </p>
-          <div className="hero-stat-strip">
-            <div className="hero-stat">
-              <span>Galaxies</span>
-              <strong>{workspace.bases.length}</strong>
-            </div>
-            <div className="hero-stat">
-              <span>Total nodes</span>
-              <strong>{totalNodes}</strong>
-            </div>
-            <div className="hero-stat">
-              <span>Average mastery</span>
-              <strong>{formatPercentage(averageMastery)}</strong>
-            </div>
-            <div className="hero-stat">
-              <span>Wormholes</span>
-              <strong>{wormholeCount}</strong>
-            </div>
+      <div className="home-titlebar">
+        <div className="home-titlebar-copy">
+          <input
+            className="home-title-input"
+            aria-label="Home title"
+            value={titleDraft}
+            onChange={(event) => setTitleDraft(event.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                commitTitle();
+                (event.currentTarget as HTMLInputElement).blur();
+                return;
+              }
+
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setTitleDraft(surfaceTitle);
+                (event.currentTarget as HTMLInputElement).blur();
+              }
+            }}
+          />
+          <div className="home-title-meta">
+            <span className="pill">{workspace.bases.length} galaxies</span>
+            <span className="pill">{totalNodes} nodes</span>
+            <span className="pill">{formatPercentage(averageMastery)} mastery</span>
+            <span className="pill">{wormholeCount} wormholes</span>
           </div>
         </div>
-        <div className="home-hero-actions">
-          <button className="primary-button" onClick={onCreateBase}>
-            Add Galaxy
+
+        <div className="home-titlebar-actions">
+          <button className="ghost-button" onClick={onToggleCanvasFocus}>
+            {canvasFocused ? 'Show Index' : 'Focus Canvas'}
           </button>
           <button className="ghost-button" onClick={onOpenHomeModuleLibrary}>
             Add Home Module
           </button>
-          <button className="ghost-button" onClick={onOpenSettings}>
-            Settings
-          </button>
-          <button className="ghost-button" onClick={onCheckForUpdates}>
-            Check Updates
+          <button className="primary-button" onClick={onCreateBase}>
+            Add Galaxy
           </button>
         </div>
       </div>
 
-      <div className="home-operating-grid">
+      <div className={`home-operating-grid ${canvasFocused ? 'is-canvas-focused' : ''}`}>
         <aside className="home-index-panel">
           <div className="section-heading">
             <div>
               <h2>Galaxy Index</h2>
-              <p className="section-copy">
-                Treat the nested file structure like a first-class navigator, not hidden plumbing.
-              </p>
             </div>
             <span className="pill">
               {completedNodes}/{totalNodes} complete
@@ -170,7 +223,6 @@ export function HomeSurface({
             <div className="section-heading">
               <div>
                 <h2>Recent Teleports</h2>
-                <p className="section-copy">Resume a node instantly from the home stage.</p>
               </div>
               <button className="ghost-button small" onClick={onTeleport}>
                 Search All
@@ -198,88 +250,18 @@ export function HomeSurface({
           <div className="section-heading">
             <div>
               <h2>Home Modules</h2>
-              <p className="section-copy">
-                Keep your launchpad personal: notes, high-level analytics, shortcuts, and custom
-                widgets all live here now.
-              </p>
             </div>
-            <button className="primary-button" onClick={onOpenHomeModuleLibrary}>
-              Add Module
-            </button>
+            <div className="button-row">
+              <button className="ghost-button" onClick={onToggleCanvasFocus}>
+                {canvasFocused ? 'Exit Focus' : 'Focus Canvas'}
+              </button>
+              <button className="primary-button" onClick={onOpenHomeModuleLibrary}>
+                Add Module
+              </button>
+            </div>
           </div>
-          {homeEntity ? (
-            <ModuleCanvas
-              workspace={workspace}
-              entity={homeEntity}
-              onSavePage={onSaveHomePage}
-              onSaveFile={onSaveFile}
-              onSavePractice={onSavePractice}
-              onSaveErrors={onSaveErrors}
-              onEditModule={onEditModule}
-              onDuplicateModule={onDuplicateModule}
-              onDeleteModule={onDeleteModule}
-              onTeleport={onTeleport}
-              onImportFiles={onImportFiles}
-            />
-          ) : null}
+          {canvasContent}
         </section>
-
-        <aside className="home-rail">
-          <section className="home-panel">
-            <div className="section-heading">
-              <div>
-                <h2>System</h2>
-                <p className="section-copy">Capture, sync, and health signals without path soup.</p>
-              </div>
-              <span className="pill">{updateState?.status || 'idle'}</span>
-            </div>
-            <div className="list-stack compact">
-              <div className="list-row">
-                <span>Git workspace</span>
-                <strong>{gitStatus?.clean ? 'Clean' : 'Needs attention'}</strong>
-              </div>
-              <div className="list-row">
-                <span>Changed files</span>
-                <strong>{gitStatus?.modified.length ?? 0}</strong>
-              </div>
-              <div className="list-row">
-                <span>Hot-drop folder</span>
-                <small>{hotDropLabel || 'Ready'}</small>
-              </div>
-              <div className="list-row">
-                <span>Teleport index</span>
-                <strong>{workspace.recent.length} recent nodes</strong>
-              </div>
-            </div>
-          </section>
-
-          <section className="home-panel">
-            <div className="section-heading">
-              <div>
-                <h2>Guide</h2>
-                <p className="section-copy">Quick orientation for the new spatial workflow.</p>
-              </div>
-            </div>
-            <div className="list-stack compact">
-              <div className="list-row">
-                <span>Pan canvas</span>
-                <small>Drag empty space</small>
-              </div>
-              <div className="list-row">
-                <span>Zoom canvas</span>
-                <small>Ctrl + mouse wheel</small>
-              </div>
-              <div className="list-row">
-                <span>Move module</span>
-                <small>Use the drag handle in the card header</small>
-              </div>
-              <div className="list-row">
-                <span>Teleport</span>
-                <small>Search any node from the canvas toolbar</small>
-              </div>
-            </div>
-          </section>
-        </aside>
       </div>
     </section>
   );

@@ -4,12 +4,18 @@ import type {
   KeyboardShortcutMap,
   LinkStyle,
   MasteryColorMap,
+  ModuleImplementationStatus,
+  ModuleOwnerWave,
   ModuleTemplate,
+  ModuleType,
   SynapseModule,
   TagDefinition,
 } from './types';
 
 export const APP_NAME = 'SYNAPSE';
+export const MODERN_CHROME_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
+export const INLINE_EMBED_PARENT_HOST = 'localhost';
 
 export const DAVID_COLORS: ColorScheme = {
   bgPrimary: '#0F0F0F',
@@ -148,13 +154,22 @@ export interface ModuleLibraryEntry {
   title: string;
   category: string;
   description: string;
+  implementationStatus: ModuleImplementationStatus;
+  verificationChecklist: string[];
+  ownerWave: ModuleOwnerWave;
+  knownGaps: string[];
   defaultSize?: {
     width: number;
     height: number;
   };
 }
 
-export const MODULE_LIBRARY: ModuleLibraryEntry[] = [
+const MODULE_LIBRARY_BASE: Array<
+  Omit<
+    ModuleLibraryEntry,
+    'implementationStatus' | 'verificationChecklist' | 'ownerWave' | 'knownGaps'
+  >
+> = [
   { type: 'pdf-viewer', title: 'PDF Viewer', category: 'Content', description: 'Read local PDFs with persistent page context.', defaultSize: { width: 5, height: 5 } },
   { type: 'image-gallery', title: 'Image Gallery', category: 'Content', description: 'Browse image folders in a dense gallery.', defaultSize: { width: 5, height: 5 } },
   { type: 'handwriting-gallery', title: 'Handwriting Gallery', category: 'Content', description: 'Review handwritten note exports and compare pages.', defaultSize: { width: 5, height: 5 } },
@@ -248,6 +263,101 @@ export const MODULE_LIBRARY: ModuleLibraryEntry[] = [
 
   { type: 'custom', title: 'Custom Module', category: 'Custom', description: 'Build a David-specific module from a JSON schema.', defaultSize: { width: 5, height: 5 } },
 ];
+
+const MODULE_VERIFICATION_CHECKLIST = [
+  'Primary workflow completes from an intentional empty state.',
+  'State persists cleanly across save, reload, resize, and fullscreen.',
+  'Invalid config, missing files, and partial data recover gracefully.',
+  'Keyboard navigation, focus, and dense-data readability remain usable.',
+];
+
+const WAVE_1_MODULES = new Set<ModuleType>([
+  'rich-text-editor',
+  'code-editor',
+  'whiteboard',
+  'screenshot-annotator',
+  'mood-board',
+  'study-guide-generator',
+]);
+
+const WAVE_2_MODULES = new Set<ModuleType>([
+  'handwriting-gallery',
+  'mind-map',
+  'outline-tree',
+  'tag-cloud',
+  'graph-mini',
+  'file-organizer',
+]);
+
+const WAVE_3_MODULES = new Set<ModuleType>([
+  'graph-plotter',
+  'periodic-table',
+  'chemistry-balancer',
+  'analytics-dashboard',
+  'gantt-chart',
+  'comparison-table',
+]);
+
+const WAVE_4_MODULES = new Set<ModuleType>(['weather-widget']);
+
+const MODULE_KNOWN_GAPS: Partial<Record<ModuleType, string[]>> = {
+  'handwriting-gallery': ['Needs stronger tag workflows and OCR-ready metadata hooks.'],
+  'rich-text-editor': ['Needs richer formatting ergonomics and stronger block-level controls.'],
+  'code-editor': ['Needs deeper multi-file editing polish and stronger language affordances.'],
+  'mind-map': ['Needs more deliberate node editing, layout, and relationship refinement.'],
+  'outline-tree': ['Needs richer keyboard structure editing and drag-reorder polish.'],
+  'tag-cloud': ['Needs better tag drill-down and clearer cross-module filtering behavior.'],
+  'graph-mini': ['Needs denser relationship context and sharper navigation feedback.'],
+  'file-organizer': ['Needs safer move flows and clearer folder-level reorganization affordances.'],
+  'graph-plotter': ['Needs stronger equation editing, comparison controls, and export polish.'],
+  'periodic-table': ['Needs denser reference detail and smoother comparison exploration.'],
+  'chemistry-balancer': ['Needs clearer stoichiometry explanation and result breakdowns.'],
+  'analytics-dashboard': ['Needs stronger configuration, metric provenance, and drill-down states.'],
+  'gantt-chart': ['Needs dependency editing polish and stronger timeline readability.'],
+  'comparison-table': ['Needs better authoring flows for larger side-by-side datasets.'],
+  'study-guide-generator': ['Needs deeper extraction rules and stronger review/edit workflows.'],
+  whiteboard: ['Needs more intentional drawing, object editing, and export ergonomics.'],
+  'screenshot-annotator': ['Needs richer annotation tools and tighter image capture handoff.'],
+  'mood-board': ['Needs stronger arrangement, curation, and mixed-source composition polish.'],
+  'weather-widget': ['Needs clearer manual-update messaging and offline resilience.'],
+  custom: ['Needs a launch-grade schema authoring and validation experience.'],
+};
+
+function resolveModuleOwnerWave(type: ModuleType): ModuleOwnerWave {
+  if (WAVE_1_MODULES.has(type)) {
+    return 'wave-1';
+  }
+
+  if (WAVE_2_MODULES.has(type)) {
+    return 'wave-2';
+  }
+
+  if (WAVE_3_MODULES.has(type)) {
+    return 'wave-3';
+  }
+
+  if (WAVE_4_MODULES.has(type)) {
+    return 'wave-4';
+  }
+
+  return 'foundation';
+}
+
+function resolveModuleImplementationStatus(type: ModuleType): ModuleImplementationStatus {
+  if (type === 'custom') {
+    return 'schema-driven';
+  }
+
+  return resolveModuleOwnerWave(type) === 'foundation' ? 'production' : 'uplift';
+}
+
+export const MODULE_LIBRARY: ModuleLibraryEntry[] = MODULE_LIBRARY_BASE.map((entry) => ({
+  ...entry,
+  implementationStatus: resolveModuleImplementationStatus(entry.type),
+  verificationChecklist: [...MODULE_VERIFICATION_CHECKLIST],
+  ownerWave: resolveModuleOwnerWave(entry.type),
+  knownGaps: [...(MODULE_KNOWN_GAPS[entry.type] ?? [])],
+}));
 
 export const DEFAULT_NODE_MODULES: SynapseModule[] = [
   {

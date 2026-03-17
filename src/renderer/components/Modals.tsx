@@ -54,7 +54,7 @@ export interface EntityCreatorDraft {
 
 export interface QuickCaptureDraft {
   entityPath: string;
-  type: Extract<CaptureType, 'note' | 'link' | 'file'>;
+  type: CaptureType;
   content: string;
   sourcePath: string;
   filenameHint: string;
@@ -66,8 +66,11 @@ interface SettingsModalProps {
   gitStatus: GitStatusSummary | null;
   hotDropStatus: HotDropStatus;
   updateState: UpdateState | null;
+  gitActionBusy: 'sync' | 'commit' | null;
   onClose: () => void;
   onSave: (settings: AppSettings, tags: TagDefinition[]) => void;
+  onSyncWorkspace: () => void;
+  onCommitWorkspace: () => void;
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
   onCreateBackup: () => void;
@@ -79,8 +82,11 @@ export function SettingsModal({
   gitStatus,
   hotDropStatus,
   updateState,
+  gitActionBusy,
   onClose,
   onSave,
+  onSyncWorkspace,
+  onCommitWorkspace,
   onCheckForUpdates,
   onInstallUpdate,
   onCreateBackup,
@@ -98,6 +104,7 @@ export function SettingsModal({
   const previewSnapshotRef = useRef<{
     theme: string;
     colorScheme: string;
+    density: string | null;
     vars: Record<string, string>;
   } | null>(null);
 
@@ -177,6 +184,7 @@ export function SettingsModal({
     previewSnapshotRef.current = {
       theme: root.dataset.theme || '',
       colorScheme: root.style.colorScheme || '',
+      density: document.querySelector('.synapse-shell')?.getAttribute('data-density') || null,
       vars: {
         '--bg-primary': root.style.getPropertyValue('--bg-primary'),
         '--bg-secondary': root.style.getPropertyValue('--bg-secondary'),
@@ -211,6 +219,10 @@ export function SettingsModal({
 
       root.dataset.theme = snapshot.theme;
       root.style.colorScheme = snapshot.colorScheme;
+      const shell = document.querySelector('.synapse-shell');
+      if (snapshot.density) {
+        shell?.setAttribute('data-density', snapshot.density);
+      }
       for (const [key, value] of Object.entries(snapshot.vars)) {
         root.style.setProperty(key, value);
       }
@@ -219,6 +231,7 @@ export function SettingsModal({
 
   useEffect(() => {
     const root = document.documentElement;
+    const shell = document.querySelector('.synapse-shell');
     const { colorScheme, masteryColors, theme } = draft;
 
     root.style.setProperty('--bg-primary', colorScheme.bgPrimary);
@@ -245,7 +258,8 @@ export function SettingsModal({
     root.style.setProperty('--mastery-weak', masteryColors.weak);
     root.style.colorScheme = theme;
     root.dataset.theme = theme;
-  }, [draft.colorScheme, draft.masteryColors, draft.theme]);
+    shell?.setAttribute('data-density', draft.density);
+  }, [draft.colorScheme, draft.density, draft.masteryColors, draft.theme]);
 
   const scrollToSection = (sectionId: (typeof navItems)[number][0]) => {
     setActiveSection(sectionId);
@@ -288,7 +302,7 @@ export function SettingsModal({
           <div>
             <h2>Settings</h2>
             <p className="modal-subtitle">
-              Theme, graph language, module defaults, keyboard flows, Git, hot-drop, and update controls.
+              Theme, canvas behavior, module defaults, workspace reliability, hot-drop, and update behavior.
             </p>
           </div>
           <button onClick={onClose}>Close</button>
@@ -698,9 +712,21 @@ export function SettingsModal({
             {visibleSections.git && (
               <section id="settings-section-git" className="settings-section">
                 <div className="section-heading">
-                  <h3>Git</h3>
-                  <span className="pill">{gitStatus?.clean ? 'clean' : 'changes detected'}</span>
+                  <h3>Workspace Reliability</h3>
+                  <span className="pill">
+                    {!draft.gitEnabled
+                      ? 'disabled'
+                      : gitStatus?.syncReady
+                        ? 'ready'
+                        : gitStatus?.clean
+                          ? 'clean'
+                          : 'review'}
+                  </span>
                 </div>
+                <p className="field-help">
+                  Git stays explicit here. SYNAPSE never resolves conflicts or overwrites local
+                  work silently.
+                </p>
                 <label className="checkbox-row">
                   <input
                     type="checkbox"
@@ -745,9 +771,37 @@ export function SettingsModal({
                     <span>Modified</span>
                   </div>
                 </div>
-                <button className="tiny-button" onClick={onCreateBackup}>
-                  Create Manual Backup
-                </button>
+                <div className="list-stack compact">
+                  <div className="list-row">
+                    <span>Current branch</span>
+                    <small>{gitStatus?.currentBranch || 'Not available yet'}</small>
+                  </div>
+                  <div className="list-row">
+                    <span>Tracking branch</span>
+                    <small>{gitStatus?.trackingBranch || 'No upstream configured'}</small>
+                  </div>
+                  <div className="list-row">
+                    <span>Remote</span>
+                    <small>{gitStatus?.hasRemote ? 'Configured' : 'Not configured'}</small>
+                  </div>
+                </div>
+                <div className="button-row">
+                  <button
+                    onClick={onSyncWorkspace}
+                    disabled={!draft.gitEnabled || gitActionBusy !== null}
+                  >
+                    {gitActionBusy === 'sync' ? 'Syncing...' : 'Sync now'}
+                  </button>
+                  <button
+                    onClick={onCommitWorkspace}
+                    disabled={!draft.gitEnabled || gitActionBusy !== null}
+                  >
+                    {gitActionBusy === 'commit' ? 'Committing...' : 'Commit snapshot'}
+                  </button>
+                  <button className="tiny-button" onClick={onCreateBackup}>
+                    Create manual backup
+                  </button>
+                </div>
               </section>
             )}
 
@@ -789,15 +843,22 @@ export function SettingsModal({
                     />
                   </div>
                 )}
-                <div className="button-row">
-                  <button onClick={onCheckForUpdates}>Check for updates</button>
-                  <button
-                    onClick={onInstallUpdate}
-                    disabled={updateState?.status !== 'downloaded'}
-                  >
-                    Restart to install
-                  </button>
-                </div>
+                {updateState?.manualOnly ? (
+                  <p className="field-help">
+                    This build uses manual updates only. Install newer releases from the packaged
+                    distribution instead of checking in-app.
+                  </p>
+                ) : (
+                  <div className="button-row">
+                    <button onClick={onCheckForUpdates}>Check for updates</button>
+                    <button
+                      onClick={onInstallUpdate}
+                      disabled={updateState?.status !== 'downloaded'}
+                    >
+                      Restart to install
+                    </button>
+                  </div>
+                )}
               </section>
             )}
 
@@ -1044,7 +1105,7 @@ export function ImportExportModal({
   const guide = CSV_IMPORT_GUIDES[state.importType];
   return (
     <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div className="modal-panel medium" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+      <motion.div className="modal-panel medium module-library-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
         <div className="modal-head">
           <h2>{state.mode === 'import' ? 'Import CSV' : 'Export CSV'}</h2>
           <button onClick={onClose}>Close</button>
@@ -1258,49 +1319,393 @@ interface ModuleLibraryModalProps {
   onSelect: (type: ModuleType) => void;
 }
 
+const MODULE_LIBRARY_INTEGRATIONS: Partial<Record<ModuleType, string[]>> = {
+  'pdf-viewer': ['File Browser', 'File List'],
+  'image-gallery': ['Mood Board', 'CAD Render Viewer', 'File List'],
+  'handwriting-gallery': ['Image Gallery', 'Study Guide Generator'],
+  'video-player': ['File Browser', 'Quick Links'],
+  'audio-player': ['File Browser', 'Scratchpad'],
+  'markdown-viewer': ['Markdown Editor', 'Study Guide Generator'],
+  'markdown-editor': ['Markdown Viewer', 'Study Guide Generator', 'Formula Vault'],
+  'rich-text-editor': ['File Browser', 'Study Guide Generator'],
+  'code-viewer': ['Code Editor', 'File Browser'],
+  'code-editor': ['Code Viewer', 'File Browser'],
+  'web-embed': ['Quick Links', 'Bookmark List'],
+  'embedded-iframe': ['Quick Links', 'Bookmark List'],
+  'file-browser': ['PDF Viewer', 'Image Gallery', 'Video Player', 'Audio Player'],
+  'practice-bank': ['Error Log', 'Progress Bar', 'Mastery Meter'],
+  'error-log': ['Practice Bank', 'Progress Chart'],
+  'time-tracker': ['Streak Tracker', 'Analytics Dashboard'],
+  'progress-bar': ['Practice Bank', 'Goal Tracker', 'Mastery Meter'],
+  'streak-tracker': ['Time Tracker', 'Heatmap', 'Habit Tracker'],
+  checklist: ['Goal Tracker', 'Kanban Board'],
+  table: ['Bar Chart', 'Line Chart', 'Comparison Table'],
+  form: ['Table', 'Analytics Dashboard'],
+  counter: ['Progress Bar', 'Analytics Dashboard'],
+  calendar: ['Countdown Timer', 'Timeline', 'Goal Tracker'],
+  'habit-tracker': ['Heatmap', 'Streak Tracker'],
+  'goal-tracker': ['Progress Bar', 'Countdown Timer', 'Weekly Summary'],
+  stopwatch: ['Pomodoro Timer', 'Time Tracker'],
+  'countdown-timer': ['Calendar', 'Goal Tracker'],
+  'reading-list': ['Bookmark List', 'Checklist'],
+  'kanban-board': ['Time Tracker', 'Goal Tracker'],
+  timeline: ['Calendar', 'Gantt Chart'],
+  'mind-map': ['Concept Map', 'Diagram Builder'],
+  'outline-tree': ['Cornell Notes', 'Study Guide Generator'],
+  'bookmark-list': ['Quick Links', 'Web Embed'],
+  'tag-cloud': ['Practice Bank', 'Error Log'],
+  'graph-mini': ['Link Collection', 'Wormholes'],
+  breadcrumbs: ['Quick Links', 'Mini Graph'],
+  'quick-links': ['Command Palette', 'Bookmark List', 'Web Embed'],
+  'link-collection': ['Mini Graph', 'Quick Links', 'Wormholes'],
+  'file-list': ['PDF Viewer', 'Image Gallery', 'Video Player'],
+  'file-organizer': ['File Browser', 'File List'],
+  'formula-vault': ['Formula Display', 'Study Guide Generator'],
+  'formula-display': ['Formula Vault', 'Markdown Editor'],
+  calculator: ['Equation Solver', 'Unit Converter'],
+  'graph-plotter': ['Calculator', 'Equation Solver'],
+  'unit-converter': ['Calculator', 'Formula Vault'],
+  'periodic-table': ['Chemistry Balancer', 'Formula Vault'],
+  'equation-solver': ['Calculator', 'Graph Plotter'],
+  'matrix-calculator': ['Equation Solver', 'Graph Plotter'],
+  'chemistry-balancer': ['Periodic Table', 'Formula Vault'],
+  'analytics-chart': ['Practice Bank', 'Progress Chart'],
+  'analytics-dashboard': ['Time Tracker', 'Practice Bank', 'Goal Tracker'],
+  'bar-chart': ['Table', 'Analytics Dashboard'],
+  'line-chart': ['Time Tracker', 'Progress Chart'],
+  'pie-chart': ['Analytics Dashboard', 'Time Tracker'],
+  'scatter-plot': ['Statistics Summary', 'Table'],
+  heatmap: ['Habit Tracker', 'Streak Tracker'],
+  'progress-chart': ['Practice Bank', 'Goal Tracker'],
+  'statistics-summary': ['Scatter Plot', 'Line Chart'],
+  'gantt-chart': ['Timeline', 'Goal Tracker'],
+  'comparison-table': ['Table', 'Bar Chart'],
+  'mastery-meter': ['Practice Bank', 'Progress Bar'],
+  'weekly-summary': ['Goal Tracker', 'Progress Chart'],
+  'flashcard-deck': ['Quiz Maker', 'Definition Cards'],
+  'quiz-maker': ['Flashcard Deck', 'Practice Bank'],
+  'definition-card': ['Flashcard Deck', 'Study Guide Generator'],
+  'cornell-notes': ['Outline Tree', 'Study Guide Generator'],
+  'citation-manager': ['Bookmark List', 'Study Guide Generator'],
+  'concept-map': ['Mind Map', 'Diagram Builder'],
+  'feynman-technique': ['Cornell Notes', 'Study Guide Generator'],
+  'study-guide-generator': ['Markdown Editor', 'Formula Vault', 'Definition Cards'],
+  whiteboard: ['Diagram Builder', 'Screenshot Annotator'],
+  'screenshot-annotator': ['Image Gallery', 'Mood Board'],
+  'color-palette': ['Mood Board', 'CAD Render Viewer'],
+  'mood-board': ['Image Gallery', 'Color Palette'],
+  'cad-render': ['Image Gallery', 'Mood Board'],
+  'diagram-builder': ['Mind Map', 'Concept Map'],
+  'text-entry': ['Markdown Viewer', 'Study Guide Generator'],
+  scratchpad: ['Quick Capture', 'Text Entry'],
+  clock: ['Pomodoro Timer', 'Countdown Timer'],
+  'weather-widget': ['Quote Display', 'Clock'],
+  'quote-display': ['Pomodoro Timer', 'Clock'],
+  'pomodoro-timer': ['Time Tracker', 'Stopwatch'],
+  'random-picker': ['Checklist', 'Practice Bank'],
+};
+
+const MODULE_CATEGORY_COPY: Record<string, string> = {
+  Content: 'Read, edit, and preview the files that live inside a node.',
+  Trackers: 'Capture progress, sessions, completion, and structured records.',
+  Organization:
+    'Shape the nested filesystem and linked structure into navigable surfaces.',
+  'Math & Science': 'Formula, plotting, and calculation tools for technical work.',
+  Analytics: 'Summaries, comparisons, and quantitative rollups across the workspace.',
+  Learning: 'Study-specific tools for recall, synthesis, and explanation.',
+  Creative: 'Visual boards, diagrams, annotations, and freeform making.',
+  Utility: 'Small support widgets that make the workspace feel alive.',
+  Custom: 'Schema-driven modules you can bend into David-specific workflows.',
+};
+
+function getModuleIntegrations(type: ModuleType): string[] {
+  return MODULE_LIBRARY_INTEGRATIONS[type] ?? [];
+}
+
 export function ModuleLibraryModal({
   entity,
   onClose,
   onSelect,
 }: ModuleLibraryModalProps) {
   const [query, setQuery] = useState('');
-  const visible = MODULE_LIBRARY.filter(
-    (entry) =>
-      entry.title.toLowerCase().includes(query.toLowerCase()) ||
-      entry.type.toLowerCase().includes(query.toLowerCase()) ||
-      entry.category.toLowerCase().includes(query.toLowerCase()) ||
-      entry.description.toLowerCase().includes(query.toLowerCase()),
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [selectedType, setSelectedType] = useState<ModuleType>(MODULE_LIBRARY[0].type);
+  const normalizedQuery = query.trim().toLowerCase();
+  const categories = useMemo(
+    () => [
+      'All',
+      ...MODULE_LIBRARY.reduce<string[]>((collection, entry) => {
+        if (!collection.includes(entry.category)) {
+          collection.push(entry.category);
+        }
+        return collection;
+      }, []),
+    ],
+    [],
   );
+
+  const visible = useMemo(
+    () =>
+      MODULE_LIBRARY.filter((entry) => {
+        const searchBlob = [
+          entry.title,
+          entry.type,
+          entry.category,
+          entry.description,
+          ...getModuleIntegrations(entry.type),
+        ]
+          .join(' ')
+          .toLowerCase();
+
+        return (
+          (activeCategory === 'All' || entry.category === activeCategory) &&
+          (normalizedQuery.length === 0 || searchBlob.includes(normalizedQuery))
+        );
+      }),
+    [activeCategory, normalizedQuery],
+  );
+
+  const grouped = useMemo(
+    () =>
+      categories
+        .filter((category) => category !== 'All')
+        .map((category) => ({
+          category,
+          entries: visible.filter((entry) => entry.category === category),
+        }))
+        .filter((group) => group.entries.length > 0),
+    [categories, visible],
+  );
+
+  const counts = useMemo(
+    () => ({
+      total: MODULE_LIBRARY.length,
+      categories: categories.length - 1,
+      connected: MODULE_LIBRARY.filter((entry) => getModuleIntegrations(entry.type).length > 0)
+        .length,
+    }),
+    [categories],
+  );
+
+  useEffect(() => {
+    if (activeCategory === 'All' || categories.includes(activeCategory)) {
+      return;
+    }
+
+    setActiveCategory('All');
+  }, [activeCategory, categories]);
+
+  useEffect(() => {
+    if (visible.some((entry) => entry.type === selectedType)) {
+      return;
+    }
+
+    setSelectedType(visible[0]?.type ?? MODULE_LIBRARY[0].type);
+  }, [selectedType, visible]);
+
+  const selectedEntry = visible.find((entry) => entry.type === selectedType) ?? visible[0] ?? null;
+  const selectedIntegrations = selectedEntry ? getModuleIntegrations(selectedEntry.type) : [];
 
   return (
     <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div className="modal-panel medium" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+      <motion.div className="modal-panel large module-library-panel module-library-directory" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
         <div className="modal-head">
           <div>
             <h2>Module Library</h2>
-            <p className="modal-subtitle">{entity?.title || 'Choose a module to add'}</p>
+            <p className="modal-subtitle">
+              {entity?.title || 'Choose a module to add'} · indexed by category and cross-module
+              fit
+            </p>
           </div>
           <button onClick={onClose}>Close</button>
         </div>
-        <input
-          className="text-input"
-          autoFocus
-          placeholder="Search module types"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <div className="module-library-grid">
-          {visible.map((entry) => (
-            <button
-              key={entry.type}
-              className="module-library-item"
-              onClick={() => onSelect(entry.type)}
-            >
-              <strong>{entry.title}</strong>
-              <small>{entry.category} · {entry.type}</small>
-              <span>{entry.description}</span>
-            </button>
-          ))}
+        <div className="module-directory-layout">
+          <aside className="module-directory-sidebar">
+            <input
+              className="text-input"
+              autoFocus
+              placeholder="Search module types"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <div className="module-directory-summary">
+              <div className="metric-card">
+                <strong>{counts.total}</strong>
+                <span>module types</span>
+              </div>
+              <div className="metric-card">
+                <strong>{counts.categories}</strong>
+                <span>categories</span>
+              </div>
+              <div className="metric-card">
+                <strong>{counts.connected}</strong>
+                <span>linked surfaces</span>
+              </div>
+            </div>
+            <div className="module-directory-index">
+              {categories.map((category) => {
+                const count =
+                  category === 'All'
+                    ? MODULE_LIBRARY.length
+                    : MODULE_LIBRARY.filter((entry) => entry.category === category).length;
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    className={`module-library-category-button ${
+                      activeCategory === category ? 'active' : ''
+                    }`}
+                    onClick={() => setActiveCategory(category)}
+                  >
+                    <span>{category}</span>
+                    <strong>{count}</strong>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          <section className="module-directory-content">
+            <div className="section-heading">
+              <div className="section-copy">
+                <h3>{activeCategory === 'All' ? 'All modules' : activeCategory}</h3>
+                <p>
+                  {activeCategory === 'All'
+                    ? 'Browse the full runtime, grouped by category.'
+                    : MODULE_CATEGORY_COPY[activeCategory]}
+                </p>
+              </div>
+              <span className="pill">{visible.length} matches</span>
+            </div>
+
+            <div className="module-library-scroll">
+              <div className="module-directory-groups">
+                {grouped.map((group) => (
+                  <section key={group.category} className="module-directory-group">
+                    <div className="module-directory-group-head">
+                      <div>
+                        <h4>{group.category}</h4>
+                        <p>{MODULE_CATEGORY_COPY[group.category]}</p>
+                      </div>
+                      <span className="pill">{group.entries.length}</span>
+                    </div>
+                    <div className="module-library-grid">
+                      {group.entries.map((entry) => {
+                        const integrations = getModuleIntegrations(entry.type);
+                        return (
+                          <article
+                            key={entry.type}
+                            className={`module-library-item module-directory-card ${
+                              selectedEntry?.type === entry.type ? 'active' : ''
+                            }`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedType(entry.type)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setSelectedType(entry.type);
+                              }
+                            }}
+                          >
+                            <div className="module-directory-card-head">
+                              <strong>{entry.title}</strong>
+                            </div>
+                            <small>
+                              {entry.category} · {entry.type}
+                            </small>
+                            <span>{entry.description}</span>
+                            <div className="module-directory-card-meta">
+                              {entry.defaultSize ? (
+                                <small>
+                                  Default {entry.defaultSize.width} × {entry.defaultSize.height}
+                                </small>
+                              ) : null}
+                              <small>
+                                {integrations.length === 0
+                                  ? 'Standalone module'
+                                  : `${integrations.length} linked surfaces`}
+                              </small>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+                {grouped.length === 0 ? (
+                  <div className="empty-inline-state">No modules match this query yet.</div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+
+          <aside className="module-directory-preview">
+            <div className="module-directory-preview-card">
+              {selectedEntry ? (
+                <>
+                  <div className="module-directory-preview-head">
+                    <div>
+                      <small>{selectedEntry.category}</small>
+                      <h3>{selectedEntry.title}</h3>
+                    </div>
+                  </div>
+
+                  <p>{selectedEntry.description}</p>
+
+                  <div className="pill-wrap">
+                    <span className="pill">{selectedEntry.type}</span>
+                    {selectedEntry.defaultSize ? (
+                      <span className="pill">
+                        {selectedEntry.defaultSize.width} × {selectedEntry.defaultSize.height}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="module-directory-preview-section">
+                    <strong>Working pattern</strong>
+                    <p>
+                      Designed to stay consistent with the canvas, fullscreen, save, and file
+                      flows used everywhere else in SYNAPSE.
+                    </p>
+                  </div>
+
+                  <div className="module-directory-preview-section">
+                    <strong>Cross-module fit</strong>
+                    {selectedIntegrations.length > 0 ? (
+                      <div className="pill-wrap">
+                        {selectedIntegrations.map((integration) => (
+                          <span key={integration} className="pill">
+                            {integration}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p>This module is mostly self-contained right now.</p>
+                    )}
+                  </div>
+
+                  <div className="module-directory-preview-section">
+                    <strong>Why this exists</strong>
+                    <p>{MODULE_CATEGORY_COPY[selectedEntry.category]}</p>
+                  </div>
+
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={() => onSelect(selectedEntry.type)}
+                  >
+                    Add {selectedEntry.title}
+                  </button>
+                </>
+              ) : (
+                <div className="module-directory-preview-section">
+                  <strong>No matching modules</strong>
+                  <p>Clear the query or switch categories to see the full directory again.</p>
+                </div>
+              )}
+            </div>
+          </aside>
         </div>
       </motion.div>
     </motion.div>
@@ -1315,6 +1720,57 @@ interface QuickCaptureModalProps {
   onSave: (draft: QuickCaptureDraft) => void;
 }
 
+function buildScreenshotFilename(): string {
+  const now = new Date();
+  const parts = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    '-',
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0'),
+  ];
+  return `screenshot-${parts.join('')}.png`;
+}
+
+async function captureScreenshotDataUrl(): Promise<string> {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: {
+      frameRate: 1,
+    },
+    audio: false,
+  });
+
+  const [track] = stream.getVideoTracks();
+  if (!track) {
+    throw new Error('No display track was available.');
+  }
+
+  const video = document.createElement('video');
+  video.srcObject = stream;
+  video.muted = true;
+
+  try {
+    await video.play();
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1920;
+    canvas.height = video.videoHeight || 1080;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Canvas capture is unavailable in this window.');
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/png');
+  } finally {
+    track.stop();
+    stream.getTracks().forEach((streamTrack) => streamTrack.stop());
+    video.pause();
+    video.srcObject = null;
+  }
+}
+
 export function QuickCaptureModal({
   state,
   entity,
@@ -1323,10 +1779,64 @@ export function QuickCaptureModal({
   onSave,
 }: QuickCaptureModalProps) {
   const [draft, setDraft] = useState(state);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(state);
+    setIsCapturing(false);
+    setCaptureError(null);
   }, [state]);
+
+  const handleTypeChange = (nextType: QuickCaptureDraft['type']) => {
+    setCaptureError(null);
+    setDraft((current) => ({
+      ...current,
+      type: nextType,
+      content:
+        nextType === 'note' || nextType === 'link'
+          ? current.content.startsWith('data:image/')
+            ? ''
+            : current.content
+          : nextType === 'screenshot'
+            ? current.content.startsWith('data:image/')
+              ? current.content
+              : ''
+            : '',
+      sourcePath: nextType === 'file' ? current.sourcePath : '',
+      filenameHint:
+        nextType === 'screenshot'
+          ? current.filenameHint || buildScreenshotFilename()
+          : current.filenameHint,
+    }));
+  };
+
+  const handleCaptureScreenshot = async () => {
+    setCaptureError(null);
+    setIsCapturing(true);
+
+    try {
+      const imageDataUrl = await captureScreenshotDataUrl();
+      setDraft((current) => ({
+        ...current,
+        type: 'screenshot',
+        content: imageDataUrl,
+        sourcePath: '',
+        filenameHint: current.filenameHint || buildScreenshotFilename(),
+      }));
+    } catch (cause) {
+      setCaptureError(cause instanceof Error ? cause.message : 'Screen capture failed.');
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
+  const captureDisabled =
+    draft.type === 'file'
+      ? !draft.sourcePath
+      : draft.type === 'screenshot'
+        ? draft.content.trim().length === 0
+        : draft.content.trim().length === 0;
 
   return (
     <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -1342,16 +1852,12 @@ export function QuickCaptureModal({
           <select
             className="text-input"
             value={draft.type}
-            onChange={(event) =>
-              setDraft({
-                ...draft,
-                type: event.target.value as QuickCaptureDraft['type'],
-              })
-            }
+            onChange={(event) => handleTypeChange(event.target.value as QuickCaptureDraft['type'])}
           >
             <option value="note">Note</option>
             <option value="link">Link</option>
             <option value="file">File</option>
+            <option value="screenshot">Screenshot</option>
           </select>
 
           {draft.type === 'file' ? (
@@ -1371,6 +1877,29 @@ export function QuickCaptureModal({
                 }
               />
             </>
+          ) : draft.type === 'screenshot' ? (
+            <>
+              <div className="button-row">
+                <button className="tiny-button" onClick={() => void handleCaptureScreenshot()}>
+                  {isCapturing ? 'Capturing...' : 'Capture screen'}
+                </button>
+                <small>{draft.content ? 'Screenshot ready to save' : 'No screenshot captured yet'}</small>
+              </div>
+              <input
+                className="text-input"
+                placeholder="Screenshot filename"
+                value={draft.filenameHint}
+                onChange={(event) =>
+                  setDraft({ ...draft, filenameHint: event.target.value })
+                }
+              />
+              {captureError ? <small className="field-help">{captureError}</small> : null}
+              {draft.content ? (
+                <div className="file-preview">
+                  <img src={draft.content} alt="Screenshot preview" className="module-image" />
+                </div>
+              ) : null}
+            </>
           ) : (
             <textarea
               className="code-editor"
@@ -1386,20 +1915,18 @@ export function QuickCaptureModal({
               ? 'Notes append into files/notes.md for this page.'
               : draft.type === 'file'
                 ? 'Files are copied into this page\'s files/ directory.'
-                : 'Links append into files/links.md for this page.'}
+                : draft.type === 'screenshot'
+                  ? 'Screenshots are captured as PNG files inside this page\'s files/ directory.'
+                  : 'Links append into files/links.md for this page.'}
           </small>
         </div>
         <div className="modal-foot">
           <button
             className="primary-button"
-            disabled={
-              draft.type === 'file'
-                ? !draft.sourcePath
-                : draft.content.trim().length === 0
-            }
+            disabled={captureDisabled || isCapturing}
             onClick={() => onSave(draft)}
           >
-            Capture
+            Save capture
           </button>
         </div>
       </motion.div>

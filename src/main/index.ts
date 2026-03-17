@@ -1,11 +1,12 @@
 import path from 'path';
-import { app, BrowserWindow, nativeTheme } from 'electron';
-import { APP_NAME, WINDOW } from '../shared/constants';
+import { app, BrowserWindow, nativeTheme, session } from 'electron';
+import { APP_NAME, MODERN_CHROME_USER_AGENT, WINDOW } from '../shared/constants';
 import { registerIpcHandlers } from './ipcHandlers';
 import { UpdateManager } from './updateManager';
 
 let mainWindow: BrowserWindow | null = null;
 const updateManager = new UpdateManager();
+let inlineEmbedSessionInstalled = false;
 
 function isBrokenPipeError(value: unknown): value is NodeJS.ErrnoException {
   return value instanceof Error && 'code' in value && value.code === 'EPIPE';
@@ -100,6 +101,58 @@ async function loadRenderer(window: BrowserWindow): Promise<void> {
   await window.loadFile(indexHtml);
 }
 
+function sanitizeContentSecurityPolicy(value: string): string {
+  return value
+    .replace(/frame-ancestors\s+[^;]+;?/gi, '')
+    .replace(/;\s*;/g, ';')
+    .replace(/^\s*;|;\s*$/g, '')
+    .trim();
+}
+
+function removeHeader(
+  headers: Record<string, string[] | string | undefined>,
+  headerName: string,
+): void {
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === headerName.toLowerCase()) {
+      delete headers[key];
+    }
+  }
+}
+
+function installInlineEmbedSession(): void {
+  if (inlineEmbedSessionInstalled) {
+    return;
+  }
+
+  inlineEmbedSessionInstalled = true;
+  session.defaultSession.setUserAgent(MODERN_CHROME_USER_AGENT);
+  session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
+    const headers = { ...(details.responseHeaders ?? {}) };
+
+    removeHeader(headers, 'x-frame-options');
+    removeHeader(headers, 'cross-origin-opener-policy');
+
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === 'content-security-policy') {
+        const currentValue = headers[key];
+        const entries = Array.isArray(currentValue) ? currentValue : currentValue ? [currentValue] : [];
+        const sanitized = entries
+          .map((entry) => sanitizeContentSecurityPolicy(entry))
+          .filter((entry) => entry.length > 0);
+
+        if (sanitized.length > 0) {
+          headers[key] = sanitized;
+        } else {
+          delete headers[key];
+        }
+      }
+    }
+
+    callback({ cancel: false, responseHeaders: headers });
+  });
+}
+
 function createWindow(): BrowserWindow {
   const preloadPath = path.join(__dirname, 'preload.js');
 
@@ -115,9 +168,11 @@ function createWindow(): BrowserWindow {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
+  window.webContents.setUserAgent(MODERN_CHROME_USER_AGENT);
   void loadRenderer(window);
   window.on('closed', () => {
     if (mainWindow === window) {
@@ -130,6 +185,7 @@ function createWindow(): BrowserWindow {
 
 async function bootstrap(): Promise<void> {
   nativeTheme.themeSource = 'dark';
+  installInlineEmbedSession();
   mainWindow = createWindow();
 
   registerIpcHandlers({

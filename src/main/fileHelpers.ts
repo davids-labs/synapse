@@ -50,8 +50,10 @@ async function writeAtomicFile(
   encoding?: BufferEncoding,
 ): Promise<void> {
   await ensureDir(path.dirname(targetPath));
-  const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
-  const backupPath = `${targetPath}.${process.pid}.bak`;
+  await cleanupStaleAtomicArtifacts(targetPath);
+  const operationId = `${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
+  const tempPath = `${targetPath}.${operationId}.tmp`;
+  const backupPath = `${targetPath}.${operationId}.bak`;
 
   if (typeof content === 'string') {
     await fs.writeFile(tempPath, content, encoding ?? 'utf8');
@@ -59,25 +61,72 @@ async function writeAtomicFile(
     await fs.writeFile(tempPath, content);
   }
 
-  if (!(await fileExists(targetPath))) {
-    await fs.rename(tempPath, targetPath);
-    return;
-  }
-
-  await fs.rm(backupPath, { force: true }).catch(() => undefined);
-  await fs.copyFile(targetPath, backupPath).catch(() => undefined);
-
   try {
-    await fs.copyFile(tempPath, targetPath);
-    await fs.rm(tempPath, { force: true }).catch(() => undefined);
-    await fs.rm(backupPath, { force: true }).catch(() => undefined);
+    if (!(await fileExists(targetPath))) {
+      try {
+        await fs.rename(tempPath, targetPath);
+      } catch {
+        await fs.copyFile(tempPath, targetPath);
+      }
+      return;
+    }
+
+    await fs.copyFile(targetPath, backupPath).catch(() => undefined);
+
+    try {
+      await fs.rename(tempPath, targetPath);
+    } catch {
+      await fs.copyFile(tempPath, targetPath);
+    }
   } catch (cause) {
-    await fs.rm(tempPath, { force: true }).catch(() => undefined);
     if (!(await fileExists(targetPath)) && (await fileExists(backupPath))) {
       await fs.copyFile(backupPath, targetPath).catch(() => undefined);
     }
     throw cause;
+  } finally {
+    await fs.rm(tempPath, { force: true }).catch(() => undefined);
+    await fs.rm(backupPath, { force: true }).catch(() => undefined);
   }
+}
+
+async function cleanupStaleAtomicArtifacts(targetPath: string, maxAgeMs = 15 * 60 * 1000): Promise<void> {
+  const directory = path.dirname(targetPath);
+  const basename = path.basename(targetPath);
+  const now = Date.now();
+
+  let entries;
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (!entry.isFile()) {
+        return;
+      }
+
+      const isAtomicArtifact =
+        entry.name.startsWith(`${basename}.`) && (entry.name.endsWith('.tmp') || entry.name.endsWith('.bak'));
+      if (!isAtomicArtifact) {
+        return;
+      }
+
+      const entryPath = path.join(directory, entry.name);
+
+      try {
+        const stats = await fs.stat(entryPath);
+        if (now - stats.mtimeMs < maxAgeMs) {
+          return;
+        }
+
+        await fs.rm(entryPath, { force: true });
+      } catch {
+        // Ignore cleanup failures so normal writes can continue.
+      }
+    }),
+  );
 }
 
 export async function writeJsonFile<T>(targetPath: string, value: T): Promise<void> {
@@ -159,7 +208,18 @@ export async function createBackup(targetPath: string, backupRoot: string): Prom
   const filename = `${path.basename(targetPath)}.${Date.now()}.backup`;
   const backupPath = path.join(backupRoot, filename);
   await ensureDir(backupRoot);
-  await fs.copyFile(targetPath, backupPath);
+  const targetStats = await fs.stat(targetPath);
+
+  if (targetStats.isDirectory()) {
+    await fs.cp(targetPath, backupPath, {
+      recursive: true,
+      force: true,
+      preserveTimestamps: true,
+    });
+  } else {
+    await fs.copyFile(targetPath, backupPath);
+  }
+
   return backupPath;
 }
 

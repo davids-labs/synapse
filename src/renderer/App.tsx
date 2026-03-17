@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { MODULE_LIBRARY } from '../shared/constants';
 import type {
@@ -119,9 +119,13 @@ export function App() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [filter, setFilter] = useState<EntityFilter>(defaultFilter);
   const [focusMode, setFocusMode] = useState(false);
+  const [canvasFullscreen, setCanvasFullscreen] = useState(false);
+  const [homeCanvasFocused, setHomeCanvasFocused] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatusSummary | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState | null>(null);
+  const [gitActionBusy, setGitActionBusy] = useState<'sync' | 'commit' | null>(null);
   const [graphResetSignal, setGraphResetSignal] = useState(0);
+  const workspaceRootRef = useRef<string | null>(null);
   const [wormholeDraft, setWormholeDraft] = useState<WormholeDraft>({
     targetEntityPath: '',
     label: '',
@@ -138,8 +142,12 @@ export function App() {
         : workspace.entities[moduleEditor.entityPath]
       : null;
   const breadcrumbs = getBreadcrumbs(workspace, selectedEntityPath);
+  const isCanvasFullscreen = canvasFullscreen && surface === 'canvas';
+  const isHomeCanvasFocused = homeCanvasFocused && surface === 'home';
+  const isSurfaceFullscreen = isCanvasFullscreen || isHomeCanvasFocused;
+  const showPageHeader = Boolean(selectedEntity) && !(surface === 'canvas' && isCanvasFullscreen);
   const sidebarState =
-    surface === 'home' || focusMode
+    surface === 'home' || focusMode || isCanvasFullscreen
       ? 'hidden'
       : sidebarCollapsed
         ? sidebarPeek
@@ -174,12 +182,14 @@ export function App() {
     }
 
     const nextWorkspace = await window.synapse.loadWorkspace(basePath || bootstrap?.defaultBasePath);
+    workspaceRootRef.current = nextWorkspace.rootPath;
     setWorkspace(nextWorkspace);
     setBootstrap((current) =>
       current
         ? {
             ...current,
             settings: nextWorkspace.settings,
+            workspace: nextWorkspace,
             bases: nextWorkspace.bases.map((base) => ({
               id: base.record.id,
               title: base.title,
@@ -202,15 +212,15 @@ export function App() {
       setLoading(true);
       try {
         const bootstrapData = await window.synapse.loadBootstrap();
-        const nextWorkspace = await window.synapse.loadWorkspace(bootstrapData.defaultBasePath);
-        await window.synapse.watchWorkspace(bootstrapData.defaultBasePath);
+        await window.synapse.watchWorkspace(bootstrapData.workspace.rootPath);
 
         if (!active) {
           return;
         }
 
         setBootstrap(bootstrapData);
-        setWorkspace(nextWorkspace);
+        setWorkspace(bootstrapData.workspace);
+        workspaceRootRef.current = bootstrapData.workspace.rootPath;
       } catch (cause) {
         if (active) {
           setError(cause instanceof Error ? cause.message : 'Failed to load SYNAPSE.');
@@ -235,10 +245,20 @@ export function App() {
 
     return window.synapse.onWorkspaceUpdated((nextWorkspace) => {
       if (nextWorkspace.rootPath === workspace.rootPath) {
+        workspaceRootRef.current = nextWorkspace.rootPath;
         setWorkspace(nextWorkspace);
       }
     });
   }, [workspace]);
+
+  useEffect(() => {
+    if (surface !== 'canvas') {
+      setCanvasFullscreen(false);
+    }
+    if (surface !== 'home') {
+      setHomeCanvasFocused(false);
+    }
+  }, [surface]);
 
   useEffect(() => {
     return window.synapse.onHotDropCaptured((event) => {
@@ -426,7 +446,11 @@ export function App() {
         setFocusMode((current) => !current);
       } else if (matchesShortcut(event, settings.shortcuts.back)) {
         event.preventDefault();
-        if (moduleEditor) {
+        if (canvasFullscreen) {
+          setCanvasFullscreen(false);
+        } else if (homeCanvasFocused && surface === 'home') {
+          setHomeCanvasFocused(false);
+        } else if (moduleEditor) {
           setModuleEditor(null);
         } else if (moduleLibraryEntityPath) {
           setModuleLibraryEntityPath(null);
@@ -465,6 +489,8 @@ export function App() {
     settingsOpen,
     surface,
     workspace,
+    canvasFullscreen,
+    homeCanvasFocused,
   ]);
 
   const handleSavePage = async (entityPath: string, page: SynapseEntity['page']) => {
@@ -477,7 +503,12 @@ export function App() {
         ? patchWorkspace(current, entityPath, (entity) => ({ ...entity, page }))
         : current,
     );
-    await window.synapse.savePage(entityPath, page);
+    try {
+      await window.synapse.savePage(entityPath, page);
+    } catch (cause) {
+      await reloadWorkspace(workspaceRootRef.current || workspace.rootPath);
+      notifyError('Page save failed', cause, 'Could not persist this page layout.');
+    }
   };
 
   const handleSaveHomePage = async (page: WorkspaceSnapshot['homePage']) => {
@@ -486,7 +517,43 @@ export function App() {
     }
 
     setWorkspace((current) => (current ? { ...current, homePage: page } : current));
-    await window.synapse.saveHomePage(page);
+    try {
+      await window.synapse.saveHomePage(page);
+    } catch (cause) {
+      await reloadWorkspace(workspaceRootRef.current || workspace.rootPath);
+      notifyError('Home save failed', cause, 'Could not persist the home surface.');
+    }
+  };
+
+  const handleUpdatePageUi = async (
+    entityPath: string,
+    patcher: (
+      ui: NonNullable<SynapseEntity['page']['ui']>,
+    ) => NonNullable<SynapseEntity['page']['ui']>,
+  ) => {
+    if (!workspace) {
+      return;
+    }
+
+    const currentEntity = workspace.entities[entityPath];
+    if (!currentEntity) {
+      return;
+    }
+
+    const nextPage = {
+      ...currentEntity.page,
+      ui: patcher(
+        currentEntity.page.ui ?? {
+          detailsOpen: false,
+          detailSize: 'comfortable',
+          detailSectionOrder: ['mastery', 'identity', 'templates', 'links', 'wormholes'],
+          hiddenDetailSections: [],
+          savedViews: [],
+        },
+      ),
+    };
+
+    await handleSavePage(entityPath, nextPage);
   };
 
   const handleUpdateRecord = async (
@@ -713,17 +780,42 @@ export function App() {
   };
 
   const handleGitSync = async (basePath: string) => {
+    setGitActionBusy('sync');
     try {
       const result = await window.synapse.syncWorkspace(basePath);
       const nextGitStatus = await window.synapse.getGitStatus(basePath);
       setGitStatus(nextGitStatus);
       pushToast({
         tone: result.success ? 'success' : 'error',
-        title: 'Git sync',
+        title: 'Workspace sync',
         description: result.error ? `${result.message} ${result.error}` : result.message,
       });
     } catch (cause) {
       notifyError('Git sync failed', cause, 'Could not sync the workspace.');
+    } finally {
+      setGitActionBusy(null);
+    }
+  };
+
+  const handleCommitWorkspace = async (basePath: string) => {
+    setGitActionBusy('commit');
+
+    try {
+      const result = await window.synapse.manualCommit(
+        basePath,
+        `Workspace snapshot - ${new Date().toISOString()}`,
+      );
+      const nextGitStatus = await window.synapse.getGitStatus(basePath);
+      setGitStatus(nextGitStatus);
+      pushToast({
+        tone: result.success ? 'success' : 'error',
+        title: 'Workspace snapshot',
+        description: result.error ? `${result.message} ${result.error}` : result.message,
+      });
+    } catch (cause) {
+      notifyError('Commit failed', cause, 'Could not create a workspace snapshot.');
+    } finally {
+      setGitActionBusy(null);
     }
   };
 
@@ -733,19 +825,29 @@ export function App() {
     }
 
     try {
-      await window.synapse.quickCapture(
+      const request =
         draft.type === 'file'
           ? {
               entityPath: draft.entityPath,
-              type: 'file',
+              type: 'file' as const,
               sourcePath: draft.sourcePath,
               filenameHint: draft.filenameHint || undefined,
             }
-          : {
-              entityPath: draft.entityPath,
-              type: draft.type,
-              content: draft.content,
-            },
+          : draft.type === 'screenshot'
+            ? {
+                entityPath: draft.entityPath,
+                type: 'screenshot' as const,
+                content: draft.content,
+                filenameHint: draft.filenameHint || undefined,
+              }
+            : {
+                entityPath: draft.entityPath,
+                type: draft.type,
+                content: draft.content,
+              };
+
+      await window.synapse.quickCapture(
+        request,
       );
       await reloadWorkspace(workspace.rootPath);
       setQuickCapture(null);
@@ -755,7 +857,11 @@ export function App() {
         description:
           draft.type === 'file'
             ? 'The file was attached to this node.'
-            : 'Captured into the current page notes.',
+            : draft.type === 'screenshot'
+              ? 'The screenshot was captured into this node.'
+              : draft.type === 'link'
+                ? 'The link was added to this page.'
+                : 'Captured into the current page notes.',
       });
     } catch (cause) {
       notifyError('Capture failed', cause, 'Quick capture could not be saved.');
@@ -1031,7 +1137,9 @@ export function App() {
 
   return (
     <div
-      className={`synapse-shell ${focusMode ? 'focus-mode' : ''}`}
+      className={`synapse-shell ${focusMode ? 'focus-mode' : ''} ${
+        isSurfaceFullscreen ? 'surface-fullscreen' : ''
+      }`}
       data-density={workspace.settings.density}
       data-surface={surface}
     >
@@ -1090,6 +1198,8 @@ export function App() {
       <main
         className={surface === 'home' ? 'workspace-home' : 'workspace-grid'}
         data-sidebar-state={sidebarState}
+        data-canvas-fullscreen={isCanvasFullscreen ? 'true' : 'false'}
+        data-home-canvas-focused={isHomeCanvasFocused ? 'true' : 'false'}
       >
         {surface === 'home' ? (
           <HomeSurface
@@ -1097,6 +1207,7 @@ export function App() {
             homeEntity={homeEntity}
             gitStatus={gitStatus}
             updateState={updateState}
+            canvasFocused={isHomeCanvasFocused}
             onOpenBase={(entityPath) => {
               setSelectedEntityPath(entityPath);
               setSurface('canvas');
@@ -1140,6 +1251,9 @@ export function App() {
               void handleDeleteModule(HOME_ENTITY_PATH, moduleId);
             }}
             onTeleport={() => setCommandPaletteOpen(true)}
+            onToggleCanvasFocus={() => {
+              setHomeCanvasFocused((current) => !current);
+            }}
             onSaveFile={async (targetPath, content) => {
               await window.synapse.saveFile(targetPath, content);
             }}
@@ -1196,31 +1310,53 @@ export function App() {
                 }}
               />
             )}
-            <section className={`page-stage page-stage-${surface}`}>
+            <section
+              className={`page-stage page-stage-${surface} ${
+                isCanvasFullscreen && surface === 'canvas' ? 'is-canvas-fullscreen' : ''
+              }`}
+            >
               {selectedEntity ? (
                 <>
-                  <PageHeader
-                    entity={selectedEntity}
-                    workspace={workspace}
-                    surface={surface}
-                    wormholeDraft={wormholeDraft}
-                    onSurfaceChange={setSurface}
-                    onApplyTemplate={(template) => {
-                      void handleApplyTemplate(selectedEntity.entityPath, template.id);
-                    }}
-                    onOpenImport={() => openImportExport('import')}
-                    onOpenExport={() => openImportExport('export')}
-                    onOpenModuleLibrary={() => {
-                      setModuleLibraryEntityPath(selectedEntity.entityPath);
-                    }}
-                    onUpdateRecord={(patcher) => {
-                      void handleUpdateRecord(selectedEntity.entityPath, patcher);
-                    }}
-                    onWormholeDraftChange={setWormholeDraft}
-                    onCreateWormhole={() => {
-                      void handleCreateWormhole();
-                    }}
-                  />
+                  {showPageHeader ? (
+                    <PageHeader
+                      entity={selectedEntity}
+                      workspace={workspace}
+                      surface={surface}
+                      wormholeDraft={wormholeDraft}
+                      canvasFullscreen={isCanvasFullscreen}
+                      onSurfaceChange={setSurface}
+                      onApplyTemplate={(template) => {
+                        void handleApplyTemplate(selectedEntity.entityPath, template.id);
+                      }}
+                      onOpenImport={() => openImportExport('import')}
+                      onOpenExport={() => openImportExport('export')}
+                      onOpenModuleLibrary={() => {
+                        setModuleLibraryEntityPath(selectedEntity.entityPath);
+                      }}
+                      onUpdateRecord={(patcher) => {
+                        void handleUpdateRecord(selectedEntity.entityPath, patcher);
+                      }}
+                      onUpdatePageUi={(patcher) => {
+                        void handleUpdatePageUi(selectedEntity.entityPath, patcher);
+                      }}
+                      onToggleCanvasFullscreen={() => {
+                        const nextFullscreen = !isCanvasFullscreen;
+                        setCanvasFullscreen(nextFullscreen);
+                        if (nextFullscreen) {
+                          void handleUpdatePageUi(selectedEntity.entityPath, (current) => ({
+                            ...current,
+                            detailsOpen: false,
+                          }));
+                        }
+                        setSidebarCollapsed(true);
+                        setSidebarPeek(false);
+                      }}
+                      onWormholeDraftChange={setWormholeDraft}
+                      onCreateWormhole={() => {
+                        void handleCreateWormhole();
+                      }}
+                    />
+                  ) : null}
                   {surface === 'graph' ? (
                     <GraphSurface
                       workspace={workspace}
@@ -1235,6 +1371,12 @@ export function App() {
                     <ModuleCanvas
                       workspace={workspace}
                       entity={selectedEntity}
+                      fullscreen={isCanvasFullscreen}
+                      compactToolbar={isCanvasFullscreen}
+                      onToggleFullscreen={() => setCanvasFullscreen(false)}
+                      onOpenModuleLibrary={() => {
+                        setModuleLibraryEntityPath(selectedEntity.entityPath);
+                      }}
                       onSavePage={(page) => {
                         void handleSavePage(selectedEntity.entityPath, page);
                       }}
@@ -1293,9 +1435,13 @@ export function App() {
             ? `${selectedEntity.title}: ${moduleSummary(selectedEntity)}`
             : `${workspace.recent.length} recent pages`}
         </span>
-        <button className="ghost-button" onClick={() => void handleGitSync(workspace.rootPath)}>
-          Git Sync
-        </button>
+        <span>
+          {gitStatus
+            ? gitStatus.clean
+              ? `Workspace clean${gitStatus.currentBranch ? ` · ${gitStatus.currentBranch}` : ''}`
+              : `${gitStatus.modified.length} local changes`
+            : 'Workspace reliability lives in Settings'}
+        </span>
       </footer>
 
       <AnimatePresence>
@@ -1306,9 +1452,16 @@ export function App() {
             gitStatus={gitStatus}
             hotDropStatus={workspace.hotDrop}
             updateState={updateState}
+            gitActionBusy={gitActionBusy}
             onClose={() => setSettingsOpen(false)}
             onSave={(settings, tags) => {
               void handleSaveSettings(settings, tags);
+            }}
+            onSyncWorkspace={() => {
+              void handleGitSync(workspace.rootPath);
+            }}
+            onCommitWorkspace={() => {
+              void handleCommitWorkspace(workspace.rootPath);
             }}
             onCheckForUpdates={() => {
               void handleCheckForUpdates();
