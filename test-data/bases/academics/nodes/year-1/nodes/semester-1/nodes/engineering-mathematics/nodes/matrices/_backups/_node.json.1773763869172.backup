@@ -4,7 +4,7 @@
   "kind": "node",
   "itemType": "topic",
   "created": "2026-03-16T22:31:14.007Z",
-  "modified": "2026-03-17T16:11:17.400Z",
+  "modified": "2026-03-16T22:31:14.007Z",
   "tags": [
     "exam",
     "project"
@@ -15,8 +15,7 @@
   "prerequisites": [],
   "softPrerequisites": [],
   "manualLinks": [
-    "bases/personal-projects/nodes/m15-twin-arm/nodes/firmware",
-    "bases/personal-projects/nodes/m15-twin-arm"
+    "bases/personal-projects/nodes/m15-twin-arm/nodes/firmware"
   ],
   "wormholes": [
     {
@@ -26,14 +25,6 @@
       "label": "Matrices for physics transforms",
       "bidirectional": true,
       "created": "2026-03-16T22:31:13.985Z"
-    },
-    {
-      "id": "wormhole-1773763877401",
-      "sourceEntityPath": "bases/academics/nodes/year-1/nodes/semester-1/nodes/engineering-mathematics/nodes/matrices",
-      "targetEntityPath": "bases/personal-projects/nodes/m15-twin-arm",
-      "label": "",
-      "bidirectional": true,
-      "created": "2026-03-17T16:11:17.401Z"
     }
   ],
   "mastery": {
