@@ -1,0 +1,77 @@
+{
+  "layout": "freeform",
+  "gridColumns": 12,
+  "modules": [
+    {
+      "id": "home-analytics-chart",
+      "type": "analytics-chart",
+      "title": "Galaxy Overview",
+      "position": {
+        "x": 1,
+        "y": 1,
+        "width": 5,
+        "height": 4
+      },
+      "config": {}
+    },
+    {
+      "id": "home-progress-bar",
+      "type": "progress-bar",
+      "title": "System Progress",
+      "position": {
+        "x": 6,
+        "y": 1,
+        "width": 3,
+        "height": 4
+      },
+      "config": {}
+    },
+    {
+      "id": "home-text-entry",
+      "type": "text-entry",
+      "title": "Home Notes",
+      "position": {
+        "x": 9,
+        "y": 1,
+        "width": 4,
+        "height": 5
+      },
+      "config": {
+        "filepath": "files/home-notes.md",
+        "autoSave": true
+      }
+    },
+    {
+      "id": "home-link-collection",
+      "type": "link-collection",
+      "title": "Teleport Links",
+      "position": {
+        "x": 1,
+        "y": 5,
+        "width": 4,
+        "height": 4
+      },
+      "config": {}
+    },
+    {
+      "id": "home-goal-tracker",
+      "type": "goal-tracker",
+      "title": "Macro Goals",
+      "position": {
+        "x": 5,
+        "y": 5,
+        "width": 4,
+        "height": 4
+      },
+      "config": {}
+    }
+  ],
+  "templates": [
+    "home-default"
+  ],
+  "viewport": {
+    "x": 56,
+    "y": 48,
+    "zoom": 1
+  }
+}

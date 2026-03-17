@@ -7,10 +7,16 @@
       "type": "practice-bank",
       "title": "Exam Practice",
       "position": {
-        "x": 1,
-        "y": 1,
+        "x": 2,
+        "y": 2,
         "width": 5,
         "height": 7
+      },
+      "canvas": {
+        "x": 160,
+        "y": 120,
+        "width": 624,
+        "height": 880
       },
       "config": {
         "dataFile": "files/practice/questions.csv",
@@ -29,6 +35,12 @@
         "width": 4,
         "height": 7
       },
+      "canvas": {
+        "x": 664,
+        "y": 24,
+        "width": 496,
+        "height": 880
+      },
       "config": {
         "dataFile": "files/practice/error-log.json"
       }
@@ -43,6 +55,12 @@
         "width": 3,
         "height": 7
       },
+      "canvas": {
+        "x": 1176,
+        "y": 24,
+        "width": 368,
+        "height": 880
+      },
       "config": {
         "dataFile": "files/formulas.md"
       }
@@ -50,5 +68,10 @@
   ],
   "templates": [
     "exam-prep"
-  ]
+  ],
+  "viewport": {
+    "x": 72,
+    "y": 56,
+    "zoom": 1
+  }
 }
