@@ -8,13 +8,13 @@
       "title": "Kanban Board",
       "position": {
         "x": 8,
-        "y": 6,
+        "y": 7,
         "width": 5,
         "height": 7
       },
       "canvas": {
-        "x": 920,
-        "y": 620,
+        "x": 1220,
+        "y": 820,
         "width": 624,
         "height": 880
       },
