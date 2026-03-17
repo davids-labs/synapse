@@ -7,16 +7,16 @@
       "type": "progress-bar",
       "title": "Progress Snapshot",
       "position": {
-        "x": 5,
+        "x": 1,
         "y": 1,
-        "width": 4,
-        "height": 3
+        "width": 7,
+        "height": 5
       },
       "canvas": {
-        "x": 536,
-        "y": -25,
-        "width": 496,
-        "height": 368
+        "x": 52,
+        "y": -236,
+        "width": 818,
+        "height": 608
       },
       "config": {}
     },
@@ -27,14 +27,14 @@
       "position": {
         "x": 1,
         "y": 1,
-        "width": 4,
-        "height": 3
+        "width": 5,
+        "height": 4
       },
       "canvas": {
-        "x": -17,
-        "y": -25,
-        "width": 496,
-        "height": 368
+        "x": -640,
+        "y": -238,
+        "width": 672,
+        "height": 501
       },
       "config": {}
     },
@@ -43,18 +43,27 @@
       "type": "goal-tracker",
       "title": "Goals",
       "position": {
-        "x": 9,
+        "x": 6,
         "y": 1,
-        "width": 4,
-        "height": 3
+        "width": 7,
+        "height": 6
       },
       "canvas": {
-        "x": 1081,
-        "y": -23,
-        "width": 496,
-        "height": 368
+        "x": 1121,
+        "y": -196,
+        "width": 833,
+        "height": 757
       },
-      "config": {}
+      "config": {
+        "goals": [
+          {
+            "id": "goal-1773743174126",
+            "title": "finish my cad project",
+            "done": false,
+            "deadline": "2026-05-20"
+          }
+        ]
+      }
     },
     {
       "id": "file-list",
@@ -63,44 +72,103 @@
       "position": {
         "x": 1,
         "y": 4,
-        "width": 6,
-        "height": 4
+        "width": 9,
+        "height": 6
       },
       "canvas": {
-        "x": 24,
-        "y": 408,
-        "width": 752,
-        "height": 496
+        "x": -622,
+        "y": 369,
+        "width": 1132,
+        "height": 723
       },
       "config": {
         "folder": "files"
       }
     },
     {
-      "id": "link-collection",
-      "type": "link-collection",
-      "title": "Cross-Galaxy Links",
+      "id": "study-guide-generator-1773743500597-4",
+      "type": "study-guide-generator",
+      "title": "Study Guide Generator",
       "position": {
-        "x": 7,
-        "y": 4,
-        "width": 6,
-        "height": 4
+        "x": 5,
+        "y": 5,
+        "width": 5,
+        "height": 5
       },
       "canvas": {
-        "x": 897,
-        "y": 401,
-        "width": 752,
-        "height": 496
+        "x": 536,
+        "y": 536,
+        "width": 624,
+        "height": 624
       },
-      "config": {}
+      "config": {
+        "includeFiles": true,
+        "generated": "# Academics Study Guide\n\n## Snapshot\n- Mastery: 53%\n- Practice: 0/0\n- Nested nodes: 7\n\n## Tags\n- None yet\n\n## Files\n- files/inbox/engineering_mathematics_syllabus_example.csv\n- files/notes.md\n- files/study-guide.md\n"
+      }
+    },
+    {
+      "id": "custom-1773743891136-5",
+      "type": "custom",
+      "title": "Custom Module",
+      "position": {
+        "x": 8,
+        "y": 6,
+        "width": 5,
+        "height": 5
+      },
+      "canvas": {
+        "x": 1422,
+        "y": 685,
+        "width": 624,
+        "height": 624
+      },
+      "config": {
+        "rows": [
+          {
+            "title": "",
+            "notes": ""
+          },
+          {
+            "title": "",
+            "notes": ""
+          },
+          {
+            "title": "",
+            "notes": ""
+          }
+        ]
+      },
+      "schema": {
+        "moduleType": "custom-table",
+        "baseType": "table",
+        "columns": [
+          {
+            "key": "title",
+            "label": "Title",
+            "type": "text"
+          },
+          {
+            "key": "notes",
+            "label": "Notes",
+            "type": "textarea"
+          }
+        ],
+        "actions": [
+          "add",
+          "edit",
+          "delete"
+        ],
+        "sortable": true,
+        "filterable": true
+      }
     }
   ],
   "templates": [
     "base-default"
   ],
   "viewport": {
-    "x": 153.79999999999995,
-    "y": 34.79999999999998,
+    "x": 419.13730869967094,
+    "y": 211.6063940121013,
     "zoom": 0.55
   },
   "ui": {

@@ -1,0 +1,21 @@
+node_id,title,category,parent_id,exam_weight,prerequisites,estimated_hours
+MATH1,Engineering Mathematics,module,,100,,120
+ALG1,Algebra and Functions,unit,MATH1,20,,24
+ALG1_1,Indices and Logarithms,topic,ALG1,8,,6
+ALG1_2,Quadratic Equations,topic,ALG1,6,ALG1_1,6
+ALG1_3,Functions and Graphs,topic,ALG1,6,ALG1_2,12
+CALC1,Calculus,unit,MATH1,35,ALG1_3,42
+CALC1_1,Limits,topic,CALC1,8,ALG1_3,8
+CALC1_2,Differentiation,topic,CALC1,12,CALC1_1,12
+CALC1_3,Applications of Differentiation,topic,CALC1,7,CALC1_2,10
+CALC1_4,Integration,topic,CALC1,8,CALC1_2,12
+VEC1,Vectors and Matrices,unit,MATH1,20,ALG1_3,24
+VEC1_1,Vectors in 2D and 3D,topic,VEC1,8,ALG1_3,8
+VEC1_2,Matrices and Determinants,topic,VEC1,6,VEC1_1,8
+VEC1_3,Systems of Linear Equations,topic,VEC1,6,VEC1_2,8
+DE1,Differential Equations,unit,MATH1,15,CALC1_4|VEC1_3,18
+DE1_1,First Order Differential Equations,topic,DE1,8,CALC1_4,10
+DE1_2,Second Order Differential Equations,topic,DE1,7,DE1_1|VEC1_3,8
+PROB1,Probability and Statistics Foundations,unit,MATH1,10,ALG1_3,12
+PROB1_1,Basic Probability,topic,PROB1,5,ALG1_3,6
+PROB1_2,Descriptive Statistics,topic,PROB1,5,PROB1_1,6
