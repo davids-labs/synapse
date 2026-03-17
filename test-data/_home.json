@@ -144,13 +144,61 @@
         "height": 19
       },
       "canvas": {
-        "x": 1038,
-        "y": 1044,
+        "x": 1068,
+        "y": 1052,
         "width": 460,
         "height": 2448
       },
       "config": {
         "filepath": "files/media/audio.mp3"
+      }
+    },
+    {
+      "id": "custom-1773763416028-8",
+      "type": "custom",
+      "title": "Custom Module",
+      "position": {
+        "x": 3,
+        "y": 8,
+        "width": 4,
+        "height": 5
+      },
+      "canvas": {
+        "x": 302,
+        "y": 940,
+        "width": 462,
+        "height": 565
+      },
+      "config": {
+        "rows": [
+          {
+            "title": "",
+            "notes": ""
+          }
+        ]
+      },
+      "schema": {
+        "moduleType": "custom-table",
+        "baseType": "table",
+        "columns": [
+          {
+            "key": "title",
+            "label": "Title",
+            "type": "text"
+          },
+          {
+            "key": "notes",
+            "label": "Notes",
+            "type": "textarea"
+          }
+        ],
+        "actions": [
+          "add",
+          "edit",
+          "delete"
+        ],
+        "sortable": true,
+        "filterable": true
       }
     }
   ],
@@ -158,9 +206,9 @@
     "home-default"
   ],
   "viewport": {
-    "x": 431.5844227389168,
-    "y": -740.0135080069006,
-    "zoom": 0.57
+    "x": 1022.0689179104478,
+    "y": 53.70312908115672,
+    "zoom": 0.06
   },
   "ui": {
     "detailsOpen": false,
