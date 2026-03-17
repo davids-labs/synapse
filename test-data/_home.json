@@ -101,15 +101,15 @@
       "title": "Web Embed",
       "position": {
         "x": 1,
-        "y": 13,
+        "y": 12,
         "width": 12,
-        "height": 9
+        "height": 19
       },
       "canvas": {
-        "x": -480,
-        "y": 1563,
-        "width": 1984,
-        "height": 1084
+        "x": -514,
+        "y": 1466,
+        "width": 1665,
+        "height": 2436
       },
       "config": {
         "src": "https://www.google.com/search?q=dove+and+cameron"
@@ -138,16 +138,16 @@
       "type": "handwriting-gallery",
       "title": "Handwriting Gallery",
       "position": {
-        "x": 2,
-        "y": 4,
-        "width": 11,
-        "height": 8
+        "x": 1,
+        "y": 7,
+        "width": 12,
+        "height": 18
       },
       "canvas": {
-        "x": 268,
-        "y": 437,
-        "width": 1424,
-        "height": 957
+        "x": 2689,
+        "y": 766,
+        "width": 3631,
+        "height": 2336
       },
       "config": {
         "folder": "files",
@@ -161,15 +161,15 @@
       "title": "Audio Player",
       "position": {
         "x": 9,
-        "y": 9,
+        "y": 12,
         "width": 4,
-        "height": 4
+        "height": 19
       },
       "canvas": {
-        "x": 1048,
-        "y": 1048,
-        "width": 496,
-        "height": 496
+        "x": 1183,
+        "y": 1456,
+        "width": 460,
+        "height": 2448
       },
       "config": {
         "filepath": "files/media/audio.mp3"
@@ -180,9 +180,9 @@
     "home-default"
   ],
   "viewport": {
-    "x": -213.2178373760387,
-    "y": -645.441783949218,
-    "zoom": 0.73
+    "x": -197.4933039880325,
+    "y": -2127.099501969914,
+    "zoom": 0.63
   },
   "ui": {
     "detailsOpen": false,
