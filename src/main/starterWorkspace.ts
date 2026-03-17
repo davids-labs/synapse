@@ -616,7 +616,6 @@ async function ensureRootFiles(basePath: string, settings: AppSettings): Promise
 }
 
 export async function ensureSeedWorkspace(basePath: string, incomingSettings?: AppSettings): Promise<void> {
-  const basesPath = safeJoin(basePath, 'bases');
   const settings = {
     ...DEFAULT_SETTINGS,
     ...incomingSettings,
@@ -624,12 +623,4 @@ export async function ensureSeedWorkspace(basePath: string, incomingSettings?: A
   };
 
   await ensureRootFiles(basePath, settings);
-
-  if (await fileExists(path.join(basesPath, 'academics'))) {
-    return;
-  }
-
-  for (const base of starterTree()) {
-    await writeEntityTree(basesPath, base);
-  }
 }

@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'fs';
+import { cpSync, mkdtempSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { buildWorkspaceSnapshot, exportWorkspaceCsv } from '../src/main/workspaceStore';
@@ -6,6 +6,7 @@ import { buildWorkspaceSnapshot, exportWorkspaceCsv } from '../src/main/workspac
 describe('csv export', () => {
   it('exports structure rows for a selected base', async () => {
     const rootPath = mkdtempSync(path.join(os.tmpdir(), 'synapse-export-'));
+    cpSync(path.join(process.cwd(), 'test-data'), rootPath, { recursive: true });
     const snapshot = await buildWorkspaceSnapshot(rootPath, {
       folderPath: path.join(rootPath, 'hot-drop'),
       activeEntityPath: null,
