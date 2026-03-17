@@ -1,0 +1,173 @@
+{
+  "basePath": "c:\\dev2\\synapse\\test-data",
+  "theme": "light",
+  "colorScheme": {
+    "bgPrimary": "#000000",
+    "bgSecondary": "#1A1A1A",
+    "bgTertiary": "#242424",
+    "bgHover": "#2A2A2A",
+    "textPrimary": "#FFFFFF",
+    "textSecondary": "#B0B0B0",
+    "textTertiary": "#808080",
+    "textAccent": "#3B82F6",
+    "borderDefault": "#2A2A2A",
+    "borderFocus": "#3B82F6",
+    "borderDivider": "#1F1F1F",
+    "accentPrimary": "#3B82F6",
+    "accentSuccess": "#10B981",
+    "accentWarning": "#F59E0B",
+    "accentError": "#EF4444",
+    "accentInfo": "#8B5CF6"
+  },
+  "density": "sparse",
+  "animations": true,
+  "masteryColors": {
+    "locked": "#4A4A4A",
+    "active": "#FFFFFF",
+    "understanding": "#3B82F6",
+    "practicing": "#10B981",
+    "mastered": "#F59E0B",
+    "weak": "#EF4444"
+  },
+  "masteryFormula": "simple",
+  "nodeSize": "by-level",
+  "linkStyles": {
+    "hard-prerequisite": {
+      "width": 3,
+      "color": "#EF4444",
+      "opacity": 1
+    },
+    "soft-prerequisite": {
+      "width": 2,
+      "color": "#8B5CF6",
+      "dashArray": "5,5",
+      "opacity": 0.8
+    },
+    "manual-link": {
+      "width": 2,
+      "color": "#3B82F6",
+      "opacity": 0.9
+    },
+    "wormhole": {
+      "width": 3,
+      "color": "#8B5CF6",
+      "dashArray": "10,5",
+      "opacity": 1
+    }
+  },
+  "defaultModules": [
+    {
+      "id": "pdf-viewer",
+      "type": "pdf-viewer",
+      "title": "Lecture Notes",
+      "position": {
+        "x": 1,
+        "y": 1,
+        "width": 4,
+        "height": 6
+      },
+      "config": {
+        "filepath": "files/lecture-notes.pdf",
+        "currentPage": 1,
+        "zoom": 1
+      }
+    },
+    {
+      "id": "markdown-editor",
+      "type": "markdown-editor",
+      "title": "My Notes",
+      "position": {
+        "x": 5,
+        "y": 1,
+        "width": 4,
+        "height": 6
+      },
+      "config": {
+        "filepath": "files/notes.md",
+        "autoSave": true
+      }
+    },
+    {
+      "id": "practice-bank",
+      "type": "practice-bank",
+      "title": "Practice Bank",
+      "position": {
+        "x": 9,
+        "y": 1,
+        "width": 4,
+        "height": 6
+      },
+      "config": {
+        "dataFile": "files/practice/questions.csv",
+        "sortBy": "difficulty"
+      }
+    },
+    {
+      "id": "error-log",
+      "type": "error-log",
+      "title": "Error Log",
+      "position": {
+        "x": 1,
+        "y": 7,
+        "width": 6,
+        "height": 4
+      },
+      "config": {
+        "dataFile": "files/practice/error-log.json"
+      }
+    },
+    {
+      "id": "file-list",
+      "type": "file-list",
+      "title": "Files",
+      "position": {
+        "x": 7,
+        "y": 7,
+        "width": 6,
+        "height": 4
+      },
+      "config": {
+        "folder": "files"
+      }
+    }
+  ],
+  "moduleSnapping": true,
+  "gridColumns": 12,
+  "csvDelimiter": ",",
+  "dateFormat": "yyyy-MM-dd",
+  "shortcuts": {
+    "goHome": "Ctrl+H",
+    "toggleSidebar": "Ctrl+B",
+    "commandPalette": "Ctrl+K",
+    "quickSwitcher": "Ctrl+P",
+    "openSettings": "Ctrl+,",
+    "quickCapture": "Ctrl+Shift+C",
+    "newNode": "Ctrl+Shift+N",
+    "newModule": "Ctrl+Shift+M",
+    "newTag": "Ctrl+Shift+T",
+    "duplicateModule": "Ctrl+D",
+    "editModule": "Ctrl+E",
+    "deleteModule": "Delete",
+    "moveModuleLeft": "Ctrl+ArrowLeft",
+    "moveModuleRight": "Ctrl+ArrowRight",
+    "moveModuleUp": "Ctrl+ArrowUp",
+    "moveModuleDown": "Ctrl+ArrowDown",
+    "zoomToFit": "0",
+    "focusMode": "F",
+    "openSelected": "Enter",
+    "back": "Esc",
+    "toggleQuestion": "Space",
+    "logError": "Ctrl+L",
+    "filterQuestions": "Ctrl+F",
+    "save": "Ctrl+S",
+    "insertMath": "Ctrl+M",
+    "sync": "Ctrl+Shift+S",
+    "exportCsv": "Ctrl+Shift+E",
+    "importCsv": "Ctrl+Shift+I"
+  },
+  "gitEnabled": true,
+  "autoCommit": true,
+  "autoSync": false,
+  "developerMode": false,
+  "recentLimit": 8
+}
