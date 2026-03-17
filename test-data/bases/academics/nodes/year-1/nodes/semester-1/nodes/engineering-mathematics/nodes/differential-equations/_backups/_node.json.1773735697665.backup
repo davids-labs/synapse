@@ -4,8 +4,10 @@
   "kind": "node",
   "itemType": "topic",
   "created": "2026-03-16T22:31:14.022Z",
-  "modified": "2026-03-17T08:21:44.710Z",
-  "tags": [],
+  "modified": "2026-03-16T22:31:14.022Z",
+  "tags": [
+    "exam"
+  ],
   "color": null,
   "icon": null,
   "examWeight": 10,
@@ -14,7 +16,7 @@
   "manualLinks": [],
   "wormholes": [],
   "mastery": {
-    "manual": 0.51,
+    "manual": null,
     "practiceCompleted": 0,
     "practiceTotal": 1
   },

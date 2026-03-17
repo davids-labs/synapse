@@ -1,5 +1,5 @@
 {
-  "layout": "grid",
+  "layout": "freeform",
   "gridColumns": 12,
   "modules": [
     {
@@ -12,6 +12,12 @@
         "width": 4,
         "height": 3
       },
+      "canvas": {
+        "x": 24,
+        "y": 24,
+        "width": 496,
+        "height": 368
+      },
       "config": {}
     },
     {
@@ -19,10 +25,16 @@
       "type": "weekly-summary",
       "title": "Weekly Summary",
       "position": {
-        "x": 5,
+        "x": 6,
         "y": 1,
         "width": 4,
         "height": 3
+      },
+      "canvas": {
+        "x": 610,
+        "y": 24,
+        "width": 496,
+        "height": 368
       },
       "config": {}
     },
@@ -36,6 +48,12 @@
         "width": 4,
         "height": 3
       },
+      "canvas": {
+        "x": 1416,
+        "y": 24,
+        "width": 496,
+        "height": 368
+      },
       "config": {}
     },
     {
@@ -44,9 +62,15 @@
       "title": "Base Files",
       "position": {
         "x": 1,
-        "y": 4,
+        "y": 5,
         "width": 6,
         "height": 4
+      },
+      "canvas": {
+        "x": 24,
+        "y": 505,
+        "width": 752,
+        "height": 496
       },
       "config": {
         "folder": "files"
@@ -58,14 +82,45 @@
       "title": "Cross-Galaxy Links",
       "position": {
         "x": 7,
-        "y": 4,
+        "y": 5,
         "width": 6,
         "height": 4
       },
+      "canvas": {
+        "x": 1000,
+        "y": 503,
+        "width": 752,
+        "height": 496
+      },
       "config": {}
+    },
+    {
+      "id": "video-player-1773735355272-5",
+      "type": "video-player",
+      "title": "Video Player",
+      "position": {
+        "x": 8,
+        "y": 5,
+        "width": 5,
+        "height": 4
+      },
+      "canvas": {
+        "x": 920,
+        "y": 536,
+        "width": 624,
+        "height": 496
+      },
+      "config": {
+        "filepath": "files/media/demo.mp4"
+      }
     }
   ],
   "templates": [
     "base-default"
-  ]
+  ],
+  "viewport": {
+    "x": -139,
+    "y": -61,
+    "zoom": 0.6
+  }
 }

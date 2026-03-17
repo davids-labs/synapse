@@ -1,83 +1,96 @@
 {
-  "layout": "grid",
+  "layout": "freeform",
   "gridColumns": 12,
   "modules": [
     {
-      "id": "study-mode-pdf-viewer",
-      "type": "pdf-viewer",
-      "title": "Lecture Notes",
+      "id": "project-dashboard-1773735711755-0",
+      "type": "kanban-board",
+      "title": "Kanban Board",
       "position": {
         "x": 1,
         "y": 1,
-        "width": 4,
-        "height": 6
+        "width": 5,
+        "height": 7
+      },
+      "canvas": {
+        "x": 24,
+        "y": 24,
+        "width": 624,
+        "height": 880
       },
       "config": {
-        "filepath": "files/lecture-notes.pdf",
-        "currentPage": 1,
-        "zoom": 1
+        "dataFile": "files/kanban.json"
       }
     },
     {
-      "id": "study-mode-markdown-editor",
-      "type": "markdown-editor",
-      "title": "My Notes",
+      "id": "project-dashboard-1773735711755-1",
+      "type": "time-tracker",
+      "title": "Time Tracker",
       "position": {
-        "x": 5,
+        "x": 6,
         "y": 1,
-        "width": 4,
-        "height": 6
+        "width": 3,
+        "height": 3
+      },
+      "canvas": {
+        "x": 664,
+        "y": 24,
+        "width": 368,
+        "height": 368
       },
       "config": {
-        "filepath": "files/notes.md",
-        "autoSave": true
+        "dataFile": "files/time-tracker.json"
       }
     },
     {
-      "id": "study-mode-practice-bank",
-      "type": "practice-bank",
-      "title": "Practice Bank",
+      "id": "project-dashboard-1773735711755-2",
+      "type": "goal-tracker",
+      "title": "Goals",
       "position": {
         "x": 9,
         "y": 1,
         "width": 4,
-        "height": 6
+        "height": 3
+      },
+      "canvas": {
+        "x": 1048,
+        "y": 24,
+        "width": 496,
+        "height": 368
       },
       "config": {
-        "dataFile": "files/practice/questions.csv",
-        "sortBy": "difficulty"
+        "dataFile": "files/goals.json"
       }
     },
     {
-      "id": "study-mode-error-log",
-      "type": "error-log",
-      "title": "Error Log",
+      "id": "project-dashboard-1773735711755-3",
+      "type": "cad-render",
+      "title": "CAD Render Viewer",
       "position": {
-        "x": 1,
-        "y": 7,
-        "width": 6,
+        "x": 6,
+        "y": 4,
+        "width": 7,
         "height": 4
       },
-      "config": {
-        "dataFile": "files/practice/error-log.json"
-      }
-    },
-    {
-      "id": "study-mode-file-list",
-      "type": "file-list",
-      "title": "Files",
-      "position": {
-        "x": 7,
-        "y": 7,
-        "width": 6,
-        "height": 4
+      "canvas": {
+        "x": 664,
+        "y": 408,
+        "width": 880,
+        "height": 496
       },
       "config": {
-        "folder": "files"
+        "renderFolder": "files/renders",
+        "autoRefresh": true,
+        "compareMode": false
       }
     }
   ],
   "templates": [
-    "study-mode"
-  ]
+    "project-dashboard"
+  ],
+  "viewport": {
+    "x": 33,
+    "y": -96,
+    "zoom": 0.7
+  }
 }

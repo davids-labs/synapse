@@ -1,9 +1,9 @@
 {
-  "layout": "grid",
+  "layout": "freeform",
   "gridColumns": 12,
   "modules": [
     {
-      "id": "node-pdf-viewer",
+      "id": "pdf-viewer",
       "type": "pdf-viewer",
       "title": "Lecture Notes",
       "position": {
@@ -12,6 +12,12 @@
         "width": 4,
         "height": 6
       },
+      "canvas": {
+        "x": 24,
+        "y": 24,
+        "width": 496,
+        "height": 752
+      },
       "config": {
         "filepath": "files/lecture-notes.pdf",
         "currentPage": 1,
@@ -19,7 +25,7 @@
       }
     },
     {
-      "id": "node-markdown-editor",
+      "id": "markdown-editor",
       "type": "markdown-editor",
       "title": "My Notes",
       "position": {
@@ -28,13 +34,19 @@
         "width": 4,
         "height": 6
       },
+      "canvas": {
+        "x": 536,
+        "y": 24,
+        "width": 496,
+        "height": 752
+      },
       "config": {
         "filepath": "files/notes.md",
         "autoSave": true
       }
     },
     {
-      "id": "node-practice-bank",
+      "id": "practice-bank",
       "type": "practice-bank",
       "title": "Practice Bank",
       "position": {
@@ -43,13 +55,19 @@
         "width": 4,
         "height": 6
       },
+      "canvas": {
+        "x": 1048,
+        "y": 24,
+        "width": 496,
+        "height": 752
+      },
       "config": {
         "dataFile": "files/practice/questions.csv",
         "sortBy": "difficulty"
       }
     },
     {
-      "id": "node-error-log",
+      "id": "error-log",
       "type": "error-log",
       "title": "Error Log",
       "position": {
@@ -58,12 +76,18 @@
         "width": 6,
         "height": 4
       },
+      "canvas": {
+        "x": 24,
+        "y": 792,
+        "width": 752,
+        "height": 496
+      },
       "config": {
         "dataFile": "files/practice/error-log.json"
       }
     },
     {
-      "id": "node-file-list",
+      "id": "file-list",
       "type": "file-list",
       "title": "Files",
       "position": {
@@ -72,6 +96,12 @@
         "width": 6,
         "height": 4
       },
+      "canvas": {
+        "x": 792,
+        "y": 792,
+        "width": 752,
+        "height": 496
+      },
       "config": {
         "folder": "files"
       }
@@ -79,5 +109,10 @@
   ],
   "templates": [
     "study-mode"
-  ]
+  ],
+  "viewport": {
+    "x": 197.64,
+    "y": -46.697500000000005,
+    "zoom": 0.66
+  }
 }

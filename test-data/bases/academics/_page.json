@@ -70,8 +70,21 @@
     "exam-prep"
   ],
   "viewport": {
-    "x": 72,
-    "y": 56,
+    "x": -199,
+    "y": -310,
     "zoom": 1
+  },
+  "ui": {
+    "detailsOpen": false,
+    "detailSize": "comfortable",
+    "detailSectionOrder": [
+      "mastery",
+      "identity",
+      "templates",
+      "links",
+      "wormholes"
+    ],
+    "hiddenDetailSections": [],
+    "savedViews": []
   }
 }
