@@ -1,87 +1,129 @@
+<div align="center">
+  <img src="./build/icons/icon.png" alt="SYNAPSE" width="88" />
+
 # SYNAPSE
 
-SYNAPSE is a desktop-first, local-first learning operating system for turning folders of notes, files, tasks, and study material into a visual workspace. It combines a graph-driven knowledge map, a freeform module canvas, real file-backed tools, and a production-grade Workspace Reliability suite for Git snapshots, sync, recovery, and dual-device use.
+<p><strong>Calm, local-first learning workspace.</strong><br/>Designed for deep focus, real files, and reliable sync.</p>
 
-## What SYNAPSE does
+<p>
+  <img src="https://img.shields.io/badge/Desktop-Electron-111111?style=for-the-badge&logo=electron&logoColor=white" alt="Electron" />
+  <img src="https://img.shields.io/badge/UI-React-111111?style=for-the-badge&logo=react&logoColor=white" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-111111?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Workspace-Local--first-111111?style=for-the-badge" alt="Local first" />
+  <img src="https://img.shields.io/badge/License-MIT-111111?style=for-the-badge" alt="MIT" />
+</p>
 
-- Turns bases and nodes into working study spaces instead of static folders
-- Lets you compose each page from modules such as notes, practice banks, galleries, charts, trackers, and references
-- Saves work to real files and JSON inside the workspace
-- Supports quick capture for notes, links, files, and screenshots
-- Includes a safer Git workflow for snapshots, sync, diagnostics, offline retry, and conflict resolution
-- Includes a fully indexed Settings Command Center with deep links, live previews, keyboard recording, and power-user runtime controls
-- Runs fully on-device with Electron, React, TypeScript, Markdown, JSON, and file watching
+<!-- Optional dynamic widget placeholders -->
+<!--
+<img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=22&duration=2500&pause=800&center=true&vCenter=true&width=700&lines=Desktop-first+learning+OS;Graph+workspace+with+file-backed+modules;Reliable+Git+sync+across+devices" alt="Typing header"/>
+<img src="https://github-readme-stats.vercel.app/api?username=<USER>&repo=<REPO>&show_icons=true&hide_border=true" alt="GitHub stats"/>
+-->
+</div>
 
-## Screenshots
+---
 
-### Home
+<a id="top"></a>
 
-![SYNAPSE Home](./output/playwright/01-home.png)
+<div align="center">
+<table>
+  <tr>
+    <td align="center"><a href="#overview">Overview</a></td>
+    <td align="center"><a href="#features">Features</a></td>
+    <td align="center"><a href="#installation">Installation</a></td>
+    <td align="center"><a href="#first-run">First Run</a></td>
+    <td align="center"><a href="#csv-import">CSV Import</a></td>
+    <td align="center"><a href="#sync-model">Sync Model</a></td>
+    <td align="center"><a href="#project-structure">Structure</a></td>
+    <td align="center"><a href="#troubleshooting">Troubleshooting</a></td>
+    <td align="center"><a href="#contributing">Contributing</a></td>
+  </tr>
+</table>
+</div>
 
-### Canvas
+---
 
-![Canvas Workspace](./output/playwright/02-canvas-expanded.png)
+<a id="overview"></a>
+## Overview
 
-### Focused Home Canvas
+SYNAPSE is a desktop-first learning operating system that turns folders into living study spaces.
 
-![Focused Home Canvas](./output/playwright/01b-home-focus-canvas.png)
+It combines:
 
-### Settings / Workspace Reliability
+- graph navigation across bases and nodes
+- freeform module canvas
+- real file-backed workflows (`.md`, `.pdf`, `.csv`, images, code)
+- Workspace Reliability: snapshot, sync, diagnostics, conflict recovery
 
-![Workspace Reliability](./output/playwright/05-settings.png)
-
-### Settings Command Center
-
-![Settings Command Center](./output/playwright/05-settings.png)
-
-## Recommended Repo Layout
-
-SYNAPSE works best when you keep the app source code and the workspace data in separate repositories.
-
-- App code repo: this repository, `synapse`
-- Workspace data repo: your notes and files, for example `synapsesync`
-
-Recommended structure:
+Recommended split:
 
 ```text
-C:\dev2\synapse                      # Electron app source code
-C:\Users\<you>\Documents\SYNAPSE-Workspace   # Actual workspace data repo
+C:/dev2/synapse                                 # App source repo
+C:/Users/<you>/Documents/SYNAPSE-Workspace      # Workspace data repo
 ```
 
-Why split them:
+This separation keeps app shipping and personal data syncing independent.
 
-- app code changes and workspace content changes have different commit histories
-- the workspace can sync between desktop and laptop without shipping app source
-- recovery is cleaner because Git operations stay scoped to the right data
+---
 
-## Quick Start
+<a id="features"></a>
+## Features
 
-### 1. Install dependencies
+<details open>
+  <summary><strong>Product Surface</strong></summary>
+
+- Home dashboard with recent work and cross-base visibility
+- visual graph + tree navigation
+- module canvas with drag, resize, fullscreen focus
+- Quick Capture for notes, links, files, and screenshots
+- Browser Surface and web embedding support
+
+</details>
+
+<details>
+  <summary><strong>Workspace Reliability</strong></summary>
+
+- manual snapshot commits
+- sync now flow (pull + push lifecycle)
+- startup pull awareness
+- offline queue and retry
+- conflict resolver (`mine`, `theirs`, `smart`, `manual`)
+- branch/history visibility and diagnostics
+
+</details>
+
+<details>
+  <summary><strong>Local-first File System</strong></summary>
+
+- content saved into your workspace repo as real files
+- markdown, PDFs, images, code, csv and json all remain inspectable
+- easy external backup and migration because data is not trapped in hidden DBs
+
+</details>
+
+---
+
+<a id="installation"></a>
+## Installation
+
+<details open>
+  <summary><strong>Install from GitHub Release (recommended)</strong></summary>
+
+1. Download latest `SYNAPSE-Setup-<version>.exe` from Releases.
+2. Run installer.
+3. Launch SYNAPSE from Start menu / Desktop.
+4. Set workspace path to your workspace repo folder.
+
+</details>
+
+<details>
+  <summary><strong>Developer Run</strong></summary>
 
 ```bash
 npm install
-```
-
-### 2. Start the development app
-
-```bash
 npm run dev
 ```
 
-### 3. Build and run the desktop app
-
-```bash
-npm run build
-npm run start:built
-```
-
-### 4. Package the app
-
-```bash
-npm run electron:build
-```
-
-Helper commands:
+Helpers:
 
 ```bash
 npm run synapse -- dev
@@ -91,527 +133,107 @@ npm run synapse -- package
 npm run synapse -- test
 ```
 
+</details>
+
+<details>
+  <summary><strong>Packaging Commands</strong></summary>
+
+```bash
+npm run electron:build
+npm run electron:build:win
+npm run electron:build:mac
+npm run electron:build:linux
+```
+
+</details>
+
+---
+
+<a id="first-run"></a>
 ## First Run
 
-### 1. Launch SYNAPSE
-
-The app opens into Home. Home is a real working canvas, not a placeholder dashboard.
-
-### 2. Create or connect a real workspace
-
-For a real setup, clone or create a separate workspace repository and point SYNAPSE at that folder via the app config `basePath`.
-
-Typical Windows example:
+1. Launch SYNAPSE.
+2. Create/connect workspace repo:
 
 ```bash
-git clone https://github.com/davids-labs/synapsesync.git C:\Users\<you>\Documents\SYNAPSE-Workspace
+git clone https://github.com/davids-labs/synapsesync.git C:/Users/<you>/Documents/SYNAPSE-Workspace
 ```
 
-Then set `basePath` in the SYNAPSE app config to that folder.
+3. In app settings, set `basePath` to that folder.
+4. Enable Git/Workspace Reliability.
 
-Notes:
-
-- packaged builds typically store config in the Electron user-data directory, such as `%APPDATA%\SYNAPSE\config.json`
-- development runs may use Electron's default user-data path instead
-
-### 3. Enable Workspace Reliability
-
-Open `Settings` -> `Git` / `Workspace Reliability` and:
-
-- enable Git integration
-- confirm the current branch and remote
-- set a device name such as `Desktop PC` or `Laptop`
-- choose your conflict strategy defaults
-
-## Core Concepts
-
-### Home
-
-Home is your command deck. Use it for:
-
-- galaxy index
-- recent work
-- dashboards
-- cross-base trackers
-- scratch modules
-- canvas-only focus mode
-
-### Bases and nodes
-
-A base is a larger domain such as a course or project. A node is a smaller study page inside that base.
-
-Each page can hold:
-
-- a module canvas
-- linked files
-- notes
-- practice and progress data
-- links, prerequisites, and wormholes
-
-### Module canvas
-
-The canvas is the main interaction model:
-
-- drag modules around the page
-- resize them
-- open modules fullscreen
-- save and restore layouts
-- mix lightweight utilities and deep study tools on the same page
-
-### File-backed workflow
-
-SYNAPSE is strongest when modules point at real files.
-
-Examples:
-
-- `Markdown Editor` and `Markdown Viewer` for `.md`
-- `PDF Viewer` for `.pdf`
-- `Image Gallery`, `Handwriting Gallery`, `Mood Board`, and `CAD Render Viewer` for image folders
-- `Code Viewer` and `Code Editor` for code
-- `File Browser` and `File Organizer` for the workspace files attached to a page
-
-See the full module inventory in [`modulelibrary`](./modulelibrary).
-
-## Daily Workflow
-
-### 1. Open a base or node
-
-Click a card from Home or navigate through the tree/graph.
-
-### 2. Add the right modules
-
-Use `Add Module` and pick from the module library.
-
-Good starting modules:
-
-- `Markdown Editor`
-- `Practice Bank`
-- `Checklist`
-- `Time Tracker`
-- `Formula Vault`
-- `Quick Links`
-- `Definition Cards`
-
-### 3. Save real work
-
-Most modules save automatically into the workspace, either in page JSON or in actual files under that node.
-
-### 4. Capture new material
-
-Use Quick Capture to add:
-
-- a note
-- a link
-- a file
-- a screenshot
-
-### 5. Snapshot and sync
-
-Use Workspace Reliability to create a snapshot, sync to remote, inspect repo health, or recover from conflicts.
-
-## Quick Capture and Hot-Drop
-
-### Quick Capture
-
-Use Quick Capture when you want to add something fast without breaking flow.
-
-- shortcut: `Ctrl+Shift+C`
-- supports notes, links, files, and screenshots
-- saves into the active page
-
-Screenshot capture flow:
-
-1. Open Quick Capture
-2. Switch type to `Screenshot`
-3. Click `Capture screen`
-4. Confirm the preview and filename
-5. Save
-
-### Hot-Drop
-
-The app also exposes a hot-drop folder for quick file intake. Drop a file there while a node is active and SYNAPSE routes it into the current workspace target.
-
-## Browser Surface and Web Embeds
-
-SYNAPSE supports two browser-related flows:
-
-- `Web Embed` inside modules
-- `Browser Surface` as a top-level browsing window
-
-The app now applies compatibility middleware to embedded content:
-
-- strips `X-Frame-Options`
-- strips `frame-ancestors` from CSP
-- strips `Cross-Origin-Opener-Policy`
-- uses a modern Chrome user agent for windows and requests
-
-This improves compatibility, but some sites still enforce server-side anti-bot checks, rate limits, or login challenges. If an embed still fails, use:
-
-- `Open Browser Surface`
-- `Open Default Browser`
-
-## Settings Command Center
-
-Settings is no longer a plain modal of forms. It is a searchable command center for visual tuning, graph behavior, keyboard workflows, Git reliability, runtime controls, privacy posture, and portability.
-
-### What it includes
-
-- global indexed search with `Ctrl+F`
-- deep-linkable sections and rows through settings hashes
-- breadcrumbs so you always know where you are
-- animated section transitions
-- per-row reset actions that appear when a value differs from the default
-- live mini previews for visual theme and graph settings
-- keyboard shortcut recorder inputs instead of plain text entry
-- drag-and-drop tag ordering
-
-### Main sections
-
-- `Visual`: theme tokens, surfaces, accents, and live mini-canvas preview
-- `Graph`: local preview of node and edge styling
-- `Keyboard`: shortcut editing with record-to-bind behavior
-- `Workspace Reliability`: Git sync, branches, history, diagnostics, conflicts, reset, backup
-- `Lab`: GPU acceleration, embedded DevTools, performance mode, frame-rate controls
-- `Privacy & Security`: local-only mode and vault-security controls
-- `Export & Portability`: config export, backup targets, and portability helpers
-- `Tags`: sortable rendering order for tag presentation
-
-### Deep linking
-
-Each major settings section has a stable deep-link target so search can jump directly to the right control. This makes the Settings surface navigable like a command palette, not just a long scrolling preferences page.
-
-## Workspace Reliability
-
-Workspace Reliability is SYNAPSE's Git and recovery layer. It is explicit on purpose: no silent conflict resolution, no destructive hidden resets, and no fake cloud magic.
-
-### What it includes
-
-- repository health diagnostics
-- manual sync
-- manual snapshots
-- close-time auto-commit
-- optional sync prompt on close
-- startup pull awareness
-- background auto-save snapshots
-- offline retry queue
-- conflict resolution modal
-- external editor diff launch
-- branch switching
-- recent history timeline with revert actions
-- conflict presets
-- backup creation
-- reset-to-remote escape hatch
-
-### Status bar meanings
-
-The footer sync indicator reflects the current workspace state.
-
-- `Synced`: local and remote are aligned
-- `X local changes`: modified files are not committed yet
-- `X unpushed commits`: local snapshots exist but are not pushed yet
-- `X remote updates available`: pull is needed
-- `Queued offline`: sync could not complete because the network was unavailable
-- `X sync conflicts`: merge conflicts must be resolved
-
-The queued offline state uses an orange clock indicator in the status bar.
-
-### Snapshot vs Sync vs Backup
-
-- `Commit snapshot`: creates a Git commit without pushing
-- `Sync now`: snapshots if needed, fetches, pulls, resolves normal non-conflict flow, then pushes
-- `Create manual backup`: creates a local backup copy outside Git
-
-### Branches and history
-
-Workspace Reliability now exposes branch-aware workflows directly in Settings:
-
-- switch branches without leaving the app
-- inspect recent commits in a visual timeline
-- see device-attributed snapshots and sync events
-- revert to a recent commit when you intentionally want to roll the workspace back
-
-Revert is still a serious action. It is safer than a hard reset, but it still changes workspace history and should be used deliberately.
-
-### Close-time behavior
-
-If enabled, SYNAPSE can:
-
-1. auto-commit on close
-2. prompt you to sync before quitting
-3. keep the app open for review if sync fails
-
-To avoid hanging close flows, close-time auto-commit is capped. If it runs too long, SYNAPSE forces quit rather than leaving a zombie process behind.
-
-### Startup behavior
-
-On launch, Workspace Reliability checks the remote state. If the remote is ahead, the app can:
-
-- prompt you to pull
-- auto-pull if you explicitly enabled that behavior
-- warn before you keep editing
-
-### Offline retry queue
-
-If a sync fails because the network is unavailable, SYNAPSE:
-
-- keeps your local work intact
-- records the failure in diagnostics
-- marks the workspace as `Queued offline`
-- retries when connectivity returns
-
-This is for resilience, not background auto-push. The app never silently resolves conflicts.
-
-### Conflict resolution
-
-When a pull creates conflicts, SYNAPSE opens a conflict resolver with:
-
-- `Keep All Mine`
-- `Keep All Theirs`
-- `Smart Merge JSON`
-- per-file resolution
-- `Open in External Editor`
-- `Abort Merge`
-
-Conflict presets let you define your default bias ahead of time:
-
-- `Ask me`
-- `Always prefer local`
-- `Always prefer remote`
-
-External editor flow:
-
-- prefers `code --diff` when VS Code is installed
-- falls back to the system default editor when VS Code is not available
-
-### Diagnostics and reset
-
-Diagnostics show:
-
-- branch and upstream state
-- remote reachability
-- unpushed commits
-- conflicted files
-- queued offline state
-- human-readable recovery suggestions for Git failures, including repository-level errors such as Git code `128`
-
-`Reset to remote` is destructive. Use it only when you intentionally want to discard local workspace changes.
-
-## Lab
-
-The `Lab` section is for advanced runtime controls that change how the desktop app behaves.
-
-### Current Lab controls
-
-- `GPU acceleration`: persisted at the app level and applied on next launch
-- `Embedded DevTools`: enables an in-app inspection workflow for advanced debugging
-- `Performance mode`: tunes the UI toward balanced, reduced-motion, or lower-overhead rendering
-- `Frame-rate limit`: constrains animation intensity on lower-spec hardware
-
-Notes:
-
-- GPU acceleration changes require an app restart
-- performance mode also affects shell-level visual treatment and motion density
-
-## Privacy & Security
-
-SYNAPSE remains local-first, and the Settings Command Center now exposes stronger privacy posture controls.
-
-### Local-only mode
-
-`Local-only mode` is a hard network guardrail. When enabled, SYNAPSE blocks or disables:
-
-- Git sync
-- update checks
-- browser-surface navigation to remote URLs
-- external network-backed requests from the app shell
-
-This is useful for travel, sensitive work sessions, testing, or environments where you want a strict offline posture.
-
-### Vault security
-
-The Command Center includes vault-encryption and master-password-oriented settings so the UX is in place for secured local storage workflows.
-
-Important current limitation:
-
-- the settings and UX are present
-- full encrypted-at-rest workspace storage is not yet implemented end to end
-
-Treat this as configuration scaffolding for now, not as a completed zero-trust storage system.
-
-## Export & Portability
-
-SYNAPSE now includes portability tools directly in Settings.
-
-### What you can do
-
-- copy the full current settings configuration as JSON
-- create manual backups
-- prepare backup target settings for future cloud flows
-
-### Current limitation
-
-Cloud backup providers are represented in the UI and config model, but provider upload pipelines are not yet implemented as full production integrations. Git-backed workspace sync remains the real production sync path.
-
-## Dual-Device Workflow
-
-SYNAPSE is dual-device friendly, but it is still Git-based sync, not realtime CRDT sync.
-
-### Recommended desktop -> laptop flow
-
-1. Work on your desktop
-2. Create a snapshot or let close-time auto-commit run
-3. Sync before you leave the machine
-4. Open SYNAPSE on the laptop
-5. Pull the latest workspace changes when prompted
-6. Continue working
-
-### Best practice
-
-- sync often
-- prefer one active editing device at a time for the same files
-- be extra careful with binary files such as images, PDFs, and exports
-
-### If you forget to sync
-
-SYNAPSE will warn when the remote is ahead, and if you go offline during sync it will queue the retry instead of pretending everything is fine.
-
-## Git Setup
-
-### 1. App code repository
-
-This repository is the app source code.
-
-```bash
-git clone https://github.com/davids-labs/synapse.git
-cd synapse
-npm install
-```
-
-Use this repo when you are changing:
-
-- Electron code
-- React UI
-- styles
-- modules
-- tests
-- docs
-
-### 2. Workspace repository
-
-Use a separate repo for the workspace data:
-
-```bash
-git clone https://github.com/davids-labs/synapsesync.git C:\Users\<you>\Documents\SYNAPSE-Workspace
-```
-
-Use this repo for:
-
-- notes
-- page layouts
-- module data
-- screenshots
-- file attachments
-- practice and tracker content
-
-### 3. Connect the workspace to SYNAPSE
-
-Point SYNAPSE's `basePath` at your workspace folder, then enable Git integration in Workspace Reliability.
-
-### 4. First sync checklist
+First sync checklist:
 
 - remote configured
-- current branch exists
-- upstream configured
-- workspace opens correctly
-- diagnostics show a healthy or understandable state
+- branch exists (`main`)
+- upstream configured (`origin/main`)
+- diagnostics healthy/understandable
 
-## CSV Import Guide
+Useful shortcuts:
 
-SYNAPSE supports CSV preview/import from the app (`Ctrl+Shift+I`) with a practical, schema-light parser designed for real-world files.
+- `Ctrl+K` command palette
+- `Ctrl+Shift+C` quick capture
+- `Ctrl+Shift+S` sync
+- `Ctrl+Shift+I` import CSV
+- `Ctrl+Shift+E` export CSV
 
-### Import types
+---
 
-- `syllabus`: creates node entities beneath the selected entity
-- `modules`: appends modules to the selected entity page
-- `practice`: imports practice questions into `files/practice/questions.csv`
-- `custom`: copies the CSV file into `files/imports/` on the selected entity
+<a id="csv-import"></a>
+## CSV Import
 
-### Delimiter support
+SYNAPSE supports schema-tolerant CSV import via `Ctrl+Shift+I`.
 
-- supported delimiters: comma `,`, semicolon `;`, tab `\t`
-- parser normalizes line endings (`CRLF` / `LF`)
-- quoted fields are supported, including escaped quotes (`""`)
+<details open>
+  <summary><strong>Import Types</strong></summary>
 
-### Preview behavior
+- `syllabus`: creates nodes beneath selected entity
+- `modules`: appends modules to selected page
+- `practice`: merges/replaces questions by id
+- `custom`: copies CSV into `files/imports/`
 
-- preview shows headers and first 6 rows
-- use preview to verify delimiter and header names before import
+</details>
 
-### Column mapping by import type
+<details>
+  <summary><strong>Parser Rules</strong></summary>
 
-`practice` import:
+- delimiters: comma, semicolon, tab
+- quoted values and escaped quotes supported
+- CRLF/LF normalized
+- preview shows headers + first 6 rows
 
-- required in practice: none strictly required, but `title` is strongly recommended
-- recognized columns:
-	- `question_id` or `id` (fallback: slug from title)
-	- `title`
-	- `type` (`calculation`, `derivation`, `multiple-choice`, `proof`, `custom`)
-	- `difficulty` (`easy`, `medium`, `hard`)
-	- `source` (fallback: `topic`, then `Imported CSV`)
-	- `tags` or `topic` (split on `|` or `,`)
-	- `correct` (if `> 0`, imported status becomes `correct`)
+</details>
 
-`modules` import:
+<details>
+  <summary><strong>Column Mapping (high signal)</strong></summary>
 
-- recognized columns:
-	- `module_id` (fallback generated id)
-	- `type` (fallback `custom`)
-	- `title` (fallback `type`, then `Imported Module`)
-	- `position_x` / `x`, `position_y` / `y`, `width`, `height`
-	- optional freeform coordinates: `canvas_x`, `canvas_y`, `canvas_width`, `canvas_height`
-	- `config` (JSON string; invalid JSON is treated as `{}`)
+Practice:
 
-`syllabus` import:
+- `question_id|id`, `title`, `type`, `difficulty`, `source|topic`, `tags`, `correct`
 
-- recognized columns:
-	- `node_id` or `id` (fallback slug from title)
-	- `title`
-	- `parent_id` (must reference another `node_id` in the same CSV to nest)
-	- `exam_weight` (number)
-	- `prerequisites` (ids split by `|` or `,`, resolved only if created in this import batch)
-	- `category` (stored as a single tag)
-	- `estimated_hours` (stored in `custom.estimatedHours`)
+Modules:
 
-`custom` import:
+- `module_id`, `type`, `title`, `position_x|x`, `position_y|y`, `width`, `height`, `config`
+- optional: `canvas_x`, `canvas_y`, `canvas_width`, `canvas_height`
 
-- does not parse row schema into entities
-- copies file to `entity/files/imports/<original-file-name>.csv`
+Syllabus:
 
-### Merge and overwrite behavior
+- `node_id|id`, `title`, `parent_id`, `exam_weight`, `prerequisites`, `category`, `estimated_hours`
 
-- practice import merges by question id
-- if an imported question id already exists, the imported row replaces that question entry
-- modules import appends modules; it does not deduplicate module ids
-- syllabus import creates new nodes each run; repeat imports can create duplicates
+</details>
 
-### Constraints and practical limits
+<details>
+  <summary><strong>Constraints + Best Practices</strong></summary>
 
-- file path must be readable by the app process
-- malformed CSV structure may parse unexpectedly if quoting is inconsistent
-- invalid enum values (for example `difficulty=extreme`) can fail validation for that import
-- very large CSV files are supported but can feel slow; split huge imports into batches
+- keep stable ids for recurring imports
+- validate delimiter and header names in preview first
+- import into a test node before production
+- sync/commit immediately after successful import
+- split very large csv files into batches for better feedback
 
-### Recommended workflow
+</details>
 
-1. Keep a stable header template per import type.
-2. Run preview first and confirm delimiter/header alignment.
-3. Import into a test node before importing into production study nodes.
-4. Sync/commit after successful import so rollback is easy.
-5. For recurring pipelines, keep ids stable (`question_id`, `node_id`) to avoid duplicates.
-
-### Minimal examples
-
-Practice CSV example:
+Minimal practice example:
 
 ```csv
 question_id,title,type,difficulty,source,tags,correct
@@ -619,221 +241,78 @@ q-001,First law derivation,derivation,hard,Thermodynamics,"exam|laws",0
 q-002,Entropy concept check,multiple-choice,medium,Thermodynamics,"review|entropy",1
 ```
 
-Modules CSV example:
+---
 
-```csv
-module_id,type,title,position_x,position_y,width,height,config
-m-001,markdown-editor,Theory Notes,1,1,6,6,"{""filepath"":""files/notes.md"",""autoSave"":true}"
-```
+<a id="sync-model"></a>
+## Sync Model
 
-Syllabus CSV example:
+Git sync is robust for single-user multi-device workflows, with clear constraints:
 
-```csv
-node_id,title,parent_id,category,exam_weight,estimated_hours,prerequisites
-intro,Intro to Thermodynamics,,core,10,2,
-laws,Laws of Thermodynamics,intro,core,30,6,intro
-```
+- not realtime collaboration
+- conflicts possible if same files are edited on two devices before syncing
+- large binary files (PDF/media) sync, but can be slower
 
-## Shortcuts
+Recommended habit:
 
-Verified defaults:
+1. Sync before leaving machine A.
+2. Sync after opening machine B.
+3. Avoid parallel edits of the same entity/files.
 
-- `Ctrl+K`: Command Palette
-- `Ctrl+H`: Go Home
-- `Ctrl+,`: Open Settings
-- `Ctrl+F`: Focus Settings search when Settings is open
-- `Ctrl+B`: Toggle Sidebar
-- `Ctrl+Shift+C`: Quick Capture
-- `Ctrl+Shift+N`: New Node
-- `Ctrl+Shift+M`: New Module
-- `Ctrl+Shift+S`: Git Sync
-- `Ctrl+Shift+I`: Import CSV
-- `Ctrl+Shift+E`: Export CSV
-- `0`: Zoom To Fit
-- `F`: Focus Mode
-- `Escape`: Close the current overlay or back out of the active surface
+---
 
-More shortcut details live in [SHORTCUTS.md](./SHORTCUTS.md).
-
-## Useful Scripts
-
-```bash
-npm run dev
-npm run build
-npm run start:built
-npm run run
-npm run lint
-npm run test
-npm run test:e2e
-npm run electron:build
-npm run electron:build:dir
-npm run electron:build:win
-npm run electron:build:mac
-npm run electron:build:linux
-```
-
-## Testing and Smoke Verification
-
-### Type check and lint
-
-```bash
-npm run lint
-```
-
-### Unit tests
-
-```bash
-npm test
-```
-
-### Production build
-
-```bash
-npm run build
-```
-
-### Electron smoke run
-
-```bash
-node output/playwright/electron-smoke.mjs
-```
-
-The smoke script:
-
-- launches the Electron app
-- validates the home and canvas shell
-- checks fullscreen stability
-- checks module-library scrolling
-- checks browser-surface launch
-- checks settings access
-- refreshes screenshots in [`output/playwright`](./output/playwright)
-- filters known external challenge noise such as `429` embed chatter so the run stays focused on actual app failures
-
-Most recent full verification pass completed successfully with:
-
-```bash
-npm run lint
-npm test
-npm run build
-node output/playwright/electron-smoke.mjs
-```
-
+<a id="project-structure"></a>
 ## Project Structure
 
-- [`src/main`](./src/main): Electron main process, IPC, Git manager, updates, workspace store
-- [`src/renderer`](./src/renderer): React UI, Home, graph, module canvas, modals, styles
-- [`src/shared`](./src/shared): shared types, schemas, constants, API surface
-- [`tests`](./tests): unit and behavior tests
-- [`output/playwright`](./output/playwright): smoke screenshots and Electron artifacts
+- `src/main`: Electron main process, IPC, Git manager, workspace store
+- `src/renderer`: React UI, graph, canvas, settings command center
+- `src/shared`: shared schemas, types, constants
+- `tests`: test suites
+- `output/playwright`: smoke artifacts/screenshots
 
-## Troubleshooting
-
-### Sync says no remote is configured
-
-Your workspace repo does not have a remote yet. Add one with Git, then reopen or rerun diagnostics.
-
-### Sync is queued offline
-
-The network failed during fetch or push. Your local work is still safe. Wait for connectivity to return or click `Retry queued sync`.
-
-### I hit a conflict
-
-Open the conflict modal from Workspace Reliability, choose a per-file strategy, or open the file in an external editor. Then sync again.
-
-### VS Code diff did not open
-
-SYNAPSE tries `code --diff` first. If the `code` CLI is not installed, it falls back to the system default editor.
-
-### An embed still looks broken
-
-Some sites still block or challenge embedded traffic even after header cleanup. Use Browser Surface or your default browser for those cases.
-
-### Backup failed previously
-
-Manual backups now support whole workspace folders, not just single files. Retry from Workspace Reliability.
-
-### The app opens the wrong workspace
-
-Check the `basePath` in the SYNAPSE app config and make sure it points at your actual workspace repository.
-
-## Additional Docs
+Additional docs:
 
 - [USER_GUIDE.md](./USER_GUIDE.md)
 - [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md)
 - [FILE_STRUCTURE.md](./FILE_STRUCTURE.md)
 - [SHORTCUTS.md](./SHORTCUTS.md)
 
-## Current State
+---
 
-This repository now contains the live desktop shell, Home canvas, graph navigation, production-ready module surfaces, quick capture, browser surface support, Workspace Reliability with Git sync and recovery, and automated smoke artifacts. SYNAPSE is no longer organized like a loose prototype; it is documented and structured as a real product workflow.
+<a id="troubleshooting"></a>
+## Troubleshooting
 
-## Build And Deploy Readiness
+- **No remote configured:** add workspace `origin` and rerun diagnostics.
+- **Branch not tracking upstream:** run `git push -u origin main` once.
+- **Queued offline:** retry sync when network returns.
+- **Conflict detected:** resolve in modal, then sync again.
+- **Wrong workspace opens:** verify app `basePath` points to your real workspace repo folder.
 
-### Ready now
+---
 
-SYNAPSE is ready to:
+<a id="contributing"></a>
+## Contributing
 
-- build locally
-- package as a desktop app
-- run as a serious personal or small-team desktop release
-- support a real dual-device Git-backed workspace workflow
-- serve as a controlled beta or private production deployment
+<div align="center">
 
-### Not fully complete for a broad public launch
+### Build something excellent
 
-Before calling this a fully finished mass-distribution product, there are still a few honest gaps:
+Contributions are welcome across modules, reliability, docs, and UX quality.
 
-- `Vault Encryption` is not yet full encrypted-at-rest workspace protection
-- cloud backup providers are not yet real provider-backed upload integrations
-- packaged auto-update should be validated end to end against a real update feed and installer pipeline
-- final signing, installer polish, and platform-distribution hardening should be completed for Windows and any other target platforms
-- web embeds are much more compatible now, but hostile sites can still break because of server-side anti-bot controls outside the app's control
+<a href="./DEVELOPER_GUIDE.md">Developer Guide</a> ·
+<a href="./FILE_STRUCTURE.md">File Structure</a> ·
+<a href="./SHORTCUTS.md">Shortcuts</a>
 
-### Practical recommendation
+</div>
 
-If your goal is:
+1. Fork the repository.
+2. Create a focused branch.
+3. Add tests/docs for behavior changes.
+4. Open a PR with clear before/after notes.
 
-- `build and use it yourself`: yes
-- `use it across desktop and laptop with Git-backed workspace sync`: yes
-- `share it with a few trusted users as a beta`: yes
-- `ship it broadly as a polished public desktop product`: almost, but do one final release-hardening pass around update delivery, signing, and the unfinished security/backup promises first
+---
 
-## Updating The App
-
-For your personal setup, updating SYNAPSE should not wipe your data if you keep the app install and the workspace separated.
-
-### What gets replaced during an update
-
-- the installed app binaries
-- packaged frontend and Electron code
-- installer-level program files
-
-### What stays safe
-
-- your workspace folder and workspace Git repo
-- your notes, files, screenshots, module data, and layouts
-- your app config under `%APPDATA%\\SYNAPSE\\`
-- your workspace reliability history and Git state
-
-### Recommended update flow
-
-1. Create a workspace snapshot in `Workspace Reliability`
-2. Sync the workspace if you want off-machine backup before updating
-3. Build a new installer
-4. Run the new installer over the existing SYNAPSE install
-5. Reopen the app and confirm the workspace path is still correct
-
-### Best-practice setup
-
-Keep these separate:
-
-- app code repo: [c:\dev2\synapse](/c:/dev2/synapse)
-- installed app: `C:\Program Files\SYNAPSE`
-- workspace data repo: your real workspace folder, for example `C:\Users\<you>\Documents\SYNAPSE-Workspace`
-
-### Important note
-
-Do not treat the install folder as a data folder. The installer can replace app files, but it should not touch your external workspace repository or your `%APPDATA%` config. If you want maximum safety before a new install, create both:
-
-- a Git snapshot
-- a manual backup from `Workspace Reliability`
+<div align="center">
+  Crafted for calm, deep, file-backed learning.
+  <br/>
+  <a href="#top">Back to top</a>
+</div>
