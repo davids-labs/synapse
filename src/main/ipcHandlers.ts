@@ -3,8 +3,10 @@ import { stat } from 'fs/promises';
 import { BrowserWindow, dialog, ipcMain, powerMonitor, shell, type IpcMainInvokeEvent } from 'electron';
 import path from 'path';
 import {
+  buildPhase7ReleaseStatus,
   DEFAULT_SETTINGS,
   MODERN_CHROME_USER_AGENT,
+  runGoldenReferenceAudit,
   resolveThemeColorScheme,
 } from '../shared/constants';
 import {
@@ -16,7 +18,11 @@ import {
   CsvPreviewRequestSchema,
   GitConflictResolutionRequestSchema,
   GitSnapshotRequestSchema,
+  IntegrationHandoffCommitRequestSchema,
+  IntegrationHandoffRequestSchema,
   KnowledgeRecordSchema,
+  ModuleRuntimeEventInputSchema,
+  ModuleRuntimeHealthRequestSchema,
   PageLayoutSchema,
   QuickCaptureRequestSchema,
 } from '../shared/schemas';
@@ -30,6 +36,7 @@ import type {
   OpenDialogRequest,
   PageLayout,
   PracticeQuestion,
+  ModuleType,
   QuickCaptureRequest,
   QuickCaptureResponse,
   RepoHealth,
@@ -76,6 +83,19 @@ import {
   saveRootSettings,
   saveTags as saveWorkspaceTags,
 } from './workspaceStore';
+import { getModuleRuntimeHealthReport, recordModuleRuntimeEvent } from './moduleTelemetry';
+import {
+  commitIntegrationHandoffDraft,
+  createIntegrationHandoffDraft,
+  getIntegrationHandoffDraftById,
+  getIntegrationHandoffContracts,
+  undoIntegrationHandoff,
+} from './moduleIntegration';
+import {
+  advancePhase7RolloutCohort,
+  loadPhase7RolloutState,
+  rehearsePhase7Rollback,
+} from './phase7Rollout';
 
 interface IpcContext {
   getMainWindow: () => BrowserWindow | null;
@@ -97,7 +117,16 @@ const backgroundAutoSaveTimers = new Map<string, NodeJS.Timeout>();
 const backgroundAutoSaveLastActivity = new Map<string, number>();
 const backgroundAutoSaveLastCommit = new Map<string, number>();
 const queuedSyncTimers = new Map<string, NodeJS.Timeout>();
-const activeSyncByWorkspace = new Map<string, Promise<SyncResult>>();
+const integrationOperationEffects = new Map<
+  string,
+  {
+    targetEntityPath: string;
+    targetModuleType: ModuleType;
+    generatedIds: string[];
+    flashcardModuleId?: string;
+    previousFlashcardCards?: Array<{ id: string; front: string; back: string }>;
+  }
+>();
 let allowMainWindowClose = false;
 let closeFlowRunning = false;
 let skipCloseSyncPromptForSession = false;
@@ -198,6 +227,195 @@ function buildLocalOnlySyncResult(message: string): SyncResult {
     message,
     recovery: ['Disable local-only mode in Settings when you want SYNAPSE to reach the network again.'],
   };
+}
+
+async function applyIntegrationCommitSideEffects(
+  context: IpcContext,
+  draft: Awaited<ReturnType<typeof createIntegrationHandoffDraft>>,
+  generatedItems: Array<{ id: string; title: string; content: string }>,
+): Promise<{
+  targetEntityPath: string;
+  targetModuleType: ModuleType;
+  generatedIds: string[];
+  flashcardModuleId?: string;
+  previousFlashcardCards?: Array<{ id: string; front: string; back: string }>;
+}> {
+  const settings = await loadSettings(context.appPath, context.userDataPath);
+  const workspace = await buildWorkspaceSnapshot(
+    settings.basePath,
+    hotDropManager?.getStatus() ?? {
+      folderPath: getHotDropFolderPath(context.userDataPath),
+      activeEntityPath: null,
+    },
+    settings,
+  );
+
+  const targetEntity = workspace.entities[draft.targetEntityPath];
+  if (!targetEntity) {
+    throw new Error(`Target entity not found for integration handoff: ${draft.targetEntityPath}`);
+  }
+
+  if (draft.targetModuleType === 'practice-bank') {
+    const generatedQuestions: PracticeQuestion[] = generatedItems.map((item, index) => ({
+      id: item.id,
+      title: item.title,
+      type: 'custom',
+      difficulty: index <= 1 ? 'medium' : 'hard',
+      source: `integration:${draft.contractId}`,
+      tags: ['integration-handoff'],
+      attempts: [],
+      status: 'not-attempted',
+    }));
+    await savePracticeQuestions(draft.targetEntityPath, [
+      ...targetEntity.practiceQuestions,
+      ...generatedQuestions,
+    ]);
+    return {
+      targetEntityPath: draft.targetEntityPath,
+      targetModuleType: draft.targetModuleType,
+      generatedIds: generatedQuestions.map((item) => item.id),
+    };
+  }
+
+  if (draft.targetModuleType === 'error-log') {
+    const today = new Date().toISOString();
+    const generatedErrors: ErrorEntry[] = generatedItems.map((item) => ({
+      id: item.id,
+      questionId: item.id,
+      date: today,
+      mistake: item.title,
+      correction: item.content,
+      conceptGap: 'Generated from integration handoff review',
+      tags: ['integration-handoff'],
+      resolved: false,
+    }));
+
+    await saveErrorEntries(draft.targetEntityPath, [...targetEntity.errorLog, ...generatedErrors]);
+    return {
+      targetEntityPath: draft.targetEntityPath,
+      targetModuleType: draft.targetModuleType,
+      generatedIds: generatedErrors.map((item) => item.id),
+    };
+  }
+
+  if (draft.targetModuleType === 'flashcard-deck') {
+    const targetModule = targetEntity.page.modules.find((module) => module.type === 'flashcard-deck');
+    if (!targetModule) {
+      throw new Error('No flashcard deck module found on target entity for integration handoff.');
+    }
+
+    const previousCards = Array.isArray(targetModule.config.cards)
+      ? (targetModule.config.cards as Array<{ id: string; front: string; back: string }>).map((card) => ({
+          id: String(card.id),
+          front: String(card.front),
+          back: String(card.back),
+        }))
+      : [];
+
+    const generatedCards = generatedItems.map((item) => ({
+      id: item.id,
+      front: item.title,
+      back: item.content,
+    }));
+
+    const nextPage: PageLayout = {
+      ...targetEntity.page,
+      modules: targetEntity.page.modules.map((module) => {
+        if (module.id !== targetModule.id) {
+          return module;
+        }
+        return {
+          ...module,
+          config: {
+            ...module.config,
+            cards: [...previousCards, ...generatedCards],
+          },
+        };
+      }),
+    };
+
+    await savePageLayout(draft.targetEntityPath, nextPage);
+    return {
+      targetEntityPath: draft.targetEntityPath,
+      targetModuleType: draft.targetModuleType,
+      generatedIds: generatedCards.map((item) => item.id),
+      flashcardModuleId: targetModule.id,
+      previousFlashcardCards: previousCards,
+    };
+  }
+
+  return {
+    targetEntityPath: draft.targetEntityPath,
+    targetModuleType: draft.targetModuleType,
+    generatedIds: generatedItems.map((item) => item.id),
+  };
+}
+
+async function undoIntegrationCommitSideEffects(
+  context: IpcContext,
+  operationId: string,
+): Promise<void> {
+  const effect = integrationOperationEffects.get(operationId);
+  if (!effect) {
+    return;
+  }
+
+  const settings = await loadSettings(context.appPath, context.userDataPath);
+  const workspace = await buildWorkspaceSnapshot(
+    settings.basePath,
+    hotDropManager?.getStatus() ?? {
+      folderPath: getHotDropFolderPath(context.userDataPath),
+      activeEntityPath: null,
+    },
+    settings,
+  );
+
+  const targetEntity = workspace.entities[effect.targetEntityPath];
+  if (!targetEntity) {
+    integrationOperationEffects.delete(operationId);
+    return;
+  }
+
+  if (effect.targetModuleType === 'practice-bank') {
+    await savePracticeQuestions(
+      effect.targetEntityPath,
+      targetEntity.practiceQuestions.filter((question) => !effect.generatedIds.includes(question.id)),
+    );
+    integrationOperationEffects.delete(operationId);
+    return;
+  }
+
+  if (effect.targetModuleType === 'error-log') {
+    await saveErrorEntries(
+      effect.targetEntityPath,
+      targetEntity.errorLog.filter((entry) => !effect.generatedIds.includes(entry.id)),
+    );
+    integrationOperationEffects.delete(operationId);
+    return;
+  }
+
+  if (effect.targetModuleType === 'flashcard-deck' && effect.flashcardModuleId) {
+    const nextPage: PageLayout = {
+      ...targetEntity.page,
+      modules: targetEntity.page.modules.map((module) => {
+        if (module.id !== effect.flashcardModuleId) {
+          return module;
+        }
+        return {
+          ...module,
+          config: {
+            ...module.config,
+            cards: effect.previousFlashcardCards ?? [],
+          },
+        };
+      }),
+    };
+    await savePageLayout(effect.targetEntityPath, nextPage);
+    integrationOperationEffects.delete(operationId);
+    return;
+  }
+
+  integrationOperationEffects.delete(operationId);
 }
 
 async function assertNetworkAccessAllowed(
@@ -453,6 +671,7 @@ async function buildBootstrap(context: IpcContext) {
   const settings = await loadSettings(context.appPath, context.userDataPath);
   const manager = await ensureHotDropManager(context);
   const workspace = await buildWorkspaceSnapshot(settings.basePath, manager.getStatus(), settings);
+  const goldenReferenceAudit = runGoldenReferenceAudit();
 
   return {
     settings,
@@ -469,6 +688,7 @@ async function buildBootstrap(context: IpcContext) {
     defaultBasePath: settings.basePath,
     hotDrop: manager.getStatus(),
     workspace,
+    goldenReferenceAudit,
   };
 }
 
@@ -971,6 +1191,43 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   registerHandle('save-settings', async (_event, settings: AppSettings) =>
     {
+      if (settings.featureFlags.familyModules) {
+        const report = runGoldenReferenceAudit();
+        if (report.releaseBlocked) {
+          throw new Error(
+            `Cannot enable family module rollout until Phase 3 golden references are signed off. ${report.errors.join(' ')}`,
+          );
+        }
+      }
+
+      if (
+        settings.featureFlags.newShell ||
+        settings.featureFlags.newPicker ||
+        settings.featureFlags.integrationHandoffs ||
+        settings.featureFlags.familyModules
+      ) {
+        const phase7Status = buildPhase7ReleaseStatus(getModuleRuntimeHealthReport());
+        if (!phase7Status.readyForRollout) {
+          const thresholdSummary = phase7Status.thresholdBreaches
+            .map(
+              (breach) =>
+                `${breach.eventType} (${breach.observedCount}/${breach.maxEventsBeforeBlock})`,
+            )
+            .join(', ');
+          throw new Error(
+            [
+              'Cannot enable rollout-stage flags while Phase 7 release gates are failing.',
+              ...phase7Status.audit.errors,
+              thresholdSummary
+                ? `Telemetry thresholds exceeded: ${thresholdSummary}.`
+                : null,
+            ]
+              .filter((value): value is string => Boolean(value))
+              .join(' '),
+          );
+        }
+      }
+
       const saved = await persistSettings(context.appPath, context.userDataPath, settings);
       syncRuntimeSettingsFromAppSettings(saved);
       applyRuntimeSettingsToWindow(context.getMainWindow());
@@ -1240,17 +1497,6 @@ export function registerIpcHandlers(context: IpcContext): void {
   });
 
   registerHandle('git-sync', async (_event, basePath: string) => {
-    const workspaceKey = path.resolve(basePath);
-    const existingSync = activeSyncByWorkspace.get(workspaceKey);
-    if (existingSync) {
-      return {
-        success: false,
-        code: 'sync-in-progress',
-        message: 'A workspace sync is already in progress. Please wait for it to finish.',
-        recovery: ['Wait for the current sync to complete, then retry if needed.'],
-      } satisfies SyncResult;
-    }
-
     const settings = await loadSettings(context.appPath, context.userDataPath);
     if (settings.privacy.localOnlyMode) {
       return buildLocalOnlySyncResult(
@@ -1258,26 +1504,14 @@ export function registerIpcHandlers(context: IpcContext): void {
       );
     }
 
-    const syncPromise = (async () => {
-      const git = await ensureGitReady(basePath);
-      const result = await git.sync();
-      if (result.queuedOffline) {
-        scheduleQueuedSyncRetry(context, basePath);
-      } else {
-        clearQueuedSyncRetry(basePath);
-      }
-      return result;
-    })();
-
-    activeSyncByWorkspace.set(workspaceKey, syncPromise);
-
-    try {
-      return await syncPromise;
-    } finally {
-      if (activeSyncByWorkspace.get(workspaceKey) === syncPromise) {
-        activeSyncByWorkspace.delete(workspaceKey);
-      }
+    const git = await ensureGitReady(basePath);
+    const result = await git.sync();
+    if (result.queuedOffline) {
+      scheduleQueuedSyncRetry(context, basePath);
+    } else {
+      clearQueuedSyncRetry(basePath);
     }
+    return result;
   });
 
   registerHandle('git-conflicts', async (_event, basePath: string) => {
@@ -1424,5 +1658,82 @@ export function registerIpcHandlers(context: IpcContext): void {
   registerHandle('install-update', async () => {
     await assertNetworkAccessAllowed(context, 'update installs');
     return context.updateManager.installUpdate();
+  });
+
+  registerHandle('get-golden-reference-audit', async () => runGoldenReferenceAudit());
+
+  registerHandle('get-phase7-release-status', async () =>
+    buildPhase7ReleaseStatus(getModuleRuntimeHealthReport()),
+  );
+
+  registerHandle('get-phase7-rollout-state', async () =>
+    loadPhase7RolloutState(context.userDataPath),
+  );
+
+  registerHandle('advance-phase7-rollout-cohort', async () => {
+    const status = buildPhase7ReleaseStatus(getModuleRuntimeHealthReport());
+    return advancePhase7RolloutCohort(context.userDataPath, status);
+  });
+
+  registerHandle(
+    'rehearse-phase7-rollback',
+    async (_event, flag: keyof AppSettings['featureFlags'], note?: string) =>
+      rehearsePhase7Rollback(context.userDataPath, flag, note),
+  );
+
+  registerHandle('get-integration-handoff-contracts', async () =>
+    getIntegrationHandoffContracts(),
+  );
+
+  registerHandle('create-integration-handoff-draft', async (_event, payload: unknown) => {
+    try {
+      const parsed = IntegrationHandoffRequestSchema.parse(payload);
+      return createIntegrationHandoffDraft(parsed);
+    } catch (error) {
+      if (payload && typeof payload === 'object' && 'sourceModuleType' in (payload as Record<string, unknown>)) {
+        const sourceModuleType = (payload as Record<string, unknown>).sourceModuleType;
+        if (typeof sourceModuleType === 'string') {
+          recordModuleRuntimeEvent({
+            moduleType: sourceModuleType as ModuleType,
+            eventType: 'integration-handoff-failed',
+            severity: 'error',
+            message: error instanceof Error ? error.message : 'Integration handoff draft failed.',
+            context: { stage: 'draft' },
+          });
+        }
+      }
+      throw error;
+    }
+  });
+
+  registerHandle('commit-integration-handoff-draft', async (_event, payload: unknown) => {
+    const parsed = IntegrationHandoffCommitRequestSchema.parse(payload);
+    const draft = getIntegrationHandoffDraftById(parsed.draftId);
+    if (!draft) {
+      throw new Error('Integration draft not found before commit persistence.');
+    }
+    const committed = commitIntegrationHandoffDraft(parsed);
+    const effect = await applyIntegrationCommitSideEffects(context, draft, committed.generatedItems);
+    integrationOperationEffects.set(committed.operation.operationId, effect);
+    return committed;
+  });
+
+  registerHandle('undo-integration-handoff', async (_event, operationId: string) => {
+    const result = undoIntegrationHandoff(operationId);
+    if (result.undone) {
+      await undoIntegrationCommitSideEffects(context, operationId);
+    }
+    return result;
+  });
+
+  registerHandle('record-module-event', async (_event, payload: unknown) => {
+    const parsed = ModuleRuntimeEventInputSchema.parse(payload);
+    recordModuleRuntimeEvent(parsed);
+    return getModuleRuntimeHealthReport();
+  });
+
+  registerHandle('get-module-runtime-health', async (_event, request?: unknown) => {
+    const parsed = ModuleRuntimeHealthRequestSchema.parse(request ?? {});
+    return getModuleRuntimeHealthReport(parsed.limit);
   });
 }

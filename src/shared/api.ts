@@ -18,10 +18,22 @@ import type {
   GitSnapshotRequest,
   HotDropCaptureEvent,
   HotDropStatus,
+  IntegrationHandoffCommitRequest,
+  IntegrationHandoffCommitResult,
+  IntegrationHandoffContract,
+  IntegrationHandoffDraft,
+  IntegrationHandoffRequest,
+  IntegrationHandoffUndoResult,
   KnowledgeRecord,
+  ModuleGoldenReferenceAudit,
+  ModulePhase7RolloutAdvanceResult,
+  ModulePhase7RolloutState,
+  ModulePhase7ReleaseStatus,
   OpenDialogRequest,
   PageLayout,
   PracticeQuestion,
+  ModuleRuntimeEventInput,
+  ModuleRuntimeHealthReport,
   QuickCaptureRequest,
   QuickCaptureResponse,
   SyncResult,
@@ -81,6 +93,22 @@ export interface SynapseApi {
   getUpdateState: () => Promise<UpdateState>;
   checkForUpdates: () => Promise<UpdateState>;
   installUpdate: () => Promise<UpdateState>;
+  recordModuleEvent: (event: ModuleRuntimeEventInput) => Promise<ModuleRuntimeHealthReport>;
+  getModuleRuntimeHealth: (limit?: number) => Promise<ModuleRuntimeHealthReport>;
+  getGoldenReferenceAudit: () => Promise<ModuleGoldenReferenceAudit>;
+  getPhase7ReleaseStatus: () => Promise<ModulePhase7ReleaseStatus>;
+  getPhase7RolloutState: () => Promise<ModulePhase7RolloutState>;
+  advancePhase7RolloutCohort: () => Promise<ModulePhase7RolloutAdvanceResult>;
+  rehearsePhase7Rollback: (
+    flag: keyof AppSettings['featureFlags'],
+    note?: string,
+  ) => Promise<ModulePhase7RolloutState>;
+  getIntegrationHandoffContracts: () => Promise<IntegrationHandoffContract[]>;
+  createIntegrationHandoffDraft: (request: IntegrationHandoffRequest) => Promise<IntegrationHandoffDraft>;
+  commitIntegrationHandoffDraft: (
+    request: IntegrationHandoffCommitRequest,
+  ) => Promise<IntegrationHandoffCommitResult>;
+  undoIntegrationHandoff: (operationId: string) => Promise<IntegrationHandoffUndoResult>;
   onWorkspaceUpdated: (listener: (workspace: WorkspaceSnapshot) => void) => () => void;
   onHotDropCaptured: (listener: (event: HotDropCaptureEvent) => void) => () => void;
   onUpdateStateChanged: (listener: (state: UpdateState) => void) => () => void;

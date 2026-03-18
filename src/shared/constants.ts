@@ -4,13 +4,33 @@ import type {
   KeyboardShortcutMap,
   LinkStyle,
   MasteryColorMap,
+  ModuleDeprecationMode,
+  ModuleDeprecationPolicyAudit,
+  ModuleFeatureFlags,
+  ModuleGoldenReferenceAudit,
+  ModulePhase7ReleaseStatus,
+  ModuleRedTeamMigrationPack,
+  ModuleReleaseHardeningAudit,
+  ModuleRollbackCriterion,
+  ModuleRolloutCohort,
+  ModuleFamily,
   ModuleImplementationStatus,
+  ModuleManifest,
   ModuleOwnerWave,
+  ModulePickerCategory,
+  ModuleQualityGateAudit,
+  ModuleSpecializationAudit,
+  ModuleTelemetryThresholdBreach,
+  ModuleTelemetryThresholdPolicy,
+  ModuleRegistryAudit,
+  ModuleRuntimeHealthReport,
+  ModuleRuntimeEventType,
   ModuleTemplate,
   ModuleType,
   SynapseModule,
   TagDefinition,
 } from './types';
+import { ModuleManifestSchema } from './schemas';
 
 export const APP_NAME = 'SYNAPSE';
 export const MODERN_CHROME_USER_AGENT =
@@ -162,6 +182,16 @@ export interface ModuleLibraryEntry {
     width: number;
     height: number;
   };
+  family?: ModuleFamily;
+  searchKeywords?: string[];
+  pickerCategory?: ModulePickerCategory;
+  recommendedPageTypes?: Array<'home' | 'base' | 'node'>;
+  defaultZone?: 'primary' | 'secondary' | 'tertiary' | 'sidebar';
+  suggestedPairings?: ModuleType[];
+  deprecationMode?: ModuleDeprecationMode;
+  replacementModuleId?: ModuleType;
+  aliases?: string[];
+  configSchemaVersion?: number;
 }
 
 const MODULE_LIBRARY_BASE: Array<
@@ -351,13 +381,846 @@ function resolveModuleImplementationStatus(type: ModuleType): ModuleImplementati
   return resolveModuleOwnerWave(type) === 'foundation' ? 'production' : 'uplift';
 }
 
-export const MODULE_LIBRARY: ModuleLibraryEntry[] = MODULE_LIBRARY_BASE.map((entry) => ({
-  ...entry,
-  implementationStatus: resolveModuleImplementationStatus(entry.type),
-  verificationChecklist: [...MODULE_VERIFICATION_CHECKLIST],
-  ownerWave: resolveModuleOwnerWave(entry.type),
-  knownGaps: [...(MODULE_KNOWN_GAPS[entry.type] ?? [])],
-}));
+const CATEGORY_TO_PICKER: Record<string, ModulePickerCategory> = {
+  Content: 'content',
+  Trackers: 'trackers',
+  Organization: 'organization',
+  'Math & Science': 'math-science',
+  Analytics: 'analytics',
+  Learning: 'learning',
+  Creative: 'creative',
+  Utility: 'utility',
+  Custom: 'custom',
+};
+
+const CATEGORY_TO_FAMILY: Record<string, ModuleFamily> = {
+  Content: 'media-surface',
+  Trackers: 'planning',
+  Organization: 'planning',
+  'Math & Science': 'learning-engine',
+  Analytics: 'analytics',
+  Learning: 'learning-engine',
+  Creative: 'creative',
+  Utility: 'utility',
+  Custom: 'custom',
+};
+
+const MODULE_FAMILY_OVERRIDES: Partial<Record<ModuleType, ModuleFamily>> = {
+  'markdown-editor': 'text-surface',
+  'markdown-viewer': 'text-surface',
+  'rich-text-editor': 'text-surface',
+  'text-entry': 'text-surface',
+  scratchpad: 'text-surface',
+  'practice-bank': 'learning-engine',
+  'error-log': 'learning-engine',
+};
+
+export const REHAUL_EXPECTED_MODULE_INVENTORY = 81;
+
+export const REQUIRED_MODULE_OBSERVABILITY_EVENTS: ModuleRuntimeEventType[] = [
+  'module-mount-failed',
+  'config-validation-failed',
+  'migration-failed',
+  'autosave-conflict',
+  'resize-render-crash',
+  'slow-module-load',
+  'integration-handoff-failed',
+  'unsupported-legacy-payload',
+];
+
+export const PHASE_3_GOLDEN_REFERENCE_FAMILIES: ModuleFamily[] = [
+  'text-surface',
+  'learning-engine',
+  'media-surface',
+  'planning',
+  'analytics',
+];
+
+export const PHASE_3_GOLDEN_REFERENCE_ANCHORS: Partial<Record<ModuleFamily, ModuleType>> = {
+  'text-surface': 'markdown-editor',
+  'learning-engine': 'practice-bank',
+  'media-surface': 'pdf-viewer',
+  planning: 'kanban-board',
+  analytics: 'analytics-dashboard',
+};
+
+type Phase4FamilyMigrationRule = {
+  replacementModuleId: ModuleType;
+  deprecatedModuleIds: ModuleType[];
+  mode: Exclude<ModuleDeprecationMode, 'none'>;
+};
+
+export const PHASE_4_FAMILY_MIGRATION_RULES: Partial<Record<ModuleFamily, Phase4FamilyMigrationRule>> = {
+  'text-surface': {
+    replacementModuleId: 'markdown-editor',
+    deprecatedModuleIds: ['markdown-viewer'],
+    mode: 'hidden-auto-migrate',
+  },
+  'media-surface': {
+    replacementModuleId: 'web-embed',
+    deprecatedModuleIds: ['embedded-iframe'],
+    mode: 'legacy-toggle-only',
+  },
+  analytics: {
+    replacementModuleId: 'analytics-chart',
+    deprecatedModuleIds: [
+      'bar-chart',
+      'line-chart',
+      'pie-chart',
+      'scatter-plot',
+      'heatmap',
+      'progress-chart',
+    ],
+    mode: 'hidden-auto-migrate',
+  },
+  planning: {
+    replacementModuleId: 'kanban-board',
+    deprecatedModuleIds: ['timeline'],
+    mode: 'hidden-auto-migrate',
+  },
+  'learning-engine': {
+    replacementModuleId: 'practice-bank',
+    deprecatedModuleIds: ['quiz-maker'],
+    mode: 'hidden-auto-migrate',
+  },
+};
+
+export const PHASE_4_CONSOLIDATION_FAMILIES: ModuleFamily[] = [
+  'text-surface',
+  'media-surface',
+  'analytics',
+  'planning',
+  'learning-engine',
+];
+
+const PHASE_4_DEPRECATED_MODULE_ALIASES: Partial<Record<ModuleType, string[]>> = {
+  'markdown-viewer': ['notes-viewer-legacy'],
+  'embedded-iframe': ['legacy-iframe-module'],
+  'bar-chart': ['bar-chart-legacy'],
+  'line-chart': ['line-chart-legacy'],
+  'pie-chart': ['pie-chart-legacy'],
+  'scatter-plot': ['scatter-plot-legacy'],
+  heatmap: ['heatmap-legacy'],
+  'progress-chart': ['progress-chart-legacy'],
+  timeline: ['timeline-legacy'],
+  'quiz-maker': ['quiz-maker-legacy'],
+};
+
+export const PHASE_4_DEPRECATED_ID_ALIASES: Record<string, ModuleType> = {
+  'notes-viewer': 'markdown-editor',
+  'chart-studio': 'analytics-chart',
+  'study-timeline': 'kanban-board',
+  'practice-quiz': 'practice-bank',
+};
+
+export const PHASE_5_NICHE_UTILITY_MODULES: ModuleType[] = [
+  'weather-widget',
+  'quote-display',
+  'random-picker',
+  'clock',
+  'pomodoro-timer',
+];
+
+export const PHASE_5_UTILITY_WORKFLOW_JUSTIFICATIONS: Partial<Record<ModuleType, { owner: string; workflow: string }>> = {
+  'weather-widget': {
+    owner: 'utility-squad',
+    workflow: 'Supports commute/day planning for study sessions that depend on location constraints.',
+  },
+  'quote-display': {
+    owner: 'utility-squad',
+    workflow: 'Keeps motivation nudges visible in long revision cycles where drop-off is common.',
+  },
+  'random-picker': {
+    owner: 'utility-squad',
+    workflow: 'Breaks task-selection deadlocks during mixed-backlog study sessions.',
+  },
+  clock: {
+    owner: 'utility-squad',
+    workflow: 'Provides low-noise time context while full timers are reserved for focused blocks.',
+  },
+  'pomodoro-timer': {
+    owner: 'utility-squad',
+    workflow: 'Anchors focus/break cadence directly in workspace without context switching.',
+  },
+};
+
+export const PHASE_5_TYPE_ONLY_PLACEHOLDER_RESOLUTION: Partial<Record<ModuleType, 'family-mode' | 'deprecated'>> = {
+  'markdown-viewer': 'family-mode',
+  'embedded-iframe': 'deprecated',
+  timeline: 'family-mode',
+  'quiz-maker': 'family-mode',
+};
+
+function keywordsForEntry(entry: ModuleLibraryEntry): string[] {
+  const normalized = entry.title
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const typeParts = entry.type.split('-').filter(Boolean);
+  return [...new Set([...normalized, ...typeParts, entry.category.toLowerCase()])];
+}
+
+function suggestedPairingsForEntry(entry: ModuleLibraryEntry): ModuleType[] {
+  if (entry.type === 'pdf-viewer') {
+    return ['markdown-editor', 'practice-bank'];
+  }
+  if (entry.type === 'practice-bank') {
+    return ['error-log', 'flashcard-deck'];
+  }
+  if (entry.type === 'kanban-board') {
+    return ['time-tracker', 'goal-tracker'];
+  }
+  if (entry.type === 'markdown-editor') {
+    return ['pdf-viewer', 'flashcard-deck'];
+  }
+
+  return [];
+}
+
+function phase4DeprecationPolicyForEntry(type: ModuleType): {
+  mode: ModuleDeprecationMode;
+  replacementModuleId?: ModuleType;
+  aliases?: string[];
+} {
+  for (const familyRule of Object.values(PHASE_4_FAMILY_MIGRATION_RULES)) {
+    if (!familyRule || !familyRule.deprecatedModuleIds.includes(type)) {
+      continue;
+    }
+
+    return {
+      mode: familyRule.mode,
+      replacementModuleId: familyRule.replacementModuleId,
+      aliases: PHASE_4_DEPRECATED_MODULE_ALIASES[type],
+    };
+  }
+
+  if (type === 'web-embed') {
+    return {
+      mode: 'none',
+      aliases: ['embedded-browser'],
+    };
+  }
+
+  return {
+    mode: 'none',
+  };
+}
+
+export const MODULE_LIBRARY: ModuleLibraryEntry[] = MODULE_LIBRARY_BASE.map((entry) => {
+  const deprecationPolicy = phase4DeprecationPolicyForEntry(entry.type);
+
+  return {
+    ...entry,
+    implementationStatus: resolveModuleImplementationStatus(entry.type),
+    verificationChecklist: [...MODULE_VERIFICATION_CHECKLIST],
+    ownerWave: resolveModuleOwnerWave(entry.type),
+    knownGaps: [...(MODULE_KNOWN_GAPS[entry.type] ?? [])],
+    family: MODULE_FAMILY_OVERRIDES[entry.type] ?? CATEGORY_TO_FAMILY[entry.category],
+    searchKeywords: keywordsForEntry(entry as ModuleLibraryEntry),
+    pickerCategory: CATEGORY_TO_PICKER[entry.category],
+    recommendedPageTypes: entry.category === 'Analytics' ? ['home', 'base'] : ['base', 'node'],
+    defaultZone: entry.category === 'Utility' ? 'tertiary' : 'primary',
+    suggestedPairings: suggestedPairingsForEntry(entry as ModuleLibraryEntry),
+    deprecationMode: deprecationPolicy.mode,
+    replacementModuleId: deprecationPolicy.replacementModuleId,
+    aliases: deprecationPolicy.aliases,
+    configSchemaVersion: 1,
+  };
+});
+
+export const MODULE_MANIFESTS: ModuleManifest[] = MODULE_LIBRARY.map((entry) => {
+  // Phase 3 anchor modules are selected once per family before broad rollout.
+  const family = entry.family ?? 'custom';
+  const isGoldenReference =
+    PHASE_3_GOLDEN_REFERENCE_FAMILIES.includes(family) &&
+    PHASE_3_GOLDEN_REFERENCE_ANCHORS[family] === entry.type;
+  const isIndependentUtility = PHASE_5_NICHE_UTILITY_MODULES.includes(entry.type);
+  const specializationContext = PHASE_5_UTILITY_WORKFLOW_JUSTIFICATIONS[entry.type];
+  const placeholderResolutionMode = PHASE_5_TYPE_ONLY_PLACEHOLDER_RESOLUTION[entry.type] ?? 'none';
+
+  return ModuleManifestSchema.parse({
+    moduleType: entry.type,
+    displayName: entry.title,
+    family,
+    searchKeywords: entry.searchKeywords,
+    pickerCategory: entry.pickerCategory,
+    recommendedPageTypes: entry.recommendedPageTypes,
+    defaultSize: entry.defaultSize ?? { width: 4, height: 4 },
+    defaultZone: entry.defaultZone ?? 'primary',
+    suggestedPairings: entry.suggestedPairings ?? [],
+    description: entry.description,
+    implementationStatus: entry.implementationStatus,
+    ownerWave: entry.ownerWave,
+    verificationChecklist: entry.verificationChecklist,
+    knownGaps: entry.knownGaps,
+    deprecation: {
+      status: entry.deprecationMode && entry.deprecationMode !== 'none' ? 'deprecated' : 'active',
+      mode: entry.deprecationMode ?? 'none',
+      replacementModuleId: entry.replacementModuleId,
+      aliases: entry.aliases,
+    },
+    config: {
+      schemaVersion: entry.configSchemaVersion ?? 1,
+      defaultConfig: {},
+    },
+    qualityGates: {
+      schemaValidation: true,
+      emptyState: true,
+      loadingState: true,
+      errorState: true,
+      resizeCollapseFocus: true,
+      configEditor: true,
+      keyboardSupport: true,
+      seedData: true,
+      integrationTest: true,
+    },
+    visualReview: {
+      baselineRequired: true,
+      snapshotKey: `module-${entry.type}`,
+    },
+    accessibilityReview: {
+      focusOrder: true,
+      keyboardOperation: true,
+      visibleFocus: true,
+      contrastChecks: true,
+    },
+    performanceBudget: {
+      initialLoadMs: entry.category === 'Analytics' ? 900 : 700,
+      interactionResponseMs: 120,
+      resizeRenderMs: 160,
+    },
+    observability: {
+      requiredEvents: REQUIRED_MODULE_OBSERVABILITY_EVENTS,
+    },
+    goldenReference: {
+      isGoldenReference,
+      status: isGoldenReference ? 'pending' : 'design-qa-approved',
+    },
+    specialization: {
+      isIndependentUtility,
+      utilityUxProfile: family === 'utility' ? 'compact-quiet' : 'standard',
+      workflowJustification: specializationContext?.workflow,
+      ownerAccepted: specializationContext ? true : undefined,
+      placeholderResolutionMode,
+    },
+  });
+});
+
+export const MODULE_MANIFEST_REGISTRY: Record<ModuleType, ModuleManifest> = MODULE_MANIFESTS.reduce(
+  (registry, manifest) => {
+    registry[manifest.moduleType] = manifest;
+    return registry;
+  },
+  {} as Record<ModuleType, ModuleManifest>,
+);
+
+export function getModuleManifest(moduleType: ModuleType): ModuleManifest {
+  return MODULE_MANIFEST_REGISTRY[moduleType];
+}
+
+export const MODULE_DEPRECATION_ALIASES: Record<string, ModuleType> = MODULE_MANIFESTS.reduce(
+  (aliases, manifest) => {
+    for (const alias of manifest.deprecation.aliases ?? []) {
+      aliases[alias] = manifest.moduleType;
+    }
+    return aliases;
+  },
+  {
+    ...PHASE_4_DEPRECATED_ID_ALIASES,
+  } as Record<string, ModuleType>,
+);
+
+export function resolveModuleTypeAlias(rawType: string): ModuleType | null {
+  const direct = MODULE_MANIFEST_REGISTRY[rawType as ModuleType];
+  if (direct) {
+    return rawType as ModuleType;
+  }
+  return MODULE_DEPRECATION_ALIASES[rawType] ?? null;
+}
+
+export function auditModuleGovernance(expectedInventorySize = REHAUL_EXPECTED_MODULE_INVENTORY): ModuleRegistryAudit {
+  const missingRequiredMetadata = MODULE_MANIFESTS
+    .filter(
+      (manifest) =>
+        manifest.searchKeywords.length === 0 ||
+        !manifest.pickerCategory ||
+        !manifest.defaultSize ||
+        !manifest.defaultZone,
+    )
+    .map((manifest) => manifest.moduleType);
+
+  const duplicateDisplayNames = Array.from(
+    MODULE_MANIFESTS.reduce((map, manifest) => {
+      map.set(manifest.displayName, (map.get(manifest.displayName) ?? 0) + 1);
+      return map;
+    }, new Map<string, number>()),
+  )
+    .filter(([, count]) => count > 1)
+    .map(([name]) => name);
+
+  const deprecatedWithoutPolicy = MODULE_MANIFESTS
+    .filter(
+      (manifest) =>
+        manifest.deprecation.status !== 'active' && manifest.deprecation.mode === 'none',
+    )
+    .map((manifest) => manifest.moduleType);
+
+  const keywordGaps = MODULE_MANIFESTS
+    .filter((manifest) => manifest.searchKeywords.length === 0)
+    .map((manifest) => manifest.moduleType);
+
+  const categoryGaps = MODULE_MANIFESTS
+    .filter((manifest) => !manifest.pickerCategory)
+    .map((manifest) => manifest.moduleType);
+
+  const defaultGaps = MODULE_MANIFESTS
+    .filter(
+      (manifest) => !manifest.defaultSize || manifest.defaultSize.width < 1 || manifest.defaultSize.height < 1,
+    )
+    .map((manifest) => manifest.moduleType);
+
+  const errors: string[] = [];
+  if (MODULE_MANIFESTS.length !== expectedInventorySize) {
+    errors.push(
+      `Inventory freeze mismatch: expected ${expectedInventorySize} module IDs, found ${MODULE_MANIFESTS.length}.`,
+    );
+  }
+  if (missingRequiredMetadata.length > 0) {
+    errors.push(`Missing required manifest metadata for ${missingRequiredMetadata.length} modules.`);
+  }
+  if (duplicateDisplayNames.length > 0) {
+    errors.push(`Duplicate display names found: ${duplicateDisplayNames.join(', ')}.`);
+  }
+
+  return {
+    expectedInventorySize,
+    actualInventorySize: MODULE_MANIFESTS.length,
+    missingRequiredMetadata,
+    duplicateDisplayNames,
+    deprecatedWithoutPolicy,
+    keywordGaps,
+    categoryGaps,
+    defaultGaps,
+    errors,
+  };
+}
+
+export function runModuleQualityGateAudit(): ModuleQualityGateAudit {
+  const missingSchemaValidation: ModuleType[] = [];
+  const missingStateCoverage: ModuleType[] = [];
+  const missingInteractionCoverage: ModuleType[] = [];
+  const missingConfigEditor: ModuleType[] = [];
+  const missingKeyboardSupport: ModuleType[] = [];
+  const missingSeedData: ModuleType[] = [];
+  const missingIntegrationTest: ModuleType[] = [];
+  const missingVisualBaseline: ModuleType[] = [];
+  const missingAccessibilityReview: ModuleType[] = [];
+  const missingPerformanceBudget: ModuleType[] = [];
+  const missingObservabilityCoverage: ModuleType[] = [];
+
+  for (const manifest of MODULE_MANIFESTS) {
+    if (!manifest.qualityGates.schemaValidation) {
+      missingSchemaValidation.push(manifest.moduleType);
+    }
+
+    if (
+      !manifest.qualityGates.emptyState ||
+      !manifest.qualityGates.loadingState ||
+      !manifest.qualityGates.errorState
+    ) {
+      missingStateCoverage.push(manifest.moduleType);
+    }
+
+    if (!manifest.qualityGates.resizeCollapseFocus) {
+      missingInteractionCoverage.push(manifest.moduleType);
+    }
+
+    if (!manifest.qualityGates.configEditor) {
+      missingConfigEditor.push(manifest.moduleType);
+    }
+
+    if (!manifest.qualityGates.keyboardSupport) {
+      missingKeyboardSupport.push(manifest.moduleType);
+    }
+
+    if (!manifest.qualityGates.seedData) {
+      missingSeedData.push(manifest.moduleType);
+    }
+
+    if (!manifest.qualityGates.integrationTest) {
+      missingIntegrationTest.push(manifest.moduleType);
+    }
+
+    if (manifest.visualReview.baselineRequired && !manifest.visualReview.snapshotKey.trim()) {
+      missingVisualBaseline.push(manifest.moduleType);
+    }
+
+    if (
+      !manifest.accessibilityReview.focusOrder ||
+      !manifest.accessibilityReview.keyboardOperation ||
+      !manifest.accessibilityReview.visibleFocus ||
+      !manifest.accessibilityReview.contrastChecks
+    ) {
+      missingAccessibilityReview.push(manifest.moduleType);
+    }
+
+    if (
+      manifest.performanceBudget.initialLoadMs < 1 ||
+      manifest.performanceBudget.interactionResponseMs < 1 ||
+      manifest.performanceBudget.resizeRenderMs < 1
+    ) {
+      missingPerformanceBudget.push(manifest.moduleType);
+    }
+
+    const required = new Set(REQUIRED_MODULE_OBSERVABILITY_EVENTS);
+    const available = new Set(manifest.observability.requiredEvents);
+    const coversAll = Array.from(required).every((eventType) => available.has(eventType));
+    if (!coversAll) {
+      missingObservabilityCoverage.push(manifest.moduleType);
+    }
+  }
+
+  const failingModules = Array.from(
+    new Set([
+      ...missingSchemaValidation,
+      ...missingStateCoverage,
+      ...missingInteractionCoverage,
+      ...missingConfigEditor,
+      ...missingKeyboardSupport,
+      ...missingSeedData,
+      ...missingIntegrationTest,
+      ...missingVisualBaseline,
+      ...missingAccessibilityReview,
+      ...missingPerformanceBudget,
+      ...missingObservabilityCoverage,
+    ]),
+  );
+
+  const errors = failingModules.length
+    ? [`Quality gate failures detected for ${failingModules.length} modules.`]
+    : [];
+
+  return {
+    totalModules: MODULE_MANIFESTS.length,
+    passingModules: MODULE_MANIFESTS.length - failingModules.length,
+    failingModules,
+    missingSchemaValidation,
+    missingStateCoverage,
+    missingInteractionCoverage,
+    missingConfigEditor,
+    missingKeyboardSupport,
+    missingSeedData,
+    missingIntegrationTest,
+    missingVisualBaseline,
+    missingAccessibilityReview,
+    missingPerformanceBudget,
+    missingObservabilityCoverage,
+    errors,
+  };
+}
+
+export function runGoldenReferenceAudit(): ModuleGoldenReferenceAudit {
+  const goldenReferences = MODULE_MANIFESTS.filter((manifest) => manifest.goldenReference.isGoldenReference);
+
+  const mappedFamilies = Array.from(
+    new Set(goldenReferences.map((manifest) => manifest.family)),
+  ) as ModuleFamily[];
+
+  const missingFamilies = PHASE_3_GOLDEN_REFERENCE_FAMILIES.filter(
+    (family) => !mappedFamilies.includes(family),
+  );
+
+  const duplicateFamilyAnchors = Array.from(
+    goldenReferences.reduce((collection, manifest) => {
+      collection.set(manifest.family, (collection.get(manifest.family) ?? 0) + 1);
+      return collection;
+    }, new Map<ModuleFamily, number>()),
+  )
+    .filter(([, count]) => count > 1)
+    .map(([family]) => family);
+
+  const pendingSignoffModules = goldenReferences
+    .filter((manifest) => manifest.goldenReference.status !== 'design-qa-approved')
+    .map((manifest) => manifest.moduleType);
+
+  const releaseBlocked =
+    missingFamilies.length > 0 ||
+    duplicateFamilyAnchors.length > 0 ||
+    pendingSignoffModules.length > 0;
+
+  const errors: string[] = [];
+  if (missingFamilies.length > 0) {
+    errors.push(`Missing golden reference anchors for families: ${missingFamilies.join(', ')}.`);
+  }
+  if (duplicateFamilyAnchors.length > 0) {
+    errors.push(`Duplicate golden reference anchors found for families: ${duplicateFamilyAnchors.join(', ')}.`);
+  }
+  if (pendingSignoffModules.length > 0) {
+    errors.push(`Design QA signoff is still pending for: ${pendingSignoffModules.join(', ')}.`);
+  }
+
+  return {
+    expectedFamilies: PHASE_3_GOLDEN_REFERENCE_FAMILIES,
+    mappedFamilies,
+    missingFamilies,
+    duplicateFamilyAnchors,
+    pendingSignoffModules,
+    releaseBlocked,
+    errors,
+  };
+}
+
+export function runDeprecationPolicyAudit(): ModuleDeprecationPolicyAudit {
+  const deprecatedModules = MODULE_MANIFESTS
+    .filter((manifest) => manifest.deprecation.status !== 'active')
+    .map((manifest) => manifest.moduleType);
+
+  const deprecatedWithoutExplicitMode = MODULE_MANIFESTS
+    .filter(
+      (manifest) =>
+        manifest.deprecation.status !== 'active' &&
+        (!manifest.deprecation.mode || manifest.deprecation.mode === 'none'),
+    )
+    .map((manifest) => manifest.moduleType);
+
+  const deprecatedWithoutReplacement = MODULE_MANIFESTS
+    .filter((manifest) => {
+      if (manifest.deprecation.status === 'active') {
+        return false;
+      }
+      if (manifest.deprecation.mode === 'legacy-toggle-only' || manifest.deprecation.mode === 'hidden-legacy-render') {
+        return false;
+      }
+      return !manifest.deprecation.replacementModuleId;
+    })
+    .map((manifest) => manifest.moduleType);
+
+  const familyMigrationRuleGaps = PHASE_4_CONSOLIDATION_FAMILIES.filter((family) => {
+    const rule = PHASE_4_FAMILY_MIGRATION_RULES[family];
+    return !rule || rule.deprecatedModuleIds.length === 0;
+  });
+
+  const aliasCoverageGaps = MODULE_MANIFESTS
+    .filter(
+      (manifest) =>
+        manifest.deprecation.status !== 'active' &&
+        (manifest.deprecation.aliases ?? []).length === 0,
+    )
+    .map((manifest) => manifest.moduleType);
+
+  const errors: string[] = [];
+  if (deprecatedWithoutExplicitMode.length > 0) {
+    errors.push(`Deprecated modules missing explicit mode: ${deprecatedWithoutExplicitMode.join(', ')}.`);
+  }
+  if (deprecatedWithoutReplacement.length > 0) {
+    errors.push(`Deprecated modules missing replacement target: ${deprecatedWithoutReplacement.join(', ')}.`);
+  }
+  if (familyMigrationRuleGaps.length > 0) {
+    errors.push(`Family migration rule gaps: ${familyMigrationRuleGaps.join(', ')}.`);
+  }
+  if (aliasCoverageGaps.length > 0) {
+    errors.push(`Deprecated modules missing aliases: ${aliasCoverageGaps.join(', ')}.`);
+  }
+
+  return {
+    deprecatedModules,
+    deprecatedWithoutExplicitMode,
+    deprecatedWithoutReplacement,
+    familyMigrationRuleGaps,
+    aliasCoverageGaps,
+    errors,
+  };
+}
+
+export function runSpecializationAudit(): ModuleSpecializationAudit {
+  const nicheUtilityModules = PHASE_5_NICHE_UTILITY_MODULES;
+
+  const missingCompactQuietProfile = MODULE_MANIFESTS.filter(
+    (manifest) =>
+      nicheUtilityModules.includes(manifest.moduleType) &&
+      manifest.specialization.utilityUxProfile !== 'compact-quiet',
+  ).map((manifest) => manifest.moduleType);
+
+  const missingWorkflowJustification = MODULE_MANIFESTS.filter(
+    (manifest) =>
+      nicheUtilityModules.includes(manifest.moduleType) &&
+      !manifest.specialization.workflowJustification,
+  ).map((manifest) => manifest.moduleType);
+
+  const missingOwnerAcceptance = MODULE_MANIFESTS.filter(
+    (manifest) =>
+      nicheUtilityModules.includes(manifest.moduleType) &&
+      manifest.specialization.ownerAccepted !== true,
+  ).map((manifest) => manifest.moduleType);
+
+  const unresolvedTypeOnlyPlaceholders = Object.keys(PHASE_5_TYPE_ONLY_PLACEHOLDER_RESOLUTION)
+    .map((moduleType) => moduleType as ModuleType)
+    .filter((moduleType) => {
+      const manifest = getModuleManifest(moduleType);
+      return manifest.specialization.placeholderResolutionMode === 'none';
+    });
+
+  const errors: string[] = [];
+  if (missingCompactQuietProfile.length > 0) {
+    errors.push(`Niche utility modules without compact/quiet profile: ${missingCompactQuietProfile.join(', ')}.`);
+  }
+  if (missingWorkflowJustification.length > 0) {
+    errors.push(`Niche utility modules missing workflow justification: ${missingWorkflowJustification.join(', ')}.`);
+  }
+  if (missingOwnerAcceptance.length > 0) {
+    errors.push(`Niche utility modules missing owner acceptance: ${missingOwnerAcceptance.join(', ')}.`);
+  }
+  if (unresolvedTypeOnlyPlaceholders.length > 0) {
+    errors.push(`Type-only placeholders unresolved: ${unresolvedTypeOnlyPlaceholders.join(', ')}.`);
+  }
+
+  return {
+    nicheUtilityModules,
+    missingCompactQuietProfile,
+    missingWorkflowJustification,
+    missingOwnerAcceptance,
+    unresolvedTypeOnlyPlaceholders,
+    errors,
+  };
+}
+
+export const PHASE_0_LEGACY_MIGRATION_PACKS: ModuleRedTeamMigrationPack[] = [
+  { id: 'simple-workspace', description: 'Simple workspace baseline pack.', required: true },
+  { id: 'cluttered-workspace', description: 'High-density mixed nodes and modules.', required: true },
+  { id: 'mixed-old-new-modules', description: 'Legacy and modern module IDs mixed together.', required: true },
+  { id: 'broken-configs', description: 'Malformed settings and module payloads.', required: true },
+  { id: 'large-media-heavy', description: 'Large image/PDF/video-heavy workspace.', required: true },
+  { id: 'file-linked-workspace', description: 'Heavy relative and absolute file links.', required: true },
+  { id: 'duplicate-unknown-module-ids', description: 'Duplicate + unknown module identifiers.', required: true },
+  { id: 'partial-data-corruption', description: 'Partial corruption and missing data surfaces.', required: true },
+];
+
+export const PHASE_7_ROLLOUT_COHORTS: ModuleRolloutCohort[] = [
+  'internal-dev',
+  'dogfood-workspace',
+  'legacy-migration',
+  'wider-release',
+];
+
+export const PHASE_7_TELEMETRY_THRESHOLDS: ModuleTelemetryThresholdPolicy[] = [
+  { eventType: 'module-mount-failed', maxEventsBeforeBlock: 0 },
+  { eventType: 'config-validation-failed', maxEventsBeforeBlock: 2 },
+  { eventType: 'migration-failed', maxEventsBeforeBlock: 0 },
+  { eventType: 'autosave-conflict', maxEventsBeforeBlock: 4 },
+  { eventType: 'resize-render-crash', maxEventsBeforeBlock: 0 },
+  { eventType: 'slow-module-load', maxEventsBeforeBlock: 10 },
+  { eventType: 'integration-handoff-failed', maxEventsBeforeBlock: 1 },
+  { eventType: 'unsupported-legacy-payload', maxEventsBeforeBlock: 2 },
+];
+
+export const PHASE_7_ROLLBACK_CRITERIA: ModuleRollbackCriterion[] = [
+  {
+    flag: 'manifestRegistry',
+    triggerEvents: ['module-mount-failed', 'config-validation-failed'],
+    owner: 'platform',
+  },
+  {
+    flag: 'newShell',
+    triggerEvents: ['resize-render-crash', 'slow-module-load'],
+    owner: 'ux-platform',
+  },
+  {
+    flag: 'familyModules',
+    triggerEvents: ['module-mount-failed', 'integration-handoff-failed'],
+    owner: 'family-modules',
+  },
+  {
+    flag: 'newPicker',
+    triggerEvents: ['module-mount-failed', 'config-validation-failed'],
+    owner: 'discoverability',
+  },
+  {
+    flag: 'integrationHandoffs',
+    triggerEvents: ['integration-handoff-failed'],
+    owner: 'integration',
+  },
+  {
+    flag: 'migrationLogic',
+    triggerEvents: ['migration-failed', 'unsupported-legacy-payload'],
+    owner: 'migration',
+  },
+];
+
+export const PHASE_7_POST_RELEASE_TRIAGE_WINDOW_DAYS = 14;
+export const PHASE_7_PATCH_WINDOWS_HOURS = [24, 72];
+
+export function runPhase7ReleaseHardeningAudit(): ModuleReleaseHardeningAudit {
+  const expectedFlags = Object.keys(DEFAULT_FEATURE_FLAGS) as Array<keyof ModuleFeatureFlags>;
+  const rollbackCriteriaCoverage = PHASE_7_ROLLBACK_CRITERIA.map((criterion) => criterion.flag);
+  const missingRollbackCriteria = expectedFlags.filter(
+    (flag) => !rollbackCriteriaCoverage.includes(flag),
+  );
+
+  const requiredPackIds = PHASE_0_LEGACY_MIGRATION_PACKS.filter((pack) => pack.required).map(
+    (pack) => pack.id,
+  );
+  const availablePackIds = new Set(PHASE_0_LEGACY_MIGRATION_PACKS.map((pack) => pack.id));
+  const missingRequiredRedTeamPacks = requiredPackIds.filter((packId) => !availablePackIds.has(packId));
+
+  const errors: string[] = [];
+  if (missingRollbackCriteria.length > 0) {
+    errors.push(
+      `Rollback criteria are missing for: ${missingRollbackCriteria.join(', ')}.`,
+    );
+  }
+  if (missingRequiredRedTeamPacks.length > 0) {
+    errors.push(`Required migration packs missing: ${missingRequiredRedTeamPacks.join(', ')}.`);
+  }
+
+  return {
+    cohorts: PHASE_7_ROLLOUT_COHORTS,
+    telemetryThresholds: PHASE_7_TELEMETRY_THRESHOLDS,
+    rollbackCriteriaCoverage,
+    missingRollbackCriteria,
+    redTeamPacks: PHASE_0_LEGACY_MIGRATION_PACKS,
+    missingRequiredRedTeamPacks,
+    postReleaseTriageWindowDays: PHASE_7_POST_RELEASE_TRIAGE_WINDOW_DAYS,
+    patchWindowHours: PHASE_7_PATCH_WINDOWS_HOURS,
+    releaseBlocked: errors.length > 0,
+    errors,
+  };
+}
+
+export function evaluatePhase7TelemetryThresholds(
+  counters: Record<ModuleRuntimeEventType, number>,
+): ModuleTelemetryThresholdBreach[] {
+  return PHASE_7_TELEMETRY_THRESHOLDS.filter(
+    (threshold) => (counters[threshold.eventType] ?? 0) > threshold.maxEventsBeforeBlock,
+  ).map((threshold) => ({
+    eventType: threshold.eventType,
+    observedCount: counters[threshold.eventType] ?? 0,
+    maxEventsBeforeBlock: threshold.maxEventsBeforeBlock,
+  }));
+}
+
+export function buildPhase7ReleaseStatus(
+  runtimeHealth: ModuleRuntimeHealthReport,
+): ModulePhase7ReleaseStatus {
+  const audit = runPhase7ReleaseHardeningAudit();
+  const thresholdBreaches = evaluatePhase7TelemetryThresholds(runtimeHealth.counters);
+
+  const recommendedRollbackFlags = PHASE_7_ROLLBACK_CRITERIA.filter((criterion) =>
+    criterion.triggerEvents.some((eventType) =>
+      thresholdBreaches.some((breach) => breach.eventType === eventType),
+    ),
+  ).map((criterion) => criterion.flag);
+
+  const readyForRollout = !audit.releaseBlocked && thresholdBreaches.length === 0;
+
+  return {
+    audit,
+    runtimeHealth,
+    thresholdBreaches,
+    recommendedRollbackFlags: Array.from(new Set(recommendedRollbackFlags)),
+    readyForRollout,
+  };
+}
 
 export const DEFAULT_NODE_MODULES: SynapseModule[] = [
   {
@@ -549,6 +1412,15 @@ export const DEFAULT_TAGS: TagDefinition[] = [
   { id: 'review', name: 'Review', color: '#8B5CF6', applyTo: 'nodes' },
 ];
 
+export const DEFAULT_FEATURE_FLAGS: ModuleFeatureFlags = {
+  manifestRegistry: true,
+  newShell: false,
+  familyModules: false,
+  newPicker: false,
+  integrationHandoffs: false,
+  migrationLogic: true,
+};
+
 export const DEFAULT_SETTINGS: AppSettings = {
   basePath: '',
   theme: 'dark',
@@ -594,6 +1466,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     cloudBackupProvider: 'none',
     cloudBackupTarget: '',
   },
+  featureFlags: DEFAULT_FEATURE_FLAGS,
   developerMode: false,
   recentLimit: 8,
 };

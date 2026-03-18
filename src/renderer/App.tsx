@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { MODULE_LIBRARY } from '../shared/constants';
+import { getModuleManifest, MODULE_LIBRARY } from '../shared/constants';
 import { SyncStatus } from '../shared/types';
 import type {
   BootstrapData,
@@ -89,8 +89,8 @@ function gridToCanvas(position: SynapseModule['position']) {
 }
 
 function buildNewModule(moduleType: SynapseModule['type'], nextIndex: number): SynapseModule {
-  const libraryEntry = MODULE_LIBRARY.find((entry) => entry.type === moduleType);
-  const size = libraryEntry?.defaultSize ?? { width: 4, height: 4 };
+  const manifest = getModuleManifest(moduleType);
+  const size = manifest.defaultSize ?? { width: 4, height: 4 };
   const position = {
     x: Math.min(12 - size.width + 1, 1 + (nextIndex % 3) * 4),
     y: 1 + Math.floor(nextIndex / 3) * 4,
@@ -100,9 +100,10 @@ function buildNewModule(moduleType: SynapseModule['type'], nextIndex: number): S
   return {
     id: `${moduleType}-${Date.now()}-${nextIndex}`,
     type: moduleType,
-    title: libraryEntry?.title ?? prettyTitle(moduleType),
+    title: manifest.displayName || prettyTitle(moduleType),
     position,
     canvas: gridToCanvas(position),
+    configVersion: manifest.config.schemaVersion,
     config: emptyModuleConfig(moduleType),
     schema:
       moduleType === 'custom'
@@ -1641,7 +1642,7 @@ export function App() {
           ))}
         </nav>
         <div className="topbar-actions">
-          <button onClick={() => setCommandPaletteOpen(true)}>Search</button>
+          <button onClick={() => setCommandPaletteOpen(true)}>Jump To</button>
           {surface !== 'home' ? (
             <button
               onClick={() => {

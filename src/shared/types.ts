@@ -168,6 +168,368 @@ export type DetailSectionId =
   | 'wormholes';
 export type ModuleImplementationStatus = 'production' | 'uplift' | 'schema-driven';
 export type ModuleOwnerWave = 'foundation' | 'wave-1' | 'wave-2' | 'wave-3' | 'wave-4';
+export type ModuleFamily =
+  | 'text-surface'
+  | 'media-surface'
+  | 'planning'
+  | 'learning-engine'
+  | 'analytics'
+  | 'utility'
+  | 'integration'
+  | 'creative'
+  | 'custom';
+export type ModulePickerCategory =
+  | 'content'
+  | 'trackers'
+  | 'organization'
+  | 'math-science'
+  | 'analytics'
+  | 'learning'
+  | 'creative'
+  | 'utility'
+  | 'custom';
+export type ModuleDeprecationStatus = 'active' | 'deprecated' | 'archived';
+export type ModuleDeprecationMode =
+  | 'none'
+  | 'hidden-legacy-render'
+  | 'hidden-auto-migrate'
+  | 'legacy-toggle-only'
+  | 'blocked-with-migration-prompt';
+
+export interface ModuleDeprecationPolicy {
+  status: ModuleDeprecationStatus;
+  mode: ModuleDeprecationMode;
+  replacementModuleId?: ModuleType;
+  aliases?: string[];
+}
+
+export interface ModuleDiscoverabilityMetadata {
+  displayName: string;
+  family: ModuleFamily;
+  searchKeywords: string[];
+  pickerCategory: ModulePickerCategory;
+  recommendedPageTypes: Array<'home' | 'base' | 'node'>;
+  defaultSize: {
+    width: number;
+    height: number;
+  };
+  defaultZone: 'primary' | 'secondary' | 'tertiary' | 'sidebar';
+  suggestedPairings: ModuleType[];
+}
+
+export interface ModuleConfigContract {
+  schemaVersion: number;
+  defaultConfig: Record<string, unknown>;
+}
+
+export interface ModuleQualityGateProfile {
+  schemaValidation: boolean;
+  emptyState: boolean;
+  loadingState: boolean;
+  errorState: boolean;
+  resizeCollapseFocus: boolean;
+  configEditor: boolean;
+  keyboardSupport: boolean;
+  seedData: boolean;
+  integrationTest: boolean;
+}
+
+export interface ModuleVisualReviewPolicy {
+  baselineRequired: boolean;
+  snapshotKey: string;
+}
+
+export interface ModuleAccessibilityReviewPolicy {
+  focusOrder: boolean;
+  keyboardOperation: boolean;
+  visibleFocus: boolean;
+  contrastChecks: boolean;
+}
+
+export interface ModulePerformanceBudget {
+  initialLoadMs: number;
+  interactionResponseMs: number;
+  resizeRenderMs: number;
+}
+
+export type ModuleGoldenReferenceStatus = 'pending' | 'design-qa-approved';
+
+export interface ModuleGoldenReferencePolicy {
+  isGoldenReference: boolean;
+  status: ModuleGoldenReferenceStatus;
+  signoffBy?: string;
+  signoffAt?: string;
+}
+
+export type ModuleUtilityUxProfile = 'compact-quiet' | 'standard';
+export type ModulePlaceholderResolutionMode = 'none' | 'family-mode' | 'deprecated';
+
+export interface ModuleSpecializationPolicy {
+  isIndependentUtility: boolean;
+  utilityUxProfile: ModuleUtilityUxProfile;
+  workflowJustification?: string;
+  ownerAccepted?: boolean;
+  placeholderResolutionMode: ModulePlaceholderResolutionMode;
+}
+
+export type ModuleRuntimeEventType =
+  | 'module-mount-failed'
+  | 'config-validation-failed'
+  | 'migration-failed'
+  | 'autosave-conflict'
+  | 'resize-render-crash'
+  | 'slow-module-load'
+  | 'integration-handoff-failed'
+  | 'unsupported-legacy-payload';
+
+export interface ModuleObservabilityPolicy {
+  requiredEvents: ModuleRuntimeEventType[];
+}
+
+export interface ModuleManifest extends ModuleDiscoverabilityMetadata {
+  moduleType: ModuleType;
+  description: string;
+  implementationStatus: ModuleImplementationStatus;
+  ownerWave: ModuleOwnerWave;
+  verificationChecklist: string[];
+  knownGaps: string[];
+  deprecation: ModuleDeprecationPolicy;
+  config: ModuleConfigContract;
+  qualityGates: ModuleQualityGateProfile;
+  visualReview: ModuleVisualReviewPolicy;
+  accessibilityReview: ModuleAccessibilityReviewPolicy;
+  performanceBudget: ModulePerformanceBudget;
+  observability: ModuleObservabilityPolicy;
+  goldenReference: ModuleGoldenReferencePolicy;
+  specialization: ModuleSpecializationPolicy;
+}
+
+export interface ModuleRegistryAudit {
+  expectedInventorySize: number;
+  actualInventorySize: number;
+  missingRequiredMetadata: ModuleType[];
+  duplicateDisplayNames: string[];
+  deprecatedWithoutPolicy: ModuleType[];
+  keywordGaps: ModuleType[];
+  categoryGaps: ModuleType[];
+  defaultGaps: ModuleType[];
+  errors: string[];
+}
+
+export interface ModuleFeatureFlags {
+  manifestRegistry: boolean;
+  newShell: boolean;
+  familyModules: boolean;
+  newPicker: boolean;
+  integrationHandoffs: boolean;
+  migrationLogic: boolean;
+}
+
+export interface ModuleQualityGateAudit {
+  totalModules: number;
+  passingModules: number;
+  failingModules: ModuleType[];
+  missingSchemaValidation: ModuleType[];
+  missingStateCoverage: ModuleType[];
+  missingInteractionCoverage: ModuleType[];
+  missingConfigEditor: ModuleType[];
+  missingKeyboardSupport: ModuleType[];
+  missingSeedData: ModuleType[];
+  missingIntegrationTest: ModuleType[];
+  missingVisualBaseline: ModuleType[];
+  missingAccessibilityReview: ModuleType[];
+  missingPerformanceBudget: ModuleType[];
+  missingObservabilityCoverage: ModuleType[];
+  errors: string[];
+}
+
+export interface ModuleGoldenReferenceAudit {
+  expectedFamilies: ModuleFamily[];
+  mappedFamilies: ModuleFamily[];
+  missingFamilies: ModuleFamily[];
+  duplicateFamilyAnchors: ModuleFamily[];
+  pendingSignoffModules: ModuleType[];
+  releaseBlocked: boolean;
+  errors: string[];
+}
+
+export interface ModuleDeprecationPolicyAudit {
+  deprecatedModules: ModuleType[];
+  deprecatedWithoutExplicitMode: ModuleType[];
+  deprecatedWithoutReplacement: ModuleType[];
+  familyMigrationRuleGaps: ModuleFamily[];
+  aliasCoverageGaps: ModuleType[];
+  errors: string[];
+}
+
+export interface ModuleSpecializationAudit {
+  nicheUtilityModules: ModuleType[];
+  missingCompactQuietProfile: ModuleType[];
+  missingWorkflowJustification: ModuleType[];
+  missingOwnerAcceptance: ModuleType[];
+  unresolvedTypeOnlyPlaceholders: ModuleType[];
+  errors: string[];
+}
+
+export type ModuleRolloutCohort =
+  | 'internal-dev'
+  | 'dogfood-workspace'
+  | 'legacy-migration'
+  | 'wider-release';
+
+export interface ModuleTelemetryThresholdPolicy {
+  eventType: ModuleRuntimeEventType;
+  maxEventsBeforeBlock: number;
+}
+
+export interface ModuleRollbackCriterion {
+  flag: keyof ModuleFeatureFlags;
+  triggerEvents: ModuleRuntimeEventType[];
+  owner: string;
+}
+
+export interface ModuleRedTeamMigrationPack {
+  id: string;
+  description: string;
+  required: boolean;
+}
+
+export interface ModuleReleaseHardeningAudit {
+  cohorts: ModuleRolloutCohort[];
+  telemetryThresholds: ModuleTelemetryThresholdPolicy[];
+  rollbackCriteriaCoverage: Array<keyof ModuleFeatureFlags>;
+  missingRollbackCriteria: Array<keyof ModuleFeatureFlags>;
+  redTeamPacks: ModuleRedTeamMigrationPack[];
+  missingRequiredRedTeamPacks: string[];
+  postReleaseTriageWindowDays: number;
+  patchWindowHours: number[];
+  releaseBlocked: boolean;
+  errors: string[];
+}
+
+export interface ModuleTelemetryThresholdBreach {
+  eventType: ModuleRuntimeEventType;
+  observedCount: number;
+  maxEventsBeforeBlock: number;
+}
+
+export interface ModulePhase7ReleaseStatus {
+  audit: ModuleReleaseHardeningAudit;
+  runtimeHealth: ModuleRuntimeHealthReport;
+  thresholdBreaches: ModuleTelemetryThresholdBreach[];
+  recommendedRollbackFlags: Array<keyof ModuleFeatureFlags>;
+  readyForRollout: boolean;
+}
+
+export interface ModuleRollbackRehearsalEntry {
+  flag: keyof ModuleFeatureFlags;
+  rehearsedAt: string;
+  note?: string;
+}
+
+export interface ModulePhase7RolloutState {
+  currentCohort: ModuleRolloutCohort;
+  completedCohorts: ModuleRolloutCohort[];
+  rollbackRehearsals: ModuleRollbackRehearsalEntry[];
+  lastAdvancedAt?: string;
+}
+
+export interface ModulePhase7RolloutAdvanceResult {
+  state: ModulePhase7RolloutState;
+  advanced: boolean;
+  message: string;
+}
+
+export type IntegrationCommitMode = 'draft-first' | 'direct';
+
+export interface IntegrationHandoffContract {
+  id: string;
+  sourceModuleType: ModuleType;
+  targetModuleType: ModuleType;
+  requiresReview: boolean;
+  supportsUndo: boolean;
+  commitMode: IntegrationCommitMode;
+}
+
+export interface IntegrationHandoffRequest {
+  contractId: string;
+  sourceEntityPath: string;
+  sourceModuleType: ModuleType;
+  targetEntityPath: string;
+  targetModuleType: ModuleType;
+  payload: {
+    markdown?: string;
+    text?: string;
+    selectedText?: string;
+    pdfPath?: string;
+    requestedItemCount?: number;
+  };
+}
+
+export interface IntegrationHandoffDraftItem {
+  id: string;
+  title: string;
+  content: string;
+}
+
+export interface IntegrationHandoffDraft {
+  draftId: string;
+  contractId: string;
+  sourceEntityPath: string;
+  targetEntityPath: string;
+  sourceModuleType: ModuleType;
+  targetModuleType: ModuleType;
+  requiresReview: boolean;
+  createdAt: string;
+  items: IntegrationHandoffDraftItem[];
+}
+
+export interface IntegrationHandoffCommitRequest {
+  draftId: string;
+  confirmReview: boolean;
+}
+
+export interface IntegrationHandoffOperation {
+  operationId: string;
+  contractId: string;
+  draftId: string;
+  committedAt: string;
+  revertedAt?: string;
+  targetEntityPath: string;
+  targetModuleType: ModuleType;
+  generatedItemCount: number;
+}
+
+export interface IntegrationHandoffCommitResult {
+  operation: IntegrationHandoffOperation;
+  generatedItems: IntegrationHandoffDraftItem[];
+}
+
+export interface IntegrationHandoffUndoResult {
+  operationId: string;
+  undone: boolean;
+  revertedAt?: string;
+}
+
+export interface ModuleRuntimeEventInput {
+  moduleType: ModuleType;
+  eventType: ModuleRuntimeEventType;
+  message?: string;
+  severity?: 'info' | 'warning' | 'error';
+  context?: Record<string, unknown>;
+}
+
+export interface ModuleRuntimeEvent extends ModuleRuntimeEventInput {
+  id: string;
+  timestamp: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
+export interface ModuleRuntimeHealthReport {
+  generatedAt: string;
+  counters: Record<ModuleRuntimeEventType, number>;
+  recentEvents: ModuleRuntimeEvent[];
+}
 
 export interface SavedCanvasDetailLayout {
   detailsOpen?: boolean;
@@ -176,21 +538,61 @@ export interface SavedCanvasDetailLayout {
   hiddenDetailSections?: DetailSectionId[];
 }
 
+export type CanvasFrameTone =
+  | 'neutral'
+  | 'input'
+  | 'working'
+  | 'practice'
+  | 'review'
+  | 'resources'
+  | 'archive';
+
+export interface CanvasFrame {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  tone?: CanvasFrameTone;
+  collapsed?: boolean;
+}
+
+export interface CanvasModuleLink {
+  id: string;
+  fromModuleId: string;
+  toModuleId: string;
+  label?: string;
+}
+
 export interface SavedCanvasView {
   id: string;
   name: string;
   viewport: PageViewport;
   created: string;
   modules?: SynapseModule[];
+  frames?: CanvasFrame[];
+  links?: CanvasModuleLink[];
+  focusFrameId?: string;
+  isDefault?: boolean;
   detailLayout?: SavedCanvasDetailLayout;
 }
 
 export interface PageUiState {
   surfaceTitle?: string;
+  canvasMode?: 'dashboard' | 'workbench';
+  canvasSnapping?: boolean;
+  canvasTipsDismissed?: boolean;
+  outlinePanelVisible?: boolean;
+  outlinePanelWidth?: number;
+  outlinePanelDock?: 'left' | 'right';
   detailsOpen?: boolean;
   detailSize?: 'compact' | 'comfortable' | 'wide';
   detailSectionOrder?: DetailSectionId[];
   hiddenDetailSections?: DetailSectionId[];
+  frames?: CanvasFrame[];
+  links?: CanvasModuleLink[];
+  showMiniMap?: boolean;
   savedViews?: SavedCanvasView[];
 }
 
@@ -215,6 +617,8 @@ export interface SynapseModule {
   title: string;
   position: GridPosition;
   canvas?: FreeformPosition;
+  frameId?: string;
+  configVersion?: number;
   config: Record<string, unknown>;
   schema?: CustomModuleSchema;
 }
@@ -375,6 +779,7 @@ export interface AppSettings {
   lab: LabPreferences;
   privacy: PrivacyPreferences;
   export: ExportPreferences;
+  featureFlags: ModuleFeatureFlags;
   developerMode: boolean;
   customCSSPath?: string;
   recentLimit: number;
@@ -548,6 +953,7 @@ export interface BootstrapData {
   defaultBasePath: string;
   hotDrop: HotDropStatus;
   workspace: WorkspaceSnapshot;
+  goldenReferenceAudit: ModuleGoldenReferenceAudit;
 }
 
 export interface EntityFilter {

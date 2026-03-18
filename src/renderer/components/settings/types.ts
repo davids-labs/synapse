@@ -18,6 +18,8 @@ export type CommandSectionId =
   | 'data'
   | 'keyboard'
   | 'git'
+  | 'integration'
+  | 'release'
   | 'lab'
   | 'privacy'
   | 'export'

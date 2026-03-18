@@ -1385,7 +1385,7 @@ export function CommandPalette({
     <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <motion.div className="modal-panel command-palette" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
         <div className="modal-head">
-          <h2>Command Palette</h2>
+          <h2>Jump To</h2>
           <button onClick={onClose}>Close</button>
         </div>
         <input className="text-input" autoFocus placeholder="Search nodes, bases, tags..." value={query} onChange={(event) => setQuery(event.target.value)} />

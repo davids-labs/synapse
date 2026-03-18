@@ -1,0 +1,50 @@
+[
+  {
+    "id": "simple-workspace",
+    "title": "Simple Workspace",
+    "description": "Minimal workspace with one base and low module density.",
+    "expected": "Migrates cleanly without prompts."
+  },
+  {
+    "id": "cluttered-workspace",
+    "title": "Cluttered Workspace",
+    "description": "High-density module surfaces with deep node trees.",
+    "expected": "Layout and module configs remain stable after migration."
+  },
+  {
+    "id": "mixed-old-new-modules",
+    "title": "Mixed Legacy and New Modules",
+    "description": "Combines deprecated aliases and modern module IDs.",
+    "expected": "Aliases resolve and deprecated modules follow explicit policy."
+  },
+  {
+    "id": "broken-configs",
+    "title": "Broken Config Payloads",
+    "description": "Malformed module config values and schema shape mismatches.",
+    "expected": "Invalid payloads are rejected or defaulted safely."
+  },
+  {
+    "id": "large-media-heavy",
+    "title": "Large Media Heavy",
+    "description": "Many large PDF, image, and video attachments.",
+    "expected": "Workspace remains loadable with no migration crashes."
+  },
+  {
+    "id": "file-linked-workspace",
+    "title": "File-linked Workspace",
+    "description": "Extensive relative and absolute file links across nodes.",
+    "expected": "File references stay intact post migration."
+  },
+  {
+    "id": "duplicate-unknown-module-ids",
+    "title": "Duplicate and Unknown Module IDs",
+    "description": "Duplicate module IDs plus unknown legacy IDs in page payloads.",
+    "expected": "Unknown IDs are isolated and duplicates are normalized."
+  },
+  {
+    "id": "partial-data-corruption",
+    "title": "Partial Data Corruption",
+    "description": "Missing records, null arrays, and truncated node payload fragments.",
+    "expected": "Recovery paths trigger without destructive data loss."
+  }
+]

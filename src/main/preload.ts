@@ -58,6 +58,20 @@ const api: SynapseApi = {
   getUpdateState: () => ipcRenderer.invoke('get-update-state'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  recordModuleEvent: (event) => ipcRenderer.invoke('record-module-event', event),
+  getModuleRuntimeHealth: (limit) => ipcRenderer.invoke('get-module-runtime-health', { limit }),
+  getGoldenReferenceAudit: () => ipcRenderer.invoke('get-golden-reference-audit'),
+  getPhase7ReleaseStatus: () => ipcRenderer.invoke('get-phase7-release-status'),
+  getPhase7RolloutState: () => ipcRenderer.invoke('get-phase7-rollout-state'),
+  advancePhase7RolloutCohort: () => ipcRenderer.invoke('advance-phase7-rollout-cohort'),
+  rehearsePhase7Rollback: (flag, note) => ipcRenderer.invoke('rehearse-phase7-rollback', flag, note),
+  getIntegrationHandoffContracts: () => ipcRenderer.invoke('get-integration-handoff-contracts'),
+  createIntegrationHandoffDraft: (request) =>
+    ipcRenderer.invoke('create-integration-handoff-draft', request),
+  commitIntegrationHandoffDraft: (request) =>
+    ipcRenderer.invoke('commit-integration-handoff-draft', request),
+  undoIntegrationHandoff: (operationId) =>
+    ipcRenderer.invoke('undo-integration-handoff', operationId),
   onWorkspaceUpdated: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, workspace: WorkspaceSnapshot) => {
       listener(workspace);

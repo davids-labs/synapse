@@ -4,7 +4,7 @@ import type {
   SynapseModule,
   WorkspaceSnapshot,
 } from '../../shared/types';
-import { INLINE_EMBED_PARENT_HOST } from '../../shared/constants';
+import { getModuleManifest, INLINE_EMBED_PARENT_HOST } from '../../shared/constants';
 
 export const defaultFilter: EntityFilter = {
   tags: [],
@@ -15,8 +15,10 @@ export const defaultFilter: EntityFilter = {
 };
 
 export function fileUrl(targetPath: string): string {
-  const normalized = targetPath.replace(/\\/g, '/');
-  return normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`;
+  const stripped = targetPath.replace(/^file:\/\//i, '');
+  const normalized = stripped.replace(/\\/g, '/');
+  const encoded = encodeURI(normalized);
+  return encoded.startsWith('/') ? `file://${encoded}` : `file:///${encoded}`;
 }
 
 function extractYouTubeVideoId(url: URL): string | null {
@@ -574,8 +576,10 @@ export function moduleTone(module: SynapseModule): string {
 }
 
 export function emptyModuleConfig(moduleType: SynapseModule['type']): Record<string, unknown> {
+  const manifestDefaults = { ...getModuleManifest(moduleType).config.defaultConfig };
+
   if (moduleType === 'markdown-editor' || moduleType === 'text-entry') {
-    return { filepath: 'files/notes.md', autoSave: true };
+    return { ...manifestDefaults, filepath: 'files/notes.md', autoSave: true };
   }
   if (moduleType === 'markdown-viewer') {
     return { filepath: 'files/notes.md' };
@@ -768,7 +772,7 @@ export function emptyModuleConfig(moduleType: SynapseModule['type']): Record<str
     return { workDuration: 25, breakDuration: 5, longBreakDuration: 15, completedToday: 0 };
   }
   if (moduleType === 'random-picker') {
-    return { items: ['Review notes', 'Practice questions', 'Refactor module'], lastPicked: '' };
+    return { ...manifestDefaults, items: ['Review notes', 'Practice questions', 'Refactor module'], lastPicked: '' };
   }
-  return {};
+  return manifestDefaults;
 }

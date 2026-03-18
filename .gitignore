@@ -31,12 +31,14 @@ coverage
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
+*.exe
 
 # Dependency directories
 node_modules/
 dist/
 dist-electron/
 release/
+release-1.0.5/
 .vite/
 jspm_packages/
 

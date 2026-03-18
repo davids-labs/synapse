@@ -4,6 +4,10 @@ import { DEFAULT_SETTINGS } from '../../../shared/constants';
 import type { AppSettings } from '../../../shared/types';
 import { prettyTitle } from '../../lib/appHelpers';
 import { KeyboardSettingsSection } from './KeyboardSettings';
+import {
+  IntegrationHandoffSettingsSection,
+  ReleaseReadinessSettingsSection,
+} from './IntegrationReleaseSettings';
 import { ModulesDataSettingsSection, LabPrivacyExportSection, TagsSettingsSection } from './SystemSettings';
 import { fuzzyScore } from './shared';
 import type { CommandSectionId, SettingsCommandCenterProps, SettingsSearchRecord } from './types';
@@ -17,6 +21,8 @@ const SECTION_META: Array<{ id: CommandSectionId; label: string; description: st
   { id: 'data', label: 'Data', description: 'Workspace paths, exports, and custom CSS.' },
   { id: 'keyboard', label: 'Keyboard', description: 'Recorder-based shortcut editing.' },
   { id: 'git', label: 'Workspace Reliability', description: 'Health, sync, branches, and history.' },
+  { id: 'integration', label: 'Integration Handoffs', description: 'Draft, review, commit, and undo handoff workflows.' },
+  { id: 'release', label: 'Release Readiness', description: 'Phase 7 rollout gates, thresholds, and rollback coverage.' },
   { id: 'lab', label: 'Lab', description: 'Experimental runtime controls.' },
   { id: 'privacy', label: 'Privacy & Security', description: 'Network policy and vault metadata.' },
   { id: 'export', label: 'Export & Portability', description: 'Config sharing and backup targeting.' },
@@ -277,6 +283,9 @@ export function SettingsCommandCenter({
       { id: 'git.conflictPreset', section: 'git', label: 'Conflict preset', keywords: ['git', 'conflict', 'remote', 'local'], value: draft.git.conflictStrategy },
       { id: 'git.branch', section: 'git', label: 'Branch switcher', keywords: ['git', 'branch', 'checkout'], value: branches?.current ?? '' },
       { id: 'git.history', section: 'git', label: 'Recent syncs timeline', keywords: ['git', 'history', 'timeline'] },
+      { id: 'integration.contract', section: 'integration', label: 'Integration contract', keywords: ['integration', 'handoff', 'draft', 'review'] },
+      { id: 'integration.review', section: 'integration', label: 'Review confirmation', keywords: ['integration', 'confirm', 'commit', 'undo'] },
+      { id: 'release.rollout', section: 'release', label: 'Phase 7 rollout gate', keywords: ['phase 7', 'release', 'telemetry', 'rollback'] },
       { id: 'lab.gpuAcceleration', section: 'lab', label: 'GPU acceleration', keywords: ['lab', 'performance', 'hardware'], value: String(draft.lab.gpuAcceleration) },
       { id: 'lab.embeddedDevtools', section: 'lab', label: 'Embedded DevTools', keywords: ['lab', 'devtools', 'inspector'], value: String(draft.lab.embeddedDevtools) },
       { id: 'lab.performanceMode', section: 'lab', label: 'Performance mode', keywords: ['lab', 'performance', 'animation'], value: draft.lab.performanceMode },
@@ -425,6 +434,24 @@ export function SettingsCommandCenter({
         <TagsSettingsSection
           tags={tagDrafts}
           setTags={setTagDrafts}
+          activeAnchor={activeAnchor}
+          onSetActiveAnchor={setActiveAnchor}
+        />
+      );
+    }
+
+    if (activeSection === 'integration') {
+      return (
+        <IntegrationHandoffSettingsSection
+          activeAnchor={activeAnchor}
+          onSetActiveAnchor={setActiveAnchor}
+        />
+      );
+    }
+
+    if (activeSection === 'release') {
+      return (
+        <ReleaseReadinessSettingsSection
           activeAnchor={activeAnchor}
           onSetActiveAnchor={setActiveAnchor}
         />

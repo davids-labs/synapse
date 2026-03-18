@@ -2,11 +2,13 @@ import { stat } from 'fs/promises';
 import path from 'path';
 import {
   DEFAULT_BASE_MODULES,
+  getModuleManifest,
   DEFAULT_HOME_MODULES,
   DEFAULT_NODE_MODULES,
   DEFAULT_SETTINGS,
   DEFAULT_TAGS,
   DEFAULT_TEMPLATES,
+  resolveModuleTypeAlias,
   resolveThemeColorScheme,
 } from '../shared/constants';
 import {
@@ -208,13 +210,28 @@ function canvasToGrid(canvas: NonNullable<SynapseModule['canvas']>, gridColumns:
   };
 }
 
-function normalizeModule(module: SynapseModule, gridColumns: number): SynapseModule {
+function normalizeModule(
+  module: SynapseModule,
+  gridColumns: number,
+  migrationEnabled = true,
+): SynapseModule {
+  const manifest = getModuleManifest(module.type);
+  const sourceVersion = module.configVersion ?? 1;
+  const targetVersion = manifest.config.schemaVersion;
+  const migratedConfig =
+    migrationEnabled && sourceVersion <= targetVersion
+      ? {
+          ...manifest.config.defaultConfig,
+          ...module.config,
+        }
+      : { ...module.config };
   const canvas = module.canvas ?? gridToCanvas(module.position);
   return {
     ...module,
+    configVersion: targetVersion,
     canvas,
     position: canvasToGrid(canvas, gridColumns),
-    config: { ...module.config },
+    config: migratedConfig,
     schema: module.schema
       ? {
           ...module.schema,
@@ -247,12 +264,35 @@ function normalizeDetailLayoutState(
   };
 }
 
+function normalizeCanvasFrames(frames: NonNullable<NonNullable<PageLayout['ui']>['frames']> | undefined) {
+  return (frames ?? []).map((frame) => ({
+    ...frame,
+  }));
+}
+
+function normalizeCanvasLinks(links: NonNullable<NonNullable<PageLayout['ui']>['links']> | undefined) {
+  return (links ?? []).map((link) => ({
+    ...link,
+  }));
+}
+
 function normalizePageUi(page: PageLayout): NonNullable<PageLayout['ui']> {
   const detailLayout = normalizeDetailLayoutState(page.ui);
   const surfaceTitle = page.ui?.surfaceTitle?.trim();
+  const frames = normalizeCanvasFrames(page.ui?.frames);
+  const links = normalizeCanvasLinks(page.ui?.links);
 
   return {
     surfaceTitle: surfaceTitle || undefined,
+    canvasMode: page.ui?.canvasMode,
+    canvasSnapping: page.ui?.canvasSnapping,
+    canvasTipsDismissed: page.ui?.canvasTipsDismissed,
+    outlinePanelVisible: page.ui?.outlinePanelVisible,
+    outlinePanelWidth: page.ui?.outlinePanelWidth,
+    outlinePanelDock: page.ui?.outlinePanelDock,
+    showMiniMap: page.ui?.showMiniMap,
+    frames: frames.length > 0 ? frames : undefined,
+    links: links.length > 0 ? links : undefined,
     ...detailLayout,
     savedViews: (page.ui?.savedViews ?? []).map((view) => ({
       id: view.id,
@@ -260,21 +300,105 @@ function normalizePageUi(page: PageLayout): NonNullable<PageLayout['ui']> {
       created: view.created,
       viewport: { ...view.viewport },
       modules: view.modules?.map((module) => normalizeModule(module, page.gridColumns)),
+      frames: view.frames?.map((frame) => ({ ...frame })),
+      links: view.links?.map((link) => ({ ...link })),
+      focusFrameId: view.focusFrameId,
+      isDefault: view.isDefault,
       detailLayout: normalizeDetailLayoutState(view.detailLayout),
     })),
   };
 }
 
-function normalizePageLayout(page: PageLayout): PageLayout {
+function normalizePageLayout(page: PageLayout, migrationEnabled = true): PageLayout {
   const gridColumns = page.gridColumns || DEFAULT_SETTINGS.gridColumns;
   return {
     ...page,
     layout: 'freeform',
     gridColumns,
-    modules: page.modules.map((module) => normalizeModule(module, gridColumns)),
+    modules: page.modules.map((module) => normalizeModule(module, gridColumns, migrationEnabled)),
     templates: [...page.templates],
     viewport: page.viewport ? { ...page.viewport } : undefined,
     ui: normalizePageUi(page),
+  };
+}
+
+function normalizeModuleType(rawType: unknown): SynapseModule['type'] | null {
+  if (typeof rawType !== 'string') {
+    return null;
+  }
+  return resolveModuleTypeAlias(rawType);
+}
+
+function migratePageLayoutPayload(
+  raw: Record<string, unknown>,
+  migrationEnabled = true,
+): Record<string, unknown> {
+  const modules = Array.isArray(raw.modules)
+    ? raw.modules
+        .map((entry) => {
+          if (!entry || typeof entry !== 'object') {
+            return null;
+          }
+          const source = entry as Record<string, unknown>;
+          const normalizedType = normalizeModuleType(source.type);
+          if (!normalizedType) {
+            return null;
+          }
+
+          const sourceManifest = getModuleManifest(normalizedType);
+          let resolvedType = normalizedType;
+          let migrationMetadata: Record<string, unknown> = {};
+
+          if (migrationEnabled && sourceManifest.deprecation.status !== 'active') {
+            if (
+              sourceManifest.deprecation.mode === 'hidden-auto-migrate' &&
+              sourceManifest.deprecation.replacementModuleId
+            ) {
+              resolvedType = sourceManifest.deprecation.replacementModuleId;
+              migrationMetadata = {
+                __deprecatedModuleType: normalizedType,
+                __migrationAppliedAt: new Date().toISOString(),
+              };
+            }
+
+            if (
+              sourceManifest.deprecation.mode === 'blocked-with-migration-prompt' &&
+              sourceManifest.deprecation.replacementModuleId
+            ) {
+              migrationMetadata = {
+                __migrationPromptRequired: true,
+                __replacementModuleType: sourceManifest.deprecation.replacementModuleId,
+              };
+            }
+          }
+
+          const manifest = getModuleManifest(resolvedType);
+          const existingVersion =
+            typeof source.configVersion === 'number' && Number.isFinite(source.configVersion)
+              ? source.configVersion
+              : 1;
+
+          const sourceConfig =
+            source.config && typeof source.config === 'object'
+              ? (source.config as Record<string, unknown>)
+              : {};
+
+          return {
+            ...source,
+            type: resolvedType,
+            configVersion: Math.max(1, Math.min(existingVersion, manifest.config.schemaVersion)),
+            config: {
+              ...sourceConfig,
+              ...migrationMetadata,
+            },
+          };
+        })
+        .filter((entry) => Boolean(entry)) as Record<string, unknown>[]
+    : [];
+
+  return {
+    ...raw,
+    modules,
   };
 }
 
@@ -423,7 +547,10 @@ async function loadPage(
   }
 
   try {
-    return normalizePageLayout(await readJsonFile(pagePath, PageLayoutSchema));
+    const raw = await readJsonFile<Record<string, unknown>>(pagePath);
+    const migrated = migratePageLayoutPayload(raw, settings.featureFlags.migrationLogic);
+    const parsed = PageLayoutSchema.parse(migrated);
+    return normalizePageLayout(parsed, settings.featureFlags.migrationLogic);
   } catch {
     const page = defaultPage(kind, settings);
     await writeJsonFile(pagePath, page);
@@ -441,7 +568,10 @@ async function loadHomePage(basePath: string, settings: AppSettings): Promise<Pa
   }
 
   try {
-    return normalizePageLayout(await readJsonFile(pagePath, PageLayoutSchema));
+    const raw = await readJsonFile<Record<string, unknown>>(pagePath);
+    const migrated = migratePageLayoutPayload(raw, settings.featureFlags.migrationLogic);
+    const parsed = PageLayoutSchema.parse(migrated);
+    return normalizePageLayout(parsed, settings.featureFlags.migrationLogic);
   } catch {
     const page = defaultHomePage(settings);
     await writeJsonFile(pagePath, page);

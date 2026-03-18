@@ -225,10 +225,10 @@ export function HomeSurface({
           <section className="home-panel">
             <div className="section-heading">
               <div>
-                <h2>Recent Teleports</h2>
+                <h2>Recent Jumps</h2>
               </div>
               <button className="ghost-button small" onClick={onTeleport}>
-                Search All
+                Jump To...
               </button>
             </div>
             <div className="list-stack compact">

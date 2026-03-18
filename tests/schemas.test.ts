@@ -1,12 +1,13 @@
 import {
   AppSettingsSchema,
   BaseRecordSchema,
+  ModuleManifestSchema,
   PageLayoutSchema,
   PracticeQuestionSchema,
   QuickCaptureRequestSchema,
   SynapseModuleSchema,
 } from '../src/shared/schemas';
-import { DEFAULT_SETTINGS } from '../src/shared/constants';
+import { DEFAULT_SETTINGS, MODULE_MANIFESTS } from '../src/shared/constants';
 
 describe('schema validation', () => {
   it('validates the refined app settings structure', () => {
@@ -135,5 +136,19 @@ describe('schema validation', () => {
         filenameHint: 'capture.png',
       }),
     ).not.toThrow();
+  });
+
+  it('validates module manifest contracts for registry-driven modules', () => {
+    expect(() => ModuleManifestSchema.parse(MODULE_MANIFESTS[0])).not.toThrow();
+  });
+
+  it('includes explicit feature flags in app settings defaults', () => {
+    const parsed = AppSettingsSchema.parse({
+      ...DEFAULT_SETTINGS,
+      basePath: 'C:\\synapse-data',
+    });
+
+    expect(parsed.featureFlags.manifestRegistry).toBe(true);
+    expect(parsed.featureFlags.migrationLogic).toBe(true);
   });
 });

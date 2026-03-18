@@ -266,6 +266,8 @@ function MarkdownModule({
     : targetPath.replace(/\\/g, '/');
   const [content, setContent] = useState<string>('');
   const [saved, setSaved] = useState('Saved');
+  const [handoffStatus, setHandoffStatus] = useState('');
+  const [handoffBusy, setHandoffBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -324,7 +326,48 @@ function MarkdownModule({
           >
             Save
           </button>
+          <button
+            className="tiny-button"
+            type="button"
+            disabled={handoffBusy || content.trim().length === 0}
+            onClick={async () => {
+              setHandoffBusy(true);
+              setHandoffStatus('');
+              try {
+                const draft = await window.synapse.createIntegrationHandoffDraft({
+                  contractId: 'notes-to-flashcards',
+                  sourceEntityPath: entity.entityPath,
+                  sourceModuleType: 'markdown-editor',
+                  targetEntityPath: entity.entityPath,
+                  targetModuleType: 'flashcard-deck',
+                  payload: {
+                    markdown: content,
+                    requestedItemCount: 8,
+                  },
+                });
+                setHandoffStatus(`Draft created: ${draft.items.length} flashcards ready for review.`);
+              } catch (error) {
+                setHandoffStatus(
+                  error instanceof Error ? error.message : 'Could not create flashcard draft.',
+                );
+              } finally {
+                setHandoffBusy(false);
+              }
+            }}
+          >
+            Draft Flashcards
+          </button>
+          <button
+            className="tiny-button"
+            type="button"
+            onClick={() => {
+              window.location.hash = '#settings/integration/integration.review';
+            }}
+          >
+            Review Drafts
+          </button>
         </div>
+        {handoffStatus ? <small>{handoffStatus}</small> : null}
         <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
           {content}
         </ReactMarkdown>
@@ -354,6 +397,7 @@ function PdfModule({
   const [showSidebar, setShowSidebar] = useState(persisted.showSidebar);
   const [pageCount, setPageCount] = useState(0);
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
+  const [pdfSourceVariant, setPdfSourceVariant] = useState(0);
   const [pageIndex, setPageIndex] = useState<string[]>([]);
   const [loadError, setLoadError] = useState('');
   const [indexState, setIndexState] = useState({ loading: false, error: '' });
@@ -370,6 +414,8 @@ function PdfModule({
     saving: false,
     error: '',
   });
+  const [handoffStatus, setHandoffStatus] = useState('');
+  const [handoffBusy, setHandoffBusy] = useState(false);
 
   useEffect(() => {
     setPathDraft(persisted.filepath);
@@ -398,7 +444,26 @@ function PdfModule({
     () => resolvePdfFile(entity.files, entity.entityPath, selectedPath || persisted.filepath),
     [entity.entityPath, entity.files, persisted.filepath, selectedPath],
   );
-  const annotationPath = pdfFile ? buildPdfAnnotationPath(pdfFile.path) : '';
+  const activePdfPath = useMemo(() => {
+    if (pdfFile?.path) {
+      return pdfFile.path;
+    }
+    const requestedPath = (selectedPath || persisted.filepath || '').trim();
+    return requestedPath ? resolveEntityPath(entity.entityPath, requestedPath) : '';
+  }, [entity.entityPath, pdfFile?.path, persisted.filepath, selectedPath]);
+  const activePdfLabel = pdfFile?.relativePath || (selectedPath || persisted.filepath || '').trim();
+  const pdfSourceCandidates = useMemo(() => {
+    if (!activePdfPath) {
+      return [];
+    }
+
+    const stripped = activePdfPath.replace(/^file:\/\//i, '');
+    const asPosix = stripped.replace(/\\/g, '/');
+    const asWindows = stripped.replace(/\//g, '\\');
+    return [...new Set([fileUrl(stripped), asPosix, asWindows].filter(Boolean))];
+  }, [activePdfPath]);
+  const activePdfSource = pdfSourceCandidates[pdfSourceVariant] || '';
+  const annotationPath = activePdfPath ? buildPdfAnnotationPath(activePdfPath) : '';
   const matchingPages = useMemo(
     () => matchPdfPages(pageIndex, searchQuery),
     [pageIndex, searchQuery],
@@ -416,7 +481,7 @@ function PdfModule({
   }, [pageCount]);
 
   useEffect(() => {
-    if (!pdfFile) {
+    if (!activePdfPath) {
       setDocumentProxy(null);
       setPageCount(0);
       setPageIndex([]);
@@ -426,11 +491,12 @@ function PdfModule({
       return;
     }
 
+    setPdfSourceVariant(0);
     setDocumentProxy(null);
     setPageCount(0);
     setPageIndex([]);
     setLoadError('');
-  }, [pdfFile?.path]);
+  }, [activePdfPath]);
 
   useEffect(() => {
     setAnnotationDraft((current) =>
@@ -565,7 +631,7 @@ function PdfModule({
     };
   }, [currentPage, onPatchModule, pdfFile?.relativePath, persisted, searchQuery, selectedPath, showSidebar, zoom]);
 
-  if (!pdfFile) {
+  if (!activePdfPath) {
     return (
       <div className="module-placeholder">
         <p>Drop a PDF into this node to view it here.</p>
@@ -616,7 +682,7 @@ function PdfModule({
           className="tiny-button"
           type="button"
           onClick={() => {
-            setSelectedPath(pathDraft.trim() || pdfFile.relativePath);
+            setSelectedPath(pathDraft.trim() || activePdfLabel);
             setCurrentPage(1);
           }}
         >
@@ -629,9 +695,49 @@ function PdfModule({
         >
           {showSidebar ? 'Hide Pages' : 'Show Pages'}
         </button>
-        <a className="tiny-button" href={fileUrl(pdfFile.path)} target="_blank" rel="noreferrer">
+        <a className="tiny-button" href={fileUrl(activePdfPath)} target="_blank" rel="noreferrer">
           Open Raw PDF
         </a>
+        <button
+          className="tiny-button"
+          type="button"
+          disabled={handoffBusy || (pageIndex[currentPage - 1] || '').trim().length === 0}
+          onClick={async () => {
+            setHandoffBusy(true);
+            setHandoffStatus('');
+            try {
+              const draft = await window.synapse.createIntegrationHandoffDraft({
+                contractId: 'pdf-to-practice',
+                sourceEntityPath: entity.entityPath,
+                sourceModuleType: 'pdf-viewer',
+                targetEntityPath: entity.entityPath,
+                targetModuleType: 'practice-bank',
+                payload: {
+                  selectedText: pageIndex[currentPage - 1] || '',
+                  requestedItemCount: 6,
+                },
+              });
+              setHandoffStatus(`Draft created: ${draft.items.length} practice prompts ready for review.`);
+            } catch (error) {
+              setHandoffStatus(
+                error instanceof Error ? error.message : 'Could not create practice draft.',
+              );
+            } finally {
+              setHandoffBusy(false);
+            }
+          }}
+        >
+          Draft Practice
+        </button>
+        <button
+          className="tiny-button"
+          type="button"
+          onClick={() => {
+            window.location.hash = '#settings/integration/integration.review';
+          }}
+        >
+          Review Drafts
+        </button>
       </div>
 
       {pdfCandidates.length > 1 ? (
@@ -639,7 +745,7 @@ function PdfModule({
           {pdfCandidates.map((candidate) => (
             <button
               key={candidate.path}
-              className={`pill ${candidate.path === pdfFile.path ? 'active' : ''}`}
+              className={`pill ${candidate.path === activePdfPath ? 'active' : ''}`}
               type="button"
               onClick={() => {
                 setSelectedPath(candidate.relativePath);
@@ -654,7 +760,7 @@ function PdfModule({
       ) : null}
 
       <div className="module-inline-actions">
-        <small>{pdfFile.relativePath}</small>
+        <small>{activePdfLabel || activePdfPath}</small>
         <small>{pageCount > 0 ? `${pageCount} pages` : 'Preparing document...'}</small>
         <small>{indexState.loading ? 'Indexing search...' : indexState.error || `${matchingPages.length} matches`}</small>
         <small>
@@ -662,17 +768,25 @@ function PdfModule({
             ? 'Saving annotations...'
             : annotationState.error || `${annotations.length} notes saved beside the PDF`}
         </small>
+        {handoffStatus ? <small>{handoffStatus}</small> : null}
       </div>
 
       <Document
-        file={fileUrl(pdfFile.path)}
+        file={activePdfSource}
         loading={<div className="module-placeholder">Loading PDF...</div>}
         onLoadError={(error) => {
+          if (pdfSourceVariant + 1 < pdfSourceCandidates.length) {
+            setPdfSourceVariant((current) => current + 1);
+            setLoadError('Trying fallback PDF path...');
+            return;
+          }
+
           setLoadError(error instanceof Error ? error.message : 'Could not open this PDF');
           setDocumentProxy(null);
           setPageCount(0);
         }}
         onLoadSuccess={(document) => {
+          setPdfSourceVariant(0);
           setLoadError('');
           setDocumentProxy(document);
           setPageCount(document.numPages);

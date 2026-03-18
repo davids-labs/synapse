@@ -104,6 +104,40 @@ export const ModuleTypeSchema = z.enum([
   'custom',
 ]);
 
+export const ModuleFamilySchema = z.enum([
+  'text-surface',
+  'media-surface',
+  'planning',
+  'learning-engine',
+  'analytics',
+  'utility',
+  'integration',
+  'creative',
+  'custom',
+]);
+
+export const ModulePickerCategorySchema = z.enum([
+  'content',
+  'trackers',
+  'organization',
+  'math-science',
+  'analytics',
+  'learning',
+  'creative',
+  'utility',
+  'custom',
+]);
+
+export const ModuleDeprecationStatusSchema = z.enum(['active', 'deprecated', 'archived']);
+
+export const ModuleDeprecationModeSchema = z.enum([
+  'none',
+  'hidden-legacy-render',
+  'hidden-auto-migrate',
+  'legacy-toggle-only',
+  'blocked-with-migration-prompt',
+]);
+
 export const GraphLinkTypeSchema = z.enum([
   'hard-prerequisite',
   'soft-prerequisite',
@@ -146,21 +180,62 @@ export const SavedCanvasDetailLayoutSchema = z.object({
   hiddenDetailSections: z.array(DetailSectionIdSchema).optional(),
 });
 
+export const CanvasFrameToneSchema = z.enum([
+  'neutral',
+  'input',
+  'working',
+  'practice',
+  'review',
+  'resources',
+  'archive',
+]);
+
+export const CanvasFrameSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().min(220),
+  height: z.number().min(180),
+  tone: CanvasFrameToneSchema.optional(),
+  collapsed: z.boolean().optional(),
+});
+
+export const CanvasModuleLinkSchema = z.object({
+  id: z.string().min(1),
+  fromModuleId: z.string().min(1),
+  toModuleId: z.string().min(1),
+  label: z.string().optional(),
+});
+
 export const SavedCanvasViewSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   viewport: PageViewportSchema,
   created: z.string().min(1),
   modules: z.lazy(() => z.array(SynapseModuleSchema)).optional(),
+  frames: z.array(CanvasFrameSchema).optional(),
+  links: z.array(CanvasModuleLinkSchema).optional(),
+  focusFrameId: z.string().min(1).optional(),
+  isDefault: z.boolean().optional(),
   detailLayout: SavedCanvasDetailLayoutSchema.optional(),
 });
 
 export const PageUiStateSchema = z.object({
   surfaceTitle: z.string().optional(),
+  canvasMode: z.enum(['dashboard', 'workbench']).optional(),
+  canvasSnapping: z.boolean().optional(),
+  canvasTipsDismissed: z.boolean().optional(),
+  outlinePanelVisible: z.boolean().optional(),
+  outlinePanelWidth: z.number().min(220).max(520).optional(),
+  outlinePanelDock: z.enum(['left', 'right']).optional(),
   detailsOpen: z.boolean().optional(),
   detailSize: z.enum(['compact', 'comfortable', 'wide']).optional(),
   detailSectionOrder: z.array(DetailSectionIdSchema).optional(),
   hiddenDetailSections: z.array(DetailSectionIdSchema).optional(),
+  frames: z.array(CanvasFrameSchema).optional(),
+  links: z.array(CanvasModuleLinkSchema).optional(),
+  showMiniMap: z.boolean().optional(),
   savedViews: z.array(SavedCanvasViewSchema).optional(),
 });
 
@@ -185,8 +260,152 @@ export const SynapseModuleSchema = z.object({
   title: z.string().min(1),
   position: GridPositionSchema,
   canvas: FreeformPositionSchema.optional(),
+  frameId: z.string().min(1).optional(),
+  configVersion: z.number().int().min(1).optional(),
   config: z.record(z.unknown()),
   schema: CustomModuleSchemaSchema.optional(),
+});
+
+export const ModuleConfigContractSchema = z.object({
+  schemaVersion: z.number().int().min(1),
+  defaultConfig: z.record(z.unknown()),
+});
+
+export const ModuleDeprecationPolicySchema = z.object({
+  status: ModuleDeprecationStatusSchema,
+  mode: ModuleDeprecationModeSchema,
+  replacementModuleId: ModuleTypeSchema.optional(),
+  aliases: z.array(z.string().min(1)).optional(),
+});
+
+export const ModuleRuntimeEventTypeSchema = z.enum([
+  'module-mount-failed',
+  'config-validation-failed',
+  'migration-failed',
+  'autosave-conflict',
+  'resize-render-crash',
+  'slow-module-load',
+  'integration-handoff-failed',
+  'unsupported-legacy-payload',
+]);
+
+export const ModuleQualityGateProfileSchema = z.object({
+  schemaValidation: z.boolean(),
+  emptyState: z.boolean(),
+  loadingState: z.boolean(),
+  errorState: z.boolean(),
+  resizeCollapseFocus: z.boolean(),
+  configEditor: z.boolean(),
+  keyboardSupport: z.boolean(),
+  seedData: z.boolean(),
+  integrationTest: z.boolean(),
+});
+
+export const ModuleVisualReviewPolicySchema = z.object({
+  baselineRequired: z.boolean(),
+  snapshotKey: z.string().min(1),
+});
+
+export const ModuleAccessibilityReviewPolicySchema = z.object({
+  focusOrder: z.boolean(),
+  keyboardOperation: z.boolean(),
+  visibleFocus: z.boolean(),
+  contrastChecks: z.boolean(),
+});
+
+export const ModulePerformanceBudgetSchema = z.object({
+  initialLoadMs: z.number().int().min(1),
+  interactionResponseMs: z.number().int().min(1),
+  resizeRenderMs: z.number().int().min(1),
+});
+
+export const ModuleGoldenReferencePolicySchema = z.object({
+  isGoldenReference: z.boolean(),
+  status: z.enum(['pending', 'design-qa-approved']),
+  signoffBy: z.string().min(1).optional(),
+  signoffAt: z.string().min(1).optional(),
+});
+
+export const ModuleSpecializationPolicySchema = z.object({
+  isIndependentUtility: z.boolean(),
+  utilityUxProfile: z.enum(['compact-quiet', 'standard']),
+  workflowJustification: z.string().min(1).optional(),
+  ownerAccepted: z.boolean().optional(),
+  placeholderResolutionMode: z.enum(['none', 'family-mode', 'deprecated']),
+});
+
+export const ModuleObservabilityPolicySchema = z.object({
+  requiredEvents: z.array(ModuleRuntimeEventTypeSchema).min(1),
+});
+
+export const ModuleRuntimeEventInputSchema = z.object({
+  moduleType: ModuleTypeSchema,
+  eventType: ModuleRuntimeEventTypeSchema,
+  message: z.string().optional(),
+  severity: z.enum(['info', 'warning', 'error']).optional(),
+  context: z.record(z.unknown()).optional(),
+});
+
+export const ModuleRuntimeHealthRequestSchema = z.object({
+  limit: z.number().int().min(1).max(200).optional(),
+});
+
+export const IntegrationHandoffRequestSchema = z.object({
+  contractId: z.string().min(1),
+  sourceEntityPath: z.string().min(1),
+  sourceModuleType: ModuleTypeSchema,
+  targetEntityPath: z.string().min(1),
+  targetModuleType: ModuleTypeSchema,
+  payload: z.object({
+    markdown: z.string().optional(),
+    text: z.string().optional(),
+    selectedText: z.string().optional(),
+    pdfPath: z.string().optional(),
+    requestedItemCount: z.number().int().min(1).max(50).optional(),
+  }),
+});
+
+export const IntegrationHandoffCommitRequestSchema = z.object({
+  draftId: z.string().min(1),
+  confirmReview: z.boolean(),
+});
+
+export const ModuleManifestSchema = z.object({
+  moduleType: ModuleTypeSchema,
+  displayName: z.string().min(1),
+  family: ModuleFamilySchema,
+  searchKeywords: z.array(z.string().min(1)).min(1),
+  pickerCategory: ModulePickerCategorySchema,
+  recommendedPageTypes: z.array(z.enum(['home', 'base', 'node'])).min(1),
+  defaultSize: z.object({
+    width: z.number().int().min(1).max(12),
+    height: z.number().int().min(1),
+  }),
+  defaultZone: z.enum(['primary', 'secondary', 'tertiary', 'sidebar']),
+  suggestedPairings: z.array(ModuleTypeSchema),
+  description: z.string().min(1),
+  implementationStatus: z.enum(['production', 'uplift', 'schema-driven']),
+  ownerWave: z.enum(['foundation', 'wave-1', 'wave-2', 'wave-3', 'wave-4']),
+  verificationChecklist: z.array(z.string().min(1)).min(1),
+  knownGaps: z.array(z.string()),
+  deprecation: ModuleDeprecationPolicySchema,
+  config: ModuleConfigContractSchema,
+  qualityGates: ModuleQualityGateProfileSchema,
+  visualReview: ModuleVisualReviewPolicySchema,
+  accessibilityReview: ModuleAccessibilityReviewPolicySchema,
+  performanceBudget: ModulePerformanceBudgetSchema,
+  observability: ModuleObservabilityPolicySchema,
+  goldenReference: ModuleGoldenReferencePolicySchema,
+  specialization: ModuleSpecializationPolicySchema,
+});
+
+export const ModuleFeatureFlagsSchema = z.object({
+  manifestRegistry: z.boolean(),
+  newShell: z.boolean(),
+  familyModules: z.boolean(),
+  newPicker: z.boolean(),
+  integrationHandoffs: z.boolean(),
+  migrationLogic: z.boolean(),
 });
 
 export const PageLayoutSchema = z.object({
@@ -361,6 +580,7 @@ export const AppSettingsSchema = z.object({
   lab: LabPreferencesSchema,
   privacy: PrivacyPreferencesSchema,
   export: ExportPreferencesSchema,
+  featureFlags: ModuleFeatureFlagsSchema,
   developerMode: z.boolean(),
   customCSSPath: z.string().optional(),
   recentLimit: z.number().min(1).max(50),

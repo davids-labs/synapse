@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { CommitInfo, HotDropStatus, UpdateState } from '../../../shared/types';
+import type {
+  CommitInfo,
+  HotDropStatus,
+  ModuleGoldenReferenceAudit,
+  UpdateState,
+} from '../../../shared/types';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useToastStore } from '../../store/toastStore';
 
@@ -22,11 +27,14 @@ export function SettingsPanel({
   const pushToast = useToastStore((state) => state.pushToast);
   const [hotDropStatus, setHotDropStatus] = useState<HotDropStatus | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState | null>(null);
+  const [goldenReferenceAudit, setGoldenReferenceAudit] =
+    useState<ModuleGoldenReferenceAudit | null>(null);
   const [commitMessage, setCommitMessage] = useState('Study checkpoint');
 
   useEffect(() => {
     void window.synapse.getHotDropStatus().then(setHotDropStatus);
     void window.synapse.getUpdateState().then(setUpdateState);
+    void window.synapse.getGoldenReferenceAudit().then(setGoldenReferenceAudit);
     return window.synapse.onUpdateStateChanged(setUpdateState);
   }, []);
 
@@ -168,6 +176,30 @@ export function SettingsPanel({
             <p className="mt-2 text-xs text-slate-500">
               Active target: {hotDropStatus?.activeNodeId ?? 'No active node'}
             </p>
+          </section>
+
+          <section className="rounded-2xl border border-white/10 p-4">
+            <p className="text-sm font-semibold text-white">Phase 3 Golden References</p>
+            <p className="mt-2 text-sm text-slate-400">
+              {goldenReferenceAudit
+                ? goldenReferenceAudit.releaseBlocked
+                  ? 'Family rollout is blocked until golden reference signoff completes.'
+                  : 'Golden reference signoff is complete. Family rollout can proceed.'
+                : 'Loading golden reference audit...'}
+            </p>
+            {goldenReferenceAudit && (
+              <div className="mt-3 space-y-2 text-xs text-slate-300">
+                <p>
+                  Families mapped: {goldenReferenceAudit.mappedFamilies.length}/
+                  {goldenReferenceAudit.expectedFamilies.length}
+                </p>
+                {goldenReferenceAudit.pendingSignoffModules.length > 0 && (
+                  <p>
+                    Pending signoff: {goldenReferenceAudit.pendingSignoffModules.join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="rounded-2xl border border-white/10 p-4">

@@ -1,4 +1,9 @@
-import { MODULE_LIBRARY } from '../src/shared/constants';
+import {
+  auditModuleGovernance,
+  MODULE_LIBRARY,
+  MODULE_MANIFESTS,
+  REHAUL_EXPECTED_MODULE_INVENTORY,
+} from '../src/shared/constants';
 
 describe('module library audit metadata', () => {
   it('attaches internal launch metadata to every module entry', () => {
@@ -23,5 +28,24 @@ describe('module library audit metadata', () => {
     expect(weatherWidget?.implementationStatus).toBe('uplift');
     expect(weatherWidget?.ownerWave).toBe('wave-4');
     expect(customModule?.implementationStatus).toBe('schema-driven');
+  });
+
+  it('builds discoverability metadata for every manifest entry', () => {
+    for (const manifest of MODULE_MANIFESTS) {
+      expect(manifest.displayName.length).toBeGreaterThan(0);
+      expect(manifest.searchKeywords.length).toBeGreaterThan(0);
+      expect(manifest.pickerCategory).toBeTruthy();
+      expect(manifest.defaultSize.width).toBeGreaterThan(0);
+      expect(manifest.defaultSize.height).toBeGreaterThan(0);
+      expect(manifest.config.schemaVersion).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('reports inventory freeze mismatch against the current 81-module target', () => {
+    const report = auditModuleGovernance(REHAUL_EXPECTED_MODULE_INVENTORY);
+
+    expect(report.expectedInventorySize).toBe(81);
+    expect(report.actualInventorySize).toBe(MODULE_MANIFESTS.length);
+    expect(report.errors.some((error) => error.includes('Inventory freeze mismatch'))).toBe(true);
   });
 });
